@@ -7,6 +7,8 @@ combat starts and fades out a few seconds after it ends.
 - A scrolling feed of your own combat events: each row has the spell icon, the
   amount and the spell name, colored by school or event type.
 - Your outgoing events line up on the left and incoming ones on the right.
+- Running DoTs get one pinned row each, which counts up its damage, ticks and crit
+  ticks and shows the time left. When the DoT ends, the row scrolls away.
 - Crits stand out: a bigger gold number with a pop-in animation, a flash and a
   light sweep, a gold icon border and a CRIT tag.
 - **Crit alerts**, both optional and independent of each other: a pop-up over your
@@ -80,6 +82,9 @@ change settings.
   - when the window shows (only in combat or always), how long it stays after
     combat, fade times
   - max rows, and whether to clear the log when a new fight starts
+  - pin running DoTs (on by default): one counting row per DoT instead of a row per
+    tick. With this on, the minimum amount and "only crits" filters don't apply to
+    DoT ticks.
   - which event types to show
   - minimum amounts, "only crits" filters, and the strict group filter
 - **Profiles:** all your characters share the same list of profiles, and each
@@ -186,7 +191,7 @@ Every hit on your target is matched to the swing or cast most likely behind it:
 
 - **Built-in spell data:** WombatLog ships the facts for every class spell of all
   classes and all ranks, generated from the WoW Forever game data: damage school,
-  direct damage or heal, damage over time with its tick interval, channeling,
+  direct damage or heal, damage over time with its tick interval and duration, channeling,
   "on next swing" and projectiles, and spells that never deal damage (Hunter's
   Mark, Concussive Shot, seals). These are right from the first cast. Learning only
   fills in what isn't in the table, such as pets, items and racials.

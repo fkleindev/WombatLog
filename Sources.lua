@@ -192,10 +192,11 @@ local TRAVEL = 1.2 -- a cast's DoT starts when the projectile lands, up to this 
 -- A DoT fits when it started a whole number of tick intervals ago and its learned
 -- tick school matches; one that ticks in another school (or a mark that never
 -- ticks) loses. Among equal fits the most recently applied wins.
--- Returns the candidate, how many line up in time, and its score.
+-- Returns the candidate, how many line up in time, its score, its tick interval and
+-- when it runs out (nil when neither the aura nor SpellData tell its duration).
 local function tickDebuff(school)
     local now = GetTime()
-    local best, bestScore, aligned = nil, nil, 0
+    local best, bestScore, aligned, bestPeriod, bestEnd = nil, nil, 0, nil, nil
 
     local function consider(c, fromCast)
         local d = spellData(c.spellId)
@@ -225,7 +226,12 @@ local function tickDebuff(school)
             aligned = aligned + 1
         end
         s = s + c.seq * 1e-6 -- tie: the most recent one
-        if not bestScore or s > bestScore then best, bestScore = c, s end
+        if not bestScore or s > bestScore then
+            best, bestScore, bestPeriod = c, s, period
+            local duration = c.duration or (d and d[5])
+            -- a cast's DoT starts when it lands
+            bestEnd = c.expires or (duration and c.t + duration + (fromCast and travel or 0))
+        end
     end
 
     local seen = {}
@@ -240,14 +246,14 @@ local function tickDebuff(school)
             consider(c, true) -- readable aura timing beats cast timing
         end
     end
-    return best, aligned, bestScore
+    return best, aligned, bestScore, bestPeriod, bestEnd
 end
 
 -- Labels an unmatched tick. A DoT's tick school is learned only after it was the
 -- one and only timing fit on two separate applications, so a coincidence (a mark
 -- whose timer happens to line up once) can't teach the wrong school.
 local function myTargetDebuff(school)
-    local best, aligned, s = tickDebuff(school)
+    local best, aligned, s, period, ends = tickDebuff(school)
     if not best then
         trace("tick -> no DoT candidate")
         return nil
@@ -267,7 +273,7 @@ local function myTargetDebuff(school)
         name, icon = info and info.name, info and info.icon
     end
     trace("tick -> %s (spell %s, %d timing fits, score %.1f)", name or "?", tostring(best.spellId), aligned, s)
-    return name, icon, best.spellId
+    return name, icon, best.spellId, period, ends
 end
 
 -- True when a hit lines up with a DoT whose learned tick school matches.
@@ -301,10 +307,14 @@ local function labelUnmatched(e, school)
             e.name, e.icon = "Melee", ICON_MELEE
         end
     else
-        local name, icon, spellId = myTargetDebuff(school)
+        local name, icon, spellId, period, ends = myTargetDebuff(school)
         e.name = name or ((ns.SCHOOL_NAMES[school] or "Spell") .. " damage")
         e.icon = icon or ICON_SPELL
         e.spellID = name and spellId or nil -- keeps DoT ticks under the spell in stats
+        if name and e.kind == "damage" then
+            -- lets the log pin one counting row per running DoT
+            e.tick, e.tickPeriod, e.dotEnd = true, period, ends
+        end
     end
 end
 
@@ -503,8 +513,12 @@ local function onAuraAdded(unit, aura)
     if not kind then return end
 
     local icon = Safe(aura.icon) or 134400
+    local expires = Safe(aura.expirationTime)
     auraSeq = auraSeq + 1
-    auraCache[unit][id] = { name = name, icon = icon, seq = auraSeq, t = GetTime(), spellId = Safe(aura.spellId) }
+    auraCache[unit][id] = {
+        name = name, icon = icon, seq = auraSeq, t = GetTime(), spellId = Safe(aura.spellId),
+        duration = duration > 0 and duration or nil, expires = expires and expires > 0 and expires or nil,
+    }
     ns.Emit({ kind = kind, dir = dir, name = name, icon = icon })
 end
 
@@ -523,12 +537,15 @@ ns.Listen("UNIT_AURA", function(unit, info)
         for _, aura in ipairs(added) do onAuraAdded(unit, aura) end
     end
 
-    -- a re-applied DoT restarts its tick timer
+    -- a re-applied DoT restarts its tick timer and its duration
     local updated = unit == "target" and ns.SafeTable(info.updatedAuraInstanceIDs)
     if updated then
         for _, id in ipairs(updated) do
             local cached = auraCache.target[Safe(id) or 0]
-            if cached then cached.t = GetTime() end
+            if cached then
+                cached.t = GetTime()
+                cached.expires = cached.duration and cached.t + cached.duration or nil
+            end
         end
     end
 

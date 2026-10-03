@@ -8,6 +8,8 @@ local DEFAULT_ICON = 134400
 local POOL_SIZE = 30
 local HEADER_FULL, HEADER_COMPACT, HEADER_GAP = 50, 36, 6
 local PREVIEW_STRATA = "FULLSCREEN_DIALOG" -- above the Settings panel
+local PIN_END_GRACE = 0.5  -- the last tick lands right at the DoT's end
+local PIN_STALL = 1.5      -- no tick for a period plus this: the DoT is gone (target switched, dispelled)
 
 local TAGS = { cast = "CAST", buff = "BUFF", debuffIn = "DEBUFF", debuffOut = "APPLY", fade = "FADES", kill = "KILL" }
 local PREFIX = { heal = "+", healIn = "+", taken = "-" }
@@ -117,6 +119,15 @@ local function CreateRow()
     r.name:SetWordWrap(false)
     r.name:SetTextColor(0.86, 0.86, 0.86)
 
+    -- pinned DoT: remaining time and a bar running down along the bottom edge
+    r.timer = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    r.timer:SetTextColor(0.8, 0.8, 0.8)
+    r.timer:Hide()
+    r.bar = r:CreateTexture(nil, "ARTWORK")
+    r.bar:SetTexture(WHITE)
+    r.bar:SetHeight(2)
+    r.bar:Hide()
+
     -- crit arrival animations
     r.flashAnim = r:CreateAnimationGroup()
     local fa = r.flashAnim:CreateAnimation("Alpha")
@@ -222,6 +233,37 @@ local function ResetEffects(r)
     r.shine:SetAlpha(0)
 end
 
+-- Remaining seconds of a pinned DoT and the span the bar runs over (nil when unknown).
+local function PinRemaining(pin, now)
+    if pin.frozen then return pin.frozen, pin.span end
+    if pin.expires then return math.max(0, pin.expires - now), pin.span end
+end
+
+local function UpdatePinTimer(r, now)
+    local rem, span = PinRemaining(r.entry.pin, now)
+    if not rem then
+        r.timer:Hide(); r.bar:Hide()
+        return
+    end
+    r.timer:SetText(rem < 3 and string.format("%.1fs", rem) or string.format("%ds", math.ceil(rem)))
+    r.timer:Show()
+    local frac = (span and span > 0) and math.min(1, rem / span) or 0
+    r.bar:SetWidth(math.max(1, ns.db.appearance.width * frac))
+    r.bar:Show()
+end
+
+-- "  6x  1 crit" behind a pinned DoT's name (kept after the DoT ran out)
+local function TickText(e)
+    if not e.ticks then return "" end
+    local text = "  |cffa0a0a0" .. e.ticks .. "\195\151|r"
+    if e.critTicks > 0 then
+        local cc = ns.db.colors.crit
+        text = text .. string.format("  |cff%02x%02x%02x%d crit|r",
+            math.floor(cc[1] * 255), math.floor(cc[2] * 255), math.floor(cc[3] * 255), e.critTicks)
+    end
+    return text
+end
+
 local function Fill(r, e)
     local A, C, K = ns.db.appearance, ns.db.colors, ns.db.crit
     local tag = e.tag or TAGS[e.kind]
@@ -278,12 +320,30 @@ local function Fill(r, e)
     else
         r.name:SetPoint("LEFT", inner, "RIGHT", 7, 0)
     end
-    r.name:SetText((e.name or "") .. (FLAG_SUFFIX[e.flag] or ""))
+    r.name:SetText((e.name or "") .. (FLAG_SUFFIX[e.flag] or "") .. TickText(e))
 
-    -- merged hit: the second spell's icon sits next to the first, the amount moves over
     local near = r.side == "right" and "RIGHT" or "LEFT"
     local far = r.side == "right" and "LEFT" or "RIGHT"
     local sign = r.side == "right" and -1 or 1
+
+    -- pinned DoT: the timer takes the outer edge, the name ends before it
+    local pin = e.pin
+    if pin and PinRemaining(pin, GetTime()) then
+        font(r.timer, A.nameFont, math.max(8, A.nameSize - 1), A.outline)
+        r.timer:ClearAllPoints()
+        r.timer:SetPoint(far, r, far, -4 * sign, 0)
+        r.name:SetPoint(far, r.timer, near, -6 * sign, 0)
+        r.bar:ClearAllPoints()
+        r.bar:SetPoint("BOTTOM" .. near, r, "BOTTOM" .. near, 0, 0)
+        r.bar:SetVertexColor(color[1], color[2], color[3], 0.85)
+        UpdatePinTimer(r, GetTime())
+    else
+        r.timer:Hide()
+        r.bar:Hide()
+        r.name:SetPoint(far, r, far, -4 * sign, 0)
+    end
+
+    -- merged hit: the second spell's icon sits next to the first, the amount moves over
     local extra = A.showIcons and e.extraIcons and e.extraIcons[1]
     r.iconBorder2:SetShown(extra and true or false)
     r.icon2:SetShown(extra and true or false)
@@ -316,16 +376,27 @@ local function PlaceRow(r)
     r:SetAlpha(r.alpha)
 end
 
+-- Pinned DoT rows sit after all normal rows in `active`, i.e. at the newest end.
+local function CountPinned()
+    local n = 0
+    for _, r in ipairs(active) do
+        if r.entry.pin then n = n + 1 end
+    end
+    return n
+end
+
 local function Relayout(snap)
     local A = ns.db.appearance
     local step = A.rowHeight + A.rowGap
     local n = #active
+    local normal = n - CountPinned()
     for i, r in ipairs(active) do
         local index = n - i -- 0 = newest
         r.ty = A.newestOnTop and -index * step or index * step
         local a = 1
-        if A.ageDim then
-            a = math.max(r.isCrit and 0.55 or 0.3, 1 - index * (r.isCrit and 0.06 or 0.09))
+        if A.ageDim and not r.entry.pin then
+            local age = normal - i -- among the normal rows
+            a = math.max(r.isCrit and 0.55 or 0.3, 1 - age * (r.isCrit and 0.06 or 0.09))
         end
         if r.entry.dim then a = a * 0.5 end
         r.ta = a
@@ -342,6 +413,34 @@ local function Release(r)
     r:Hide()
     r.entry = nil
     pool[#pool + 1] = r
+end
+
+-- The DoT ran out: the row keeps its totals and joins the normal rows as the newest,
+-- which is where it already sits, so it simply scrolls away with the next rows.
+local function Unpin(r)
+    r.entry.pin = nil
+    for i, row in ipairs(active) do
+        if row == r then table.remove(active, i); break end
+    end
+    table.insert(active, #active - CountPinned() + 1, r)
+    Fill(r, r.entry)
+    Relayout()
+end
+
+local function UpdatePins()
+    local now = GetTime()
+    for i = #active, 1, -1 do
+        local r = active[i]
+        local pin = r and r.entry.pin
+        if pin and not pin.frozen then
+            local stalled = now - pin.lastTick > (pin.period or 3) + PIN_STALL
+            if stalled or (pin.expires and now > pin.expires + PIN_END_GRACE) then
+                Unpin(r)
+            else
+                UpdatePinTimer(r, now)
+            end
+        end
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -487,6 +586,13 @@ local function OnUpdate(self, dt)
         self.animating = moving
     end
 
+    -- pinned DoT timers
+    self.pinClock = (self.pinClock or 0) + dt
+    if self.pinClock >= 0.1 then
+        self.pinClock = 0
+        UpdatePins()
+    end
+
     -- header refresh
     self.headerClock = (self.headerClock or 0) + dt
     if self.headerClock >= 0.25 then
@@ -585,6 +691,9 @@ function Display:ApplySettings()
         self:RenderPreview(false)
     else
         while #active > B.lines do Release(table.remove(active, 1)) end
+        if not B.pinDots then
+            for _, r in ipairs(active) do r.entry.pin = nil end
+        end
         for _, r in ipairs(active) do
             Fill(r, r.entry)
             r:ClearAllPoints()
@@ -644,8 +753,13 @@ end
 
 function Display:RenderPreview(animate)
     self:Clear()
+    local B = ns.db.behaviour
     for _, e in ipairs(ns.PREVIEW_ENTRIES) do
-        if ns.ShouldShow(e) then self:Push(e, true) end
+        if e.previewPin then
+            if B.pinDots and B.show.damage then self:PushPreviewPin(e) end
+        elseif ns.ShouldShow(e) then
+            self:Push(e, true)
+        end
     end
     if animate then
         for _, r in ipairs(active) do
@@ -659,30 +773,107 @@ function Display:Clear()
     if not ns.fight.active then ns.fight.top = nil end
 end
 
+local function FindPin(key)
+    for _, r in ipairs(active) do
+        local pin = r.entry.pin
+        if pin and pin.key == key then return r end
+    end
+end
+
+-- The row entry of a pinned DoT: the first tick's look, counting up with every tick.
+local function PinEntry(e, now)
+    return {
+        kind = e.kind, dir = e.dir, name = e.name, icon = e.icon, school = e.school, spellID = e.spellID,
+        amount = 0, ticks = 0, critTicks = 0,
+        pin = { key = e.spellID or e.name, period = e.tickPeriod, lastTick = now },
+    }
+end
+
+local function AddTick(pe, e, now)
+    local pin = pe.pin
+    pe.amount = pe.amount + (e.amount or 0)
+    pe.ticks = pe.ticks + 1
+    if e.crit then pe.critTicks = pe.critTicks + 1 end
+    pin.lastTick = now
+    pin.period = e.tickPeriod or pin.period
+    if e.dotEnd and e.dotEnd < now - PIN_END_GRACE then
+        -- still ticking past the expected end (e.g. a talent made it longer): end on the stall instead
+        pin.expires = nil
+    elseif e.dotEnd then
+        pin.expires = e.dotEnd
+        -- a refreshed DoT fills the bar again
+        pin.span = math.max(pin.span or 0, e.dotEnd - now)
+    end
+end
+
 -- instant: place the row without slide-in or crit animations (used by the preview)
 function Display:Push(e, instant)
     if not root then return end
-    while #active >= ns.db.behaviour.lines do Release(table.remove(active, 1)) end
-    local r = table.remove(pool)
-    if not r then return end
-
-    local crit = Fill(r, e)
 
     local f = ns.fight
     if e.kind == "damage" and not e.dim and f.active and e.amount and (not f.top or e.amount > f.top.amount) then
         f.top = { name = e.name or "?", amount = e.amount, crit = e.crit }
     end
 
-    active[#active + 1] = r
+    -- a DoT tick counts up its pinned row instead of adding one
+    local now = GetTime()
+    local pinned = e.tick and not e.dim and ns.db.behaviour.pinDots
+    if pinned then
+        local existing = FindPin(e.spellID or e.name)
+        if existing then
+            AddTick(existing.entry, e, now)
+            Fill(existing, existing.entry)
+            if e.crit and not instant then PlayCrit(existing) end
+            return
+        end
+    end
+
+    while #active >= ns.db.behaviour.lines do Release(table.remove(active, 1)) end
+    local r = table.remove(pool)
+    if not r then return end
+
+    local shown = e
+    if pinned then
+        shown = PinEntry(e, now)
+        AddTick(shown, e, now)
+    end
+    local crit = Fill(r, shown)
+    if pinned then crit = e.crit end
+
+    -- normal rows go in before the pinned ones; a new pin is the newest row
+    local slot = pinned and #active + 1 or #active - CountPinned() + 1
+    table.insert(active, slot, r)
     local A = ns.db.appearance
-    r.y = A.newestOnTop and A.rowHeight or -A.rowHeight
     r.alpha = 0
     r:ClearAllPoints()
-    PlaceRow(r)
-    r:Show()
     Relayout(instant)
+    if not instant then
+        if slot == #active then
+            r.y = A.newestOnTop and A.rowHeight or -A.rowHeight -- slides in from the edge
+        else
+            r.y = r.ty -- behind the pinned rows: fades in where it belongs
+        end
+        PlaceRow(r)
+    end
+    r:Show()
 
     if crit and not instant then PlayCrit(r) end
+end
+
+-- Settings preview: a pinned DoT frozen half-way.
+function Display:PushPreviewPin(e)
+    while #active >= ns.db.behaviour.lines do Release(table.remove(active, 1)) end
+    local r = table.remove(pool)
+    if not r then return end
+    local P = e.previewPin
+    local shown = PinEntry(e, GetTime())
+    shown.amount, shown.ticks, shown.critTicks = e.amount, P.ticks, P.crits
+    shown.pin.frozen, shown.pin.span = P.remaining, P.duration
+    Fill(r, shown)
+    active[#active + 1] = r
+    r:ClearAllPoints()
+    Relayout(true)
+    r:Show()
 end
 
 -- Redraws the row showing this entry (e.g. after it was merged with another hit).

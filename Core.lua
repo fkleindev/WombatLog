@@ -43,6 +43,7 @@ ns.defaults = {
         linger = 5, fadeIn = 0.25, fadeOut = 1.0,
         lines = 10,
         clearOnNewFight = true,  -- start every fight with an empty feed
+        pinDots = true,          -- one pinned row per running DoT that counts its ticks up
         strict = true,           -- in groups, drop target hits that can't be matched to your swing/cast
         show = {
             damage = true, heal = true, avoid = true, taken = true, healIn = true, cast = true,
@@ -392,7 +393,13 @@ end
 -- Entry point for everything that wants a row in the feed.
 function ns.Emit(entry)
     if not ensureFight() then return end
-    if ns.ShouldShow(entry) then ns.Display:Push(entry) end
+    local b = ns.db.behaviour
+    if entry.tick and not entry.dim and b.pinDots then
+        -- every tick goes into its DoT's row, so the amount filters would falsify the counts
+        if b.show[entry.kind] then ns.Display:Push(entry) end
+    elseif ns.ShouldShow(entry) then
+        ns.Display:Push(entry)
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -428,6 +435,9 @@ ns.PREVIEW_ENTRIES = {
     { kind = "damage", dir = "out", name = "Shadow Bolt", icon = I .. "Spell_Shadow_ShadowBolt", school = 32, amount = 512 },
     { kind = "kill", dir = "out", name = "Defias Thug", icon = I .. "Ability_Rogue_Eviscerate" },
     { kind = "damage", dir = "out", name = "Fireball", icon = I .. "Spell_Fire_Fireball02", school = 4, amount = 1248, crit = true },
+    -- shown as a pinned DoT row while that option is on
+    { kind = "damage", dir = "out", name = "Corruption", icon = I .. "Spell_Shadow_AbominationExplosion", school = 32,
+      amount = 1374, previewPin = { ticks = 6, crits = 1, remaining = 9, duration = 18 } },
 }
 
 function ns.StopTest()
@@ -444,7 +454,7 @@ function ns.RunTest()
     ns.fight.active = false
     ns.testing = true -- before StartFight: test fights never touch history, records or session
     ns.StartFight()
-    local runs = 0
+    local runs, dotEnd = 0, nil
     ns.testTicker = C_Timer.NewTicker(0.45, function()
         runs = runs + 1
         local t = TEST_ENTRIES[math.random(#TEST_ENTRIES)]
@@ -463,6 +473,16 @@ function ns.RunTest()
         end
         if runs == 6 then ns.Alerts:TestProc(true) end
         if ns.ShouldShow(e) then ns.Display:Push(e) end
+        -- a sample DoT: ticks on runs 5, 10, 15 and 20, then runs out
+        if runs % 5 == 0 and runs <= 20 then
+            dotEnd = dotEnd or GetTime() + 0.45 * 15 + 0.2
+            local d = { kind = "damage", dir = "out", name = "Corruption", school = 32,
+                icon = I .. "Spell_Shadow_AbominationExplosion", tick = true, tickPeriod = 2.25, dotEnd = dotEnd }
+            d.crit = math.random() < 0.25
+            d.amount = math.random(90, 120) * (d.crit and 2 or 1)
+            ns.OnOutgoing(d)
+            ns.Emit(d)
+        end
         if runs >= 24 then
             ns.EndFight()
             ns.StopTest()
