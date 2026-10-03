@@ -53,6 +53,61 @@ ns.defaults = {
     },
 }
 
+ns.defaults.alerts = {
+    visual = {
+        enabled = true, heals = true, minAmount = 0, duration = 1.2, size = 44, scale = 1,
+        showIcon = true, showName = true, glow = true,
+        useCritColor = true, color = { 1.00, 0.82, 0.18 },
+        x = 0, y = 180,
+    },
+    sound = {
+        enabled = true, heals = false, minAmount = 0,
+        sound = "wl:chime", channel = "Master", throttle = 0.15,
+    },
+}
+
+ns.defaults.alerts.streak = { enabled = true, min = 2, escalatingSound = true }
+ns.defaults.alerts.record = { banner = true, sound = true }
+
+ns.defaults.stats = {
+    summary = { enabled = true, duration = 8, scale = 1, x = 320, y = -330 },
+    history = { enabled = true, keep = 30, minDuration = 3 },
+    records = { enabled = true, minDpsDuration = 10 },
+}
+
+ns.defaults.procs = {
+    enabled = true, list = {},
+    sound = true, soundChoice = "wl:proc", channel = "Master",
+    duration = 1.5, size = 30, scale = 1, showIcon = true, showName = true, glow = true,
+    color = { 0.45, 0.85, 1.00 }, x = 0, y = 110,
+}
+
+-- shown as a lane inside the log window, under the header
+ns.defaults.swing = {
+    enabled = true, height = 8, offhand = true, ranged = true, showTime = false,
+    color = { 0.95, 0.80, 0.30 }, offColor = { 0.60, 0.75, 1.00 }, rangedColor = { 0.50, 1.00, 0.50 },
+}
+
+-- personal resource display, under your character by default
+ns.defaults.resources = {
+    styleVersion = 2,
+    enabled = true, visibility = "combatOrNotFull", fadeIn = 0.3, fadeOut = 0.6, alpha = 1,
+    x = 0, y = -150, scale = 1, width = 200, spacing = 3,
+    -- borderless with the log rows' dark fade behind each bar
+    texture = "flat", gloss = false, bgStyle = "fade", bgOpacity = 0.42, border = false, smooth = true,
+    health = { enabled = true, height = 10, classColor = true, color = { 0.20, 0.85, 0.30 },
+               textLeft = "none", textRight = "percent", textSize = 10 },
+    power = { enabled = true, height = 5, typeColor = true, color = { 0.20, 0.50, 1.00 },
+              textLeft = "none", textRight = "none", textSize = 8, countForVisibility = true },
+    druidMana = { enabled = true, height = 3, color = { 0.00, 0.55, 1.00 } },
+    combo = { enabled = true, height = 6, onlyWhenActive = false, ticks = true, color = { 1.00, 0.82, 0.18 } },
+    castbar = { enabled = true, height = 10, icon = true, name = true, time = true, textSize = 9,
+                color = { 1.00, 0.75, 0.25 }, uninterruptibleColor = { 0.60, 0.60, 0.60 } },
+}
+
+ns.defaults.session = { enabled = true, headerLine = false }
+ns.defaults.minimap = { enabled = true, angle = 200 }
+
 ns.fight = { active = false, start = 0, stop = nil, damage = 0, healing = 0, taken = 0 }
 ns.locked = true
 
@@ -136,28 +191,21 @@ function ns.SpellInfo(id)
 end
 
 ---------------------------------------------------------------------------
--- Events: one frame, one handler per event
+-- Events: every registration gets its own frame, so several modules can listen
+-- to the same event (also unit events with different units)
 ---------------------------------------------------------------------------
-
-local eventFrame = CreateFrame("Frame")
-local handlers = {}
-
-eventFrame:SetScript("OnEvent", function(_, event, ...)
-    local fn = handlers[event]
-    if fn then fn(...) end
-end)
 
 -- Registers fn for event; extra args make it a unit event. Returns false if the
 -- client refuses the event (some are restricted or missing on Forever).
 function ns.Listen(event, fn, ...)
-    handlers[event] = fn
+    local f = CreateFrame("Frame")
+    f:SetScript("OnEvent", function(_, _, ...) fn(...) end)
     local ok
     if select("#", ...) > 0 then
-        ok = pcall(eventFrame.RegisterUnitEvent, eventFrame, event, ...)
+        ok = pcall(f.RegisterUnitEvent, f, event, ...)
     else
-        ok = pcall(eventFrame.RegisterEvent, eventFrame, event)
+        ok = pcall(f.RegisterEvent, f, event)
     end
-    if not ok then handlers[event] = nil end
     return ok
 end
 
@@ -172,6 +220,10 @@ local charKey
 -- Pushes the active settings to the window, and to the panel when refreshPanel is set.
 function ns.ApplyAll(refreshPanel)
     ns.Display:ApplySettings()
+    ns.Alerts:Apply()
+    ns.Report:Apply()
+    ns.Resources:Apply()
+    ns.Minimap:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
 
@@ -183,7 +235,21 @@ local function activate()
         WombatLogDB.chars[charKey] = name
     end
     ns.db = WombatLogDB.profiles[name]
+    -- profiles saved with the first resource display look get the new default look once
+    local r = ns.db.resources
+    local oldLook = r and r.styleVersion == nil
     fillDefaults(ns.db, ns.defaults)
+    if oldLook then
+        local D = ns.defaults.resources
+        for _, k in ipairs({ "width", "spacing", "texture", "gloss", "bgStyle", "bgOpacity", "border" }) do
+            r[k] = D[k]
+        end
+        for _, bar in ipairs({ "health", "power", "druidMana", "combo", "castbar" }) do
+            r[bar].height = D[bar].height
+            r[bar].textSize = D[bar].textSize
+        end
+        r.power.textRight = D.power.textRight
+    end
 end
 
 -- Turns the pre-profile flat save into the Default profile.
@@ -264,6 +330,8 @@ function ns.StartFight()
     f.active, f.start, f.stop = true, GetTime(), nil
     f.damage, f.healing, f.taken = 0, 0, 0
     f.top = nil
+    ns.Stats:StartFight()
+    ns.Report:HideSummary()
     if ns.db.behaviour.clearOnNewFight then ns.Display:Clear() end
     ns.lingering = false
     ns.Display:UpdateVisibility()
@@ -273,6 +341,7 @@ function ns.EndFight()
     local f = ns.fight
     if not f.active then return end
     f.active, f.stop = false, GetTime()
+    ns.Stats:FinishFight()
     ns.lingering = true
     ns.Display:UpdateHeader()
     if ns.lingerTimer then ns.lingerTimer:Cancel() end
@@ -302,15 +371,27 @@ function ns.ShouldShow(e)
     return true
 end
 
+-- Starts the fight if the first event arrives before PLAYER_REGEN_DISABLED.
+local function ensureFight()
+    if ns.fight.active or ns.lingering then return true end
+    if ns.Safe(UnitAffectingCombat("player")) then
+        ns.StartFight()
+        return true
+    end
+    return false
+end
+
+-- Every outgoing damage/heal/avoid entry that is yours, before any log filters:
+-- stats, streaks and records first, then the crit/record alerts.
+function ns.OnOutgoing(e)
+    ensureFight()
+    ns.Stats:Outgoing(e)
+    if e.crit or e.record then ns.Alerts:OnHit(e) end
+end
+
 -- Entry point for everything that wants a row in the feed.
 function ns.Emit(entry)
-    if not (ns.fight.active or ns.lingering) then
-        if ns.Safe(UnitAffectingCombat("player")) then
-            ns.StartFight() -- the first hit can arrive before PLAYER_REGEN_DISABLED
-        else
-            return
-        end
-    end
+    if not ensureFight() then return end
     if ns.ShouldShow(entry) then ns.Display:Push(entry) end
 end
 
@@ -361,24 +442,30 @@ function ns.RunTest()
     end
     ns.StopTest()
     ns.fight.active = false
+    ns.testing = true -- before StartFight: test fights never touch history, records or session
     ns.StartFight()
-    ns.testing = true
     local runs = 0
     ns.testTicker = C_Timer.NewTicker(0.45, function()
         runs = runs + 1
         local t = TEST_ENTRIES[math.random(#TEST_ENTRIES)]
+        -- runs 10-13: a guaranteed crit streak; run 20: a sample "new record"
+        local forced = (runs >= 10 and runs <= 13) or runs == 20
+        if forced then t = TEST_ENTRIES[math.random(3)] end
         local e = { kind = t.kind, dir = t.dir, name = t.name, icon = t.icon, school = t.school, tag = t.tag }
         if t.min then
-            e.crit = math.random() < 0.25
+            e.crit = forced or math.random() < 0.2
             e.amount = math.random(t.min, t.max) * (e.crit and 2 or 1)
-            if t.kind == "damage" then ns.AddStat("damage", e.amount)
-            elseif t.kind == "heal" then ns.AddStat("healing", e.amount)
-            elseif t.kind == "taken" then ns.AddStat("taken", e.amount) end
+            e.forceRecord = runs == 20
+            if t.kind == "taken" then ns.AddStat("taken", e.amount) end
         end
+        if t.kind == "damage" or t.kind == "heal" or (t.kind == "avoid" and t.dir == "out") then
+            ns.OnOutgoing(e)
+        end
+        if runs == 6 then ns.Alerts:TestProc(true) end
         if ns.ShouldShow(e) then ns.Display:Push(e) end
         if runs >= 24 then
-            ns.StopTest()
             ns.EndFight()
+            ns.StopTest()
         end
     end, 24)
 end
@@ -395,9 +482,24 @@ ns.Listen("ADDON_LOADED", function(name)
         WombatLogDB = migrate(WombatLogDB)
     end
     WombatLogDB.chars = WombatLogDB.chars or {}
+    WombatLogDB.charData = WombatLogDB.charData or {}
+    WombatLogDB.spellProfiles = WombatLogDB.spellProfiles or {} -- learned per-spell hit patterns
+    if (WombatLogDB.spellProfilesVersion or 1) < 2 then
+        -- tick schools learned by earlier versions could be wrong (a mark "ticking" nature)
+        for _, p in pairs(WombatLogDB.spellProfiles) do
+            p.tickSchool, p.tickVotes, p.lastVote = nil, nil, nil
+        end
+        WombatLogDB.spellProfilesVersion = 2
+    end
     charKey = (UnitName("player") or "?") .. "-" .. (GetRealmName() or "?")
+    ns.charKey = charKey
     activate()
+    ns.Stats:Init()
     ns.Display:Init()
+    ns.Alerts:Init()
+    ns.Report:Init()
+    ns.Resources:Init()
+    ns.Minimap:Init()
     if ns.Config then ns.Config:Init() end
 end)
 
@@ -432,10 +534,25 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.Print("locked.")
     elseif cmd == "test" then
         ns.RunTest()
+    elseif cmd == "debug" then
+        ns.Resources:Debug()
+    elseif cmd == "trace" then
+        ns.trace = not ns.trace
+        ns.Print("event trace " .. (ns.trace and "on - hits, casts and swings print to chat" or "off"))
+    elseif cmd == "journal" or cmd == "history" then
+        ns.Report:ToggleJournal()
+    elseif cmd == "session" then
+        if (msg or ""):lower():find("reset") then
+            ns.Stats:ResetSession()
+            ns.Print("session reset.")
+        else
+            ns.Report:ToggleJournal("session")
+        end
     elseif cmd == "reset" then
         ns.Profiles.Reset()
         ns.Print("profile '" .. ns.Profiles.Current() .. "' reset to defaults.")
     else
-        ns.Print("/wl - settings, /wl test - preview fight, /wl unlock | lock - move, /wl reset - reset profile")
+        ns.Print("/wl - settings, /wl test - preview fight, /wl journal - fights & records, "
+            .. "/wl session [reset], /wl unlock | lock - move, /wl reset - reset profile")
     end
 end

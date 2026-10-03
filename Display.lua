@@ -63,6 +63,7 @@ local function font(fs, file, size, flags)
     fs:SetShadowColor(0, 0, 0, 0.8)
     fs:SetShadowOffset(1, -1)
 end
+ns.SetFont = font
 
 ---------------------------------------------------------------------------
 -- Rows
@@ -99,6 +100,15 @@ local function CreateRow()
     r.icon = r:CreateTexture(nil, "ARTWORK", nil, 2)
     r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.icon:SetPoint("CENTER", r.iconBorder)
+
+    -- second icon when one reported hit held two abilities ("+N" beyond that)
+    r.iconBorder2 = r:CreateTexture(nil, "ARTWORK", nil, 1)
+    r.iconBorder2:SetTexture(WHITE)
+    r.icon2 = r:CreateTexture(nil, "ARTWORK", nil, 2)
+    r.icon2:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    r.icon2:SetPoint("CENTER", r.iconBorder2)
+    r.badge = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    r.badge:SetPoint("BOTTOMRIGHT", r.iconBorder2, "BOTTOMRIGHT", 2, -1)
 
     r.amount = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     r.critTag = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -163,6 +173,8 @@ local function ResizeRow(r)
     r.shine:SetSize(math.floor(h * 2.2), h)
     r.iconBorder:SetSize(h - 2, h - 2)
     r.icon:SetSize(h - 4, h - 4)
+    r.iconBorder2:SetSize(h - 2, h - 2)
+    r.icon2:SetSize(h - 4, h - 4)
     r.side = nil -- force LayoutRow to re-anchor
 end
 
@@ -267,6 +279,34 @@ local function Fill(r, e)
         r.name:SetPoint("LEFT", inner, "RIGHT", 7, 0)
     end
     r.name:SetText((e.name or "") .. (FLAG_SUFFIX[e.flag] or ""))
+
+    -- merged hit: the second spell's icon sits next to the first, the amount moves over
+    local near = r.side == "right" and "RIGHT" or "LEFT"
+    local far = r.side == "right" and "LEFT" or "RIGHT"
+    local sign = r.side == "right" and -1 or 1
+    local extra = A.showIcons and e.extraIcons and e.extraIcons[1]
+    r.iconBorder2:SetShown(extra and true or false)
+    r.icon2:SetShown(extra and true or false)
+    if extra then
+        r.iconBorder2:ClearAllPoints()
+        r.iconBorder2:SetPoint(near, r.iconBorder, far, 2 * sign, 0)
+        if crit and K.iconBorder then
+            r.iconBorder2:SetColorTexture(cc[1], cc[2], cc[3], 1)
+        else
+            r.iconBorder2:SetColorTexture(0, 0, 0, 0.75)
+        end
+        r.icon2:SetTexture(extra)
+        r.amount:SetPoint(near, r.iconBorder2, far, 6 * sign, 0)
+    else
+        r.amount:SetPoint(near, A.showIcons and r.iconBorder or r.accent, far, 6 * sign, 0)
+    end
+    if extra and e.combined and e.combined > 2 then
+        font(r.badge, A.amountFont, math.max(7, math.floor(A.rowHeight * 0.4)), "OUTLINE")
+        r.badge:SetText("+" .. (e.combined - 2))
+        r.badge:Show()
+    else
+        r.badge:Hide()
+    end
     return crit
 end
 
@@ -335,6 +375,10 @@ local function CreateHeader()
     header.top = text()
     header.top:SetPoint("BOTTOMLEFT", 4, 5)
 
+    -- optional session line, just above the window so it works without the header too
+    root.session = root:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    root.session:SetPoint("BOTTOMLEFT", root, "TOPLEFT", 4, 3)
+
     local line = header:CreateTexture(nil, "ARTWORK")
     line:SetHeight(1)
     line:SetPoint("BOTTOMLEFT", 0, 0)
@@ -346,6 +390,9 @@ end
 local function ApplyHeader()
     local A, C = ns.db.appearance, ns.db.colors
     local H = A.header
+    font(root.session, A.nameFont, 11, "OUTLINE")
+    root.session:SetTextColor(0.75, 0.85, 1)
+    root.session:SetShown(ns.db.session.enabled and ns.db.session.headerLine)
     if not H.show then
         header:Hide()
         return 0
@@ -387,6 +434,7 @@ local function ApplyHeader()
 end
 
 function Display:UpdateHeader()
+    if root and root.session:IsShown() then root.session:SetText(ns.Stats:SessionLine()) end
     if not header or not header:IsShown() then return end
     local f, elapsed = ns.fight, ns.Elapsed()
     if self.preview and not f.active then
@@ -488,6 +536,10 @@ function Display:Init()
 
     CreateHeader()
 
+    -- swing timer lane between header and feed
+    root.swing = CreateFrame("Frame", nil, root)
+    ns.Swing:Init(root.swing)
+
     feed = CreateFrame("Frame", nil, root)
     feed:SetPoint("BOTTOMLEFT")
     feed:SetPoint("BOTTOMRIGHT")
@@ -505,7 +557,22 @@ function Display:ApplySettings()
     local headerH = ApplyHeader()
     local feedH = B.lines * (A.rowHeight + A.rowGap)
     feed:SetHeight(feedH)
-    root:SetSize(A.width, headerH + (headerH > 0 and HEADER_GAP or 0) + feedH)
+
+    -- header, then the swing lane (when enabled), then the feed
+    local S = ns.db.swing
+    local top = headerH > 0 and (headerH + 3) or 0
+    if S.enabled then
+        root.swing:ClearAllPoints()
+        root.swing:SetPoint("TOPLEFT", root, "TOPLEFT", 2, -top)
+        root.swing:SetPoint("RIGHT", root, "RIGHT", -2, 0)
+        root.swing:SetHeight(S.height)
+        root.swing:Show()
+        top = top + S.height + HEADER_GAP
+    else
+        root.swing:Hide()
+        if headerH > 0 then top = headerH + HEADER_GAP end
+    end
+    root:SetSize(A.width, top + feedH)
     root:SetScale(P.scale)
     root:SetFrameStrata(self.preview and PREVIEW_STRATA or P.strata)
     root:ClearAllPoints()
@@ -525,6 +592,8 @@ function Display:ApplySettings()
         Relayout(true)
     end
 
+    ns.Swing:Apply()
+    ns.Swing:SetSample(self.preview)
     self:UpdateVisibility()
     self:UpdateHeader()
 end
@@ -561,6 +630,7 @@ function Display:SetPreview(on)
     if not root then return end
     self.preview = on
     root:SetFrameStrata(on and PREVIEW_STRATA or ns.db.position.strata)
+    ns.Swing:SetSample(on)
     if not ns.fight.active then
         if on then
             self:RenderPreview(true)
@@ -613,6 +683,13 @@ function Display:Push(e, instant)
     Relayout(instant)
 
     if crit and not instant then PlayCrit(r) end
+end
+
+-- Redraws the row showing this entry (e.g. after it was merged with another hit).
+function Display:RefreshEntry(e)
+    for _, r in ipairs(active) do
+        if r.entry == e then Fill(r, e) end
+    end
 end
 
 function Display:RefreshSpell(spellID, info)
