@@ -1,0 +1,10 @@
+## Interface: 16001
+## Title: WombatLog
+## Notes: Borderless, transparent in-combat feed of your combat events with live DPS/HPS.
+## Version: 1.0.0
+## SavedVariables: WombatLogDB
+
+Core.lua
+Sources.lua
+Display.lua
+Config.lua
