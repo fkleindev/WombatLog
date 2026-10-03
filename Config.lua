@@ -505,6 +505,7 @@ local function BuildBehaviour(p)
     p:Slider("Fade-in time", "behaviour.fadeIn", 0, 2, 0.05, secs)
     p:Slider("Fade-out time", "behaviour.fadeOut", 0, 3, 0.05, secs, 2)
     p:Slider("Max rows", "behaviour.lines", 3, 30, 1)
+    p:Checkbox("Clear the log when a new fight starts", "behaviour.clearOnNewFight", 2)
 
     p:Header("Events to show")
     for i, k in ipairs(KINDS) do

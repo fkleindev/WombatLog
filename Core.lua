@@ -42,6 +42,7 @@ ns.defaults = {
         visibility = "combat",   -- "combat" | "always"
         linger = 5, fadeIn = 0.25, fadeOut = 1.0,
         lines = 10,
+        clearOnNewFight = true,  -- start every fight with an empty feed
         strict = true,           -- in groups, drop target hits that can't be matched to your swing/cast
         show = {
             damage = true, heal = true, avoid = true, taken = true, healIn = true, cast = true,
@@ -263,7 +264,7 @@ function ns.StartFight()
     f.active, f.start, f.stop = true, GetTime(), nil
     f.damage, f.healing, f.taken = 0, 0, 0
     f.top = nil
-    ns.Display:Clear() -- every fight starts with an empty feed
+    if ns.db.behaviour.clearOnNewFight then ns.Display:Clear() end
     ns.lingering = false
     ns.Display:UpdateVisibility()
 end
