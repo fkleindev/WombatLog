@@ -92,26 +92,29 @@ def gen_chime():
     return chime(1046.5, "CritChime.ogg")  # C6
 
 
-def gen_streaks():
-    # same chime, raised 2, 4 and 7 semitones for streaks of 2, 3 and 4+
-    return [chime(1046.5 * 2 ** (st / 12), f"CritStreak{level}.ogg")
-            for level, st in ((2, 2), (3, 4), (4, 7))]
+# Crit streaks of 2, 3 and 4+ raise the crit sound by 2, 4 and 7 semitones.
+# The game can't change a sound's pitch, so every sound gets its raised copies.
+STREAK_STEPS = ((2, 2), (3, 4), (4, 7))
 
 
-def gen_record():
+def streak_pitch(semitones):
+    return 2 ** (semitones / 12)
+
+
+def gen_record(pitch=1.0, name="Record.ogg"):
     # rising major arpeggio C6 E6 G6 C7, the last note rings out
     buf = np.zeros(int(1.2 * RATE))
     notes = (1046.5, 1318.5, 1568.0, 2093.0)
     for i, f in enumerate(notes):
         last = i == len(notes) - 1
-        place(buf, (1.0 if last else 0.8) * bell(f, 1.0 if last else 0.5, 0.35 if last else 0.15), i * 0.09)
-    return finish(buf, "Record.ogg")
+        place(buf, (1.0 if last else 0.8) * bell(f * pitch, 1.0 if last else 0.5, 0.35 if last else 0.15), i * 0.09)
+    return finish(buf, name)
 
 
-def gen_proc():
+def gen_proc(pitch=1.0, name="Proc.ogg"):
     t = t_axis(0.45)
-    tone = np.sin(2 * np.pi * 1760 * t) + 0.25 * np.sin(2 * np.pi * 2640 * t)
-    return finish(lowpass(tone * envelope(t, 0.005, 0.13), 5000), "Proc.ogg")
+    tone = np.sin(2 * np.pi * 1760 * pitch * t) + 0.25 * np.sin(2 * np.pi * 2640 * pitch * t)
+    return finish(lowpass(tone * envelope(t, 0.005, 0.13), 5000), name)
 
 
 def soft_square(freq, t):
@@ -128,34 +131,43 @@ def lowpass(x, cutoff):
     return y
 
 
-def gen_coin():
+def gen_coin(pitch=1.0, name="CritCoin.ogg"):
     buf = np.zeros(int(0.5 * RATE))
     t1 = t_axis(0.075)
-    place(buf, 0.8 * soft_square(988, t1) * envelope(t1, 0.002, 0.2), 0.0)
+    place(buf, 0.8 * soft_square(988 * pitch, t1) * envelope(t1, 0.002, 0.2), 0.0)
     t2 = t_axis(0.42)
-    place(buf, soft_square(1319, t2) * envelope(t2, 0.002, 0.12), 0.07)
-    return finish(lowpass(buf, 6000), "CritCoin.ogg")
+    place(buf, soft_square(1319 * pitch, t2) * envelope(t2, 0.002, 0.12), 0.07)
+    return finish(lowpass(buf, 6000), name)
 
 
-def gen_impact():
+def gen_impact(pitch=1.0, name="CritImpact.ogg"):
     seconds = 0.6
     t = t_axis(seconds)
     rng = np.random.default_rng(7)
     # low thump: sine sweeping 150 -> 50 Hz
-    freq = 50 + 100 * np.exp(-t / 0.06)
+    freq = (50 + 100 * np.exp(-t / 0.06)) * pitch
     phase = 2 * np.pi * np.cumsum(freq) / RATE
     thump = np.sin(phase) * envelope(t, 0.002, 0.12)
     # short noise transient
     noise = lowpass(rng.standard_normal(len(t)), 3500) * envelope(t, 0.0005, 0.012) * 2.5
     # bright ring on top
-    ring = 0.3 * bell(1760, seconds, 0.16)
-    return finish(thump + noise + ring, "CritImpact.ogg")
+    ring = 0.3 * bell(1760 * pitch, seconds, 0.16)
+    return finish(thump + noise + ring, name)
+
+
+def gen_streaks():
+    # the chime's raised copies keep their original names (CritStreak2-4.ogg)
+    paths = [chime(1046.5 * streak_pitch(st), f"CritStreak{level}.ogg") for level, st in STREAK_STEPS]
+    for gen, base in ((gen_coin, "CritCoin"), (gen_impact, "CritImpact"), (gen_record, "Record"), (gen_proc, "Proc")):
+        for level, st in STREAK_STEPS:
+            paths.append(gen(streak_pitch(st), f"{base}Streak{level}.ogg"))
+    return paths
 
 
 def main():
     os.makedirs(SOUNDS, exist_ok=True)
     gen_textures()
-    for path in (gen_chime(), gen_coin(), gen_impact(), *gen_streaks(), gen_record(), gen_proc()):
+    for path in (gen_chime(), gen_coin(), gen_impact(), gen_record(), gen_proc(), *gen_streaks()):
         data, rate = sf.read(path)
         print(f"{os.path.basename(path)}: {len(data) / rate:.2f}s, {rate} Hz, peak {np.max(np.abs(data)):.2f}")
     print("textures: Gradient.tga, Glow.tga")

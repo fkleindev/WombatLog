@@ -798,6 +798,7 @@ local function BuildAlertStreaks(p)
     p:Note("Crits in a row add a growing \"x3 CRIT STREAK\" banner to the crit alert. Any normal hit or miss ends the streak.")
     p:Checkbox("Show crit streaks", "alerts.streak.enabled")
     p:Checkbox("Rising sound with the streak", "alerts.streak.escalatingSound", 2)
+    p:Note("The rising sound is your crit sound (Sound tab), raised a little more with every crit. Only the WombatLog sounds can be raised; others play unchanged.")
     p:Slider("Show from streak", "alerts.streak.min", 2, 5, 1, function(v) return "x" .. v end)
     p:Button("Test x3", function() ns.Alerts:TestStreak(3) end, 2, -12, 100)
 

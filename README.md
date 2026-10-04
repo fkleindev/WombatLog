@@ -128,7 +128,9 @@ window, its filters or "only crits" settings, and each has its own on/off switch
 - Both alerts have a minimum amount and an option to include heal crits.
 - **Crit streaks:** from your second crit in a row, the visual alert shows a
   "x2 CRIT STREAK" banner that grows and changes color (gold, orange, red with a pulse
-  from x5). The sound can rise in pitch with the streak. Any normal hit or miss ends
+  from x5). The sound can rise in pitch with the streak: your chosen crit sound,
+  raised further with every crit (WombatLog's own sounds only; sounds from WoW or
+  SharedMedia play unchanged). Any normal hit or miss ends
   the streak.
 - **Record alert:** when a hit beats one of your personal records, the alert shows
   "NEW RECORD!" and plays a short fanfare. Banner and sound can be turned off

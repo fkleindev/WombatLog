@@ -15,19 +15,14 @@ local PROC_SAMPLE = { name = "Clearcasting", icon = "Interface\\Icons\\Spell_Sha
 -- Sounds
 ---------------------------------------------------------------------------
 
+-- streak: file name prefix of the copies raised for crit streaks of 2, 3 and 4+
+-- (<streak>2.ogg ... <streak>4.ogg); the game can't change a sound's pitch itself.
 local CUSTOM_SOUNDS = {
-    { value = "wl:chime", text = "WombatLog: Chime", file = MEDIA .. "Sounds\\CritChime.ogg" },
-    { value = "wl:coin", text = "WombatLog: Coin", file = MEDIA .. "Sounds\\CritCoin.ogg" },
-    { value = "wl:impact", text = "WombatLog: Impact", file = MEDIA .. "Sounds\\CritImpact.ogg" },
-    { value = "wl:record", text = "WombatLog: Record fanfare", file = MEDIA .. "Sounds\\Record.ogg" },
-    { value = "wl:proc", text = "WombatLog: Proc ping", file = MEDIA .. "Sounds\\Proc.ogg" },
-}
-
--- Chime raised step by step for crit streaks of 2, 3 and 4+.
-local STREAK_SOUNDS = {
-    [2] = MEDIA .. "Sounds\\CritStreak2.ogg",
-    [3] = MEDIA .. "Sounds\\CritStreak3.ogg",
-    [4] = MEDIA .. "Sounds\\CritStreak4.ogg",
+    { value = "wl:chime", text = "WombatLog: Chime", file = MEDIA .. "Sounds\\CritChime.ogg", streak = "CritStreak" },
+    { value = "wl:coin", text = "WombatLog: Coin", file = MEDIA .. "Sounds\\CritCoin.ogg", streak = "CritCoinStreak" },
+    { value = "wl:impact", text = "WombatLog: Impact", file = MEDIA .. "Sounds\\CritImpact.ogg", streak = "CritImpactStreak" },
+    { value = "wl:record", text = "WombatLog: Record fanfare", file = MEDIA .. "Sounds\\Record.ogg", streak = "RecordStreak" },
+    { value = "wl:proc", text = "WombatLog: Proc ping", file = MEDIA .. "Sounds\\Proc.ogg", streak = "ProcStreak" },
 }
 
 -- Only offered when the client's SOUNDKIT table actually has the key.
@@ -85,6 +80,18 @@ Alerts.PlaySound = play -- also used by the spell reminders
 
 function Alerts:PlayConfigured()
     local S = ns.db.alerts.sound
+    play(S.sound, S.channel)
+end
+
+-- The crit sound raised for a streak of n. Sounds from WoW or SharedMedia have no
+-- raised copies, so they play as they are.
+function Alerts:PlayStreak(n)
+    local S = ns.db.alerts.sound
+    for _, s in ipairs(CUSTOM_SOUNDS) do
+        if s.value == S.sound then
+            return PlaySoundFile(MEDIA .. "Sounds\\" .. s.streak .. math.min(n, 4) .. ".ogg", S.channel)
+        end
+    end
     play(S.sound, S.channel)
 end
 
@@ -350,7 +357,7 @@ function Alerts:TestStreak(n)
     if self.crit.unlocked then self.crit:SetLocked(true) end
     self.crit:Show(critData(CRIT_SAMPLE, n, false))
     if ns.db.alerts.streak.escalatingSound then
-        PlaySoundFile(STREAK_SOUNDS[math.min(n, 4)], ns.db.alerts.sound.channel)
+        self:PlayStreak(n)
     else
         self:PlayConfigured()
     end
@@ -391,7 +398,7 @@ function Alerts:OnHit(e)
     elseif e.crit and qualifies(cfg.sound, e) then
         self.lastSound = now
         if streak and cfg.streak.escalatingSound then
-            PlaySoundFile(STREAK_SOUNDS[math.min(streak, 4)], cfg.sound.channel)
+            self:PlayStreak(streak)
         else
             self:PlayConfigured()
         end
