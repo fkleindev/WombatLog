@@ -179,7 +179,12 @@ local function CreateSummary()
     f:SetAlpha(0)
     f:SetScript("OnUpdate", function(self, dt)
         local a, target = self:GetAlpha(), self.fadeTarget
-        if a == target then return end
+        if a == target then
+            -- already transparent (closed right after it came up): hide it anyway,
+            -- or it keeps catching the mouse and showing its tooltip
+            if target <= 0 then self:Hide() end
+            return
+        end
         local B = ns.db.behaviour
         if target > a then
             a = math.min(target, a + dt / math.max(B.fadeIn, 0.01))
@@ -257,6 +262,7 @@ function Report:ShowSummary(snap)
     FillSummary(f, snap)
     if not f:IsShown() then f:SetAlpha(0) end
     f:Show()
+    f:EnableMouse(true)
     f.fadeTarget = ns.db.position.alpha
     if self.summaryTimer then self.summaryTimer:Cancel() end
     self.summaryTimer = nil
@@ -271,7 +277,12 @@ end
 -- Fades out; the card hides itself once fully transparent.
 function Report:HideSummary()
     if self.summaryTimer then self.summaryTimer:Cancel(); self.summaryTimer = nil end
-    if self.summary then self.summary.fadeTarget = 0 end
+    local f = self.summary
+    if not f then return end
+    f.fadeTarget = 0
+    -- a card on its way out no longer takes clicks or shows its tooltip
+    f:EnableMouse(false)
+    if GameTooltip:IsOwned(f) then GameTooltip:Hide() end
 end
 
 -- Settings button: last fight, or a sample if there is none yet.
