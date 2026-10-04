@@ -600,6 +600,74 @@ function Reminders:Render(list)
     end
 end
 
+---------------------------------------------------------------------------
+-- Enemy casts (for interrupt reminders)
+---------------------------------------------------------------------------
+
+-- Casts seen in the combat log (Classic): GUID -> time the cast should end. Older
+-- Classic clients don't always show other units' casts through UnitCastingInfo.
+local enemyCasts = {}
+local CAST_GUESS = 3 -- when a cast's length is unknown
+
+local function castTime(spellId, spellName)
+    local ms
+    local key = (spellId and spellId > 0) and spellId or spellName
+    if not key then return nil end
+    if C_Spell and C_Spell.GetSpellInfo then
+        local info = SafeTable(C_Spell.GetSpellInfo(key))
+        ms = info and Safe(info.castTime)
+    elseif GetSpellInfo then
+        ms = select(4, GetSpellInfo(key))
+    end
+    if ms and ms > 0 then return ms / 1000 end
+end
+
+function Reminders:OnEnemyCast(guid, spellId, spellName)
+    if not guid then return end
+    enemyCasts[guid] = GetTime() + math.min(10, castTime(spellId, spellName) or CAST_GUESS)
+    self:Update()
+end
+
+function Reminders:OnEnemyCastEnd(guid)
+    if guid and enemyCasts[guid] then
+        enemyCasts[guid] = nil
+        self:Update()
+    end
+end
+
+-- One value from the cast APIs: true if there is one (secret counts), false if not.
+local function present(v)
+    if v ~= nil and issecretvalue and issecretvalue(v) then return true end
+    return v ~= nil
+end
+
+-- Is your target casting or channeling something you can interrupt? On Forever
+-- and Retail the details can be secret in combat: any cast then counts, and an
+-- unknown "can't be interrupted" counts as interruptible.
+local function targetCasting()
+    local name, _, _, _, _, _, _, notInterruptible = UnitCastingInfo("target")
+    if present(name) then return Safe(notInterruptible) ~= true end
+    local cname, _, _, _, _, _, cNotInterruptible = UnitChannelInfo("target")
+    if present(cname) then return Safe(cNotInterruptible) ~= true end
+    local guid = Safe(UnitGUID("target"))
+    local ends = guid and enemyCasts[guid]
+    if ends then
+        if GetTime() < ends then return true end
+        enemyCasts[guid] = nil
+    end
+    return false
+end
+
+-- React right away when the target starts or stops casting (interrupts are urgent).
+for _, ev in ipairs({
+    "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED", "UNIT_SPELLCAST_INTERRUPTED",
+    "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_STOP",
+}) do
+    ns.Listen(ev, function()
+        if Reminders.frame then Reminders:Update() end
+    end, "target")
+end
+
 -- What should be lit right now.
 function Reminders:Collect()
     local R = ns.db.reminders
@@ -798,74 +866,6 @@ function Reminders:Debug()
                 tostring(spellCooldown(id))))
         end
     end
-end
-
----------------------------------------------------------------------------
--- Enemy casts (for interrupt reminders)
----------------------------------------------------------------------------
-
--- Casts seen in the combat log (Classic): GUID -> time the cast should end. Older
--- Classic clients don't always show other units' casts through UnitCastingInfo.
-local enemyCasts = {}
-local CAST_GUESS = 3 -- when a cast's length is unknown
-
-local function castTime(spellId, spellName)
-    local ms
-    local key = (spellId and spellId > 0) and spellId or spellName
-    if not key then return nil end
-    if C_Spell and C_Spell.GetSpellInfo then
-        local info = SafeTable(C_Spell.GetSpellInfo(key))
-        ms = info and Safe(info.castTime)
-    elseif GetSpellInfo then
-        ms = select(4, GetSpellInfo(key))
-    end
-    if ms and ms > 0 then return ms / 1000 end
-end
-
-function Reminders:OnEnemyCast(guid, spellId, spellName)
-    if not guid then return end
-    enemyCasts[guid] = GetTime() + math.min(10, castTime(spellId, spellName) or CAST_GUESS)
-    self:Update()
-end
-
-function Reminders:OnEnemyCastEnd(guid)
-    if guid and enemyCasts[guid] then
-        enemyCasts[guid] = nil
-        self:Update()
-    end
-end
-
--- One value from the cast APIs: true if there is one (secret counts), false if not.
-local function present(v)
-    if v ~= nil and issecretvalue and issecretvalue(v) then return true end
-    return v ~= nil
-end
-
--- Is your target casting or channeling something you can interrupt? On Forever
--- and Retail the details can be secret in combat: any cast then counts, and an
--- unknown "can't be interrupted" counts as interruptible.
-local function targetCasting()
-    local name, _, _, _, _, _, _, notInterruptible = UnitCastingInfo("target")
-    if present(name) then return Safe(notInterruptible) ~= true end
-    local cname, _, _, _, _, _, cNotInterruptible = UnitChannelInfo("target")
-    if present(cname) then return Safe(cNotInterruptible) ~= true end
-    local guid = Safe(UnitGUID("target"))
-    local ends = guid and enemyCasts[guid]
-    if ends then
-        if GetTime() < ends then return true end
-        enemyCasts[guid] = nil
-    end
-    return false
-end
-
--- React right away when the target starts or stops casting (interrupts are urgent).
-for _, ev in ipairs({
-    "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED", "UNIT_SPELLCAST_INTERRUPTED",
-    "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_STOP",
-}) do
-    ns.Listen(ev, function()
-        if Reminders.frame then Reminders:Update() end
-    end, "target")
 end
 
 -- An attack on you ("in") or yours ("out") was parried, dodged or blocked: opens
