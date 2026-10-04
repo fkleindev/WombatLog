@@ -140,7 +140,8 @@ ns.defaults.minimap = { enabled = true, angle = 200 }
 ns.defaults.reminders = {
     enabled = true, combatOnly = false,
     refreshAt = 10,             -- buff reminders also show when less than this is left (0 = only when missing)
-    list = {},                  -- { spell = "Riposte" or "14251", mode = "usable" | "buff" }
+    debuffRefreshAt = 3,        -- the same for debuffs on your target
+    list = {},                  -- { spell = "Riposte" or "14251", mode = "usable" | "buff" | "debuff" }
     sound = false, soundChoice = "wl:bell", channel = "Master", -- each reminder can pick its own, too
     size = 40, scale = 1, spacing = 6, showName = true, glow = true,
     color = { 1.00, 0.82, 0.18 }, x = 0, y = 60,

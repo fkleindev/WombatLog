@@ -8,6 +8,8 @@ local Safe, SafeTable = ns.Safe, ns.SafeTable
 --             Overpower after a dodge, Execute on a low target, ...)
 --   "buff":   its buff on you is missing or about to run out (Battle Shout,
 --             Arcane Intellect, armors, ...)
+--   "debuff": your debuff of that name on your hostile target is missing or about
+--             to run out (DoTs, Sunder Armor, Hunter's Mark, Faerie Fire, ...)
 
 local MEDIA = "Interface\\AddOns\\WombatLog\\Media\\"
 local GLOW = MEDIA .. "Glow"
@@ -19,14 +21,20 @@ local SOUND_THROTTLE = 1
 -- Offered in the settings, by spell ID so names follow the client's language.
 -- Only the ones you know are listed.
 Reminders.SUGGESTIONS = {
-    WARRIOR = { { 7384, "usable" }, { 6572, "usable" }, { 5308, "usable" }, { 6673, "buff" } },
-    ROGUE = { { 14251, "usable" } },
-    HUNTER = { { 1495, "usable" }, { 19306, "usable" }, { 13165, "buff" }, { 19506, "buff" } },
+    WARRIOR = {
+        { 7384, "usable" }, { 6572, "usable" }, { 5308, "usable" }, { 6673, "buff" },
+        { 7386, "debuff" }, { 772, "debuff" }, { 1160, "debuff" }, { 6343, "debuff" },
+    },
+    ROGUE = { { 14251, "usable" }, { 8647, "debuff" } },
+    HUNTER = {
+        { 1495, "usable" }, { 19306, "usable" }, { 13165, "buff" }, { 19506, "buff" },
+        { 1130, "debuff" }, { 1978, "debuff" },
+    },
     MAGE = { { 1459, "buff" }, { 168, "buff" }, { 7302, "buff" }, { 6117, "buff" } },
-    PRIEST = { { 1243, "buff" }, { 588, "buff" } },
-    DRUID = { { 1126, "buff" }, { 467, "buff" } },
-    WARLOCK = { { 687, "buff" }, { 706, "buff" } },
-    SHAMAN = { { 324, "buff" } },
+    PRIEST = { { 1243, "buff" }, { 588, "buff" }, { 589, "debuff" } },
+    DRUID = { { 1126, "buff" }, { 467, "buff" }, { 770, "debuff" }, { 8921, "debuff" }, { 5570, "debuff" } },
+    WARLOCK = { { 687, "buff" }, { 706, "buff" }, { 172, "debuff" }, { 980, "debuff" }, { 348, "debuff" } },
+    SHAMAN = { { 324, "buff" }, { 8050, "debuff" } },
     PALADIN = { { 19740, "buff" }, { 25780, "buff" } },
 }
 
@@ -69,6 +77,24 @@ local function isUsable(spell)
 end
 
 -- Seconds of the spell's own cooldown left (the global cooldown counts as ready).
+-- false when the target is out of range (nil when the client can't tell)
+local function inRange(spell)
+    local r
+    if C_Spell and C_Spell.IsSpellInRange then
+        r = Safe((C_Spell.IsSpellInRange(spell, "target")))
+    elseif IsSpellInRange then
+        r = Safe((IsSpellInRange(spell, "target")))
+    end
+    if r == nil then return nil end
+    return r == true or r == 1
+end
+
+-- How long the spell's buff or debuff lasts, from the shipped spell data.
+local function auraDuration(id)
+    local d = id and ns.SPELL_DATA and ns.SPELL_DATA[id]
+    return d and d[5]
+end
+
 local function cooldownLeft(spell)
     local start, duration
     if C_Spell and C_Spell.GetSpellCooldown then
@@ -83,22 +109,23 @@ local function cooldownLeft(spell)
     return math.max(0, start + duration - GetTime())
 end
 
--- Your buffs as far as the client lets us read them: expiration time by name
+-- Auras on a unit as far as the client lets us read them: expiration time by name
 -- (math.huge without a duration). Returns nil when they're hidden: in combat on
 -- Forever and Retail, reading auras even errors ("cannot be accessed when secret").
-local function readBuffs()
-    local buffs = {}
+-- Classic clients can always read them.
+local function readAuras(unit, filter)
+    local auras = {}
     for i = 1, 40 do
         local auraName, expires
         if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
-            local ok, a = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+            local ok, a = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, filter)
             if not ok then return nil end
             if not a then break end
             a = SafeTable(a)
             if not a then return nil end
             auraName, expires = Safe(a.name), Safe(a.expirationTime)
-        elseif UnitBuff then
-            local ok, n, _, _, _, _, exp = pcall(UnitBuff, "player", i)
+        elseif UnitAura then
+            local ok, n, _, _, _, _, exp = pcall(UnitAura, unit, i, filter)
             if not ok then return nil end
             if n == nil then break end
             auraName, expires = Safe(n), Safe(exp)
@@ -106,9 +133,9 @@ local function readBuffs()
             return nil
         end
         if auraName == nil then return nil end
-        buffs[auraName] = (not expires or expires == 0) and math.huge or expires
+        auras[auraName] = (not expires or expires == 0) and math.huge or expires
     end
-    return buffs
+    return auras
 end
 
 -- Last readable state per buff name: expiration time, or false when it was missing.
@@ -117,6 +144,13 @@ local buffCache = {}
 
 -- Seconds left on your buff with this name: nil when missing, math.huge when it
 -- has no duration. unknown is true when it can't be told at all.
+local function remaining(expires)
+    if not expires then return nil end
+    local left = expires - GetTime()
+    if left <= 0 then return nil end
+    return left
+end
+
 local function buffLeft(name, buffs)
     local expires
     if buffs then
@@ -126,10 +160,59 @@ local function buffLeft(name, buffs)
         expires = buffCache[name]
         if expires == nil then return nil, true end
     end
-    if not expires then return nil end
-    local left = expires - GetTime()
-    if left <= 0 then return nil end
-    return left
+    return remaining(expires)
+end
+
+-- The same for your debuffs, per target. A target we never saw your debuff on
+-- (and you didn't cast it on) simply doesn't have it, so while hidden, an
+-- unknown debuff counts as missing.
+local debuffCache = {} -- target key -> { [name] = expiration or false, seen = time, cast = { [name] = time } }
+local MAX_TARGETS = 40
+local LANDING = 1.5 -- a debuff you just cast may not be on the target yet (travel time)
+
+local function targetKey()
+    return Safe(UnitGUID("target")) or "target"
+end
+
+local function targetCache(key)
+    local c = debuffCache[key]
+    if not c then
+        -- forget the targets not seen for longest
+        local n, oldest, oldestKey = 0, nil, nil
+        for k, v in pairs(debuffCache) do
+            n = n + 1
+            if not oldest or v.seen < oldest then oldest, oldestKey = v.seen, k end
+        end
+        if n >= MAX_TARGETS then debuffCache[oldestKey] = nil end
+        c = {}
+        debuffCache[key] = c
+    end
+    c.seen = GetTime()
+    return c
+end
+
+local function debuffLeft(name, debuffs, key)
+    local c = targetCache(key)
+    local expires
+    if debuffs then
+        expires = debuffs[name] or false
+        local castAt = c.cast and c.cast[name]
+        if expires or not castAt or GetTime() - castAt > LANDING then
+            c[name] = expires
+        else
+            expires = c[name] -- still on its way
+        end
+    else
+        expires = c[name]
+    end
+    return remaining(expires)
+end
+
+-- An attackable, living target to put debuffs on.
+local function hostileTarget()
+    if not Safe(UnitExists("target")) then return false end
+    if Safe(UnitIsDead("target")) then return false end
+    return Safe(UnitCanAttack("player", "target")) == true
 end
 
 ---------------------------------------------------------------------------
@@ -300,6 +383,8 @@ function Reminders:Collect()
     if Safe(UnitIsDeadOrGhost("player")) or Safe(UnitOnTaxi("player")) then return list end
 
     local buffs, buffsRead = nil, false
+    local debuffs, debuffsRead, tkey = nil, false, nil
+    local hostile = hostileTarget()
     for _, entry in ipairs(R.list) do
         local name, icon, id = resolve(entry.spell)
         local known = name and (knows(id) or knows(tonumber(entry.spell)))
@@ -311,8 +396,17 @@ function Reminders:Collect()
             local show = false
             if entry.mode == "usable" then
                 show = castable
+            elseif entry.mode == "debuff" then
+                if hostile then
+                    if not debuffsRead then
+                        debuffs, debuffsRead, tkey = readAuras("target", "HARMFUL|PLAYER"), true, targetKey()
+                    end
+                    local left = debuffLeft(name, debuffs, tkey)
+                    show = left == nil or (R.debuffRefreshAt > 0 and left < R.debuffRefreshAt)
+                    if castable and inRange(spell) == false then castable = false end
+                end
             else
-                if not buffsRead then buffs, buffsRead = readBuffs(), true end
+                if not buffsRead then buffs, buffsRead = readAuras("player", "HELPFUL"), true end
                 local left, unknown = buffLeft(name, buffs)
                 if left == nil then
                     show = not unknown -- missing (but don't nag when we can't tell)
@@ -392,11 +486,33 @@ function Reminders:Test()
     self:Update()
 end
 
--- Recast while buffs are hidden: count it as on you until they're readable again.
+-- Your casts keep the caches right while auras are hidden: a buff you recast is on
+-- you, a debuff you cast is on your target, for the spell's duration (or until the
+-- auras are readable again).
 ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, _, spellID)
-    local info = ns.SpellInfo(Safe(spellID))
-    if info and buffCache[info.name] ~= nil then buffCache[info.name] = math.huge end
+    spellID = Safe(spellID)
+    local info = ns.SpellInfo(spellID)
+    if not info then return end
+    local duration = auraDuration(spellID)
+    local expires = duration and GetTime() + duration or math.huge
+    for _, entry in ipairs(ns.db.reminders.list) do
+        if (resolve(entry.spell)) == info.name then
+            if entry.mode == "buff" then
+                buffCache[info.name] = expires
+            elseif entry.mode == "debuff" and hostileTarget() then
+                local c = targetCache(targetKey())
+                c[info.name] = expires
+                c.cast = c.cast or {}
+                c.cast[info.name] = GetTime()
+            end
+        end
+    end
 end, "player")
+
+-- Without a readable GUID all targets share one entry: start it fresh per target.
+ns.Listen("PLAYER_TARGET_CHANGED", function()
+    debuffCache.target = nil
+end)
 
 ---------------------------------------------------------------------------
 -- The list
@@ -418,7 +534,8 @@ end
 function Reminders:Add(text, mode, key)
     text = strtrim(text or "")
     if text == "" or self:Find(text) then return false end
-    table.insert(ns.db.reminders.list, { spell = text, mode = mode == "buff" and "buff" or "usable", key = cleanKey(key) })
+    mode = (mode == "buff" or mode == "debuff") and mode or "usable"
+    table.insert(ns.db.reminders.list, { spell = text, mode = mode, key = cleanKey(key) })
     self:Update()
     return true
 end
@@ -434,9 +551,11 @@ function Reminders:SetKey(index, key)
     self:Update()
 end
 
+local NEXT_MODE = { usable = "buff", buff = "debuff", debuff = "usable" }
+
 function Reminders:ToggleMode(index)
     local entry = ns.db.reminders.list[index]
-    if entry then entry.mode = entry.mode == "buff" and "usable" or "buff" end
+    if entry then entry.mode = NEXT_MODE[entry.mode] or "usable" end
     self:Update()
 end
 
