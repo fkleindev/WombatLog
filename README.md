@@ -28,7 +28,9 @@ combat starts and fades out a few seconds after it ends.
 - **Spell reminders:** icons that light up while a spell you chose wants attention,
   either because it just became usable (Riposte after a parry, Overpower, Execute)
   or because its buff on you is missing or about to run out (Battle Shout, Arcane
-  Intellect).
+  Intellect). Each reminder can show the key to press and play its own sound;
+  WombatLog brings a set of soft sounds made for this (soft bell, double ping,
+  pluck, marimba, glass, ready, wood block).
 - **Personal resource display** under your character: health, power, druid mana,
   combo points and a cast bar.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
@@ -96,7 +98,7 @@ sub-tabs along the top.
 - **Spell reminders:** *General* (on/off, only in combat, how early buffs count as
   running out, sound), *Spells* (type a name or spell ID, choose "Usable" or
   "Buff" and optionally the key to show on the icon, or add a suggestion for your
-  class) and *Look* (icon size, scale, spacing,
+  class; each reminder can also get its own sound or stay silent) and *Look* (icon size, scale, spacing,
   color, names, glow, position).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.

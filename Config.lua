@@ -1011,7 +1011,7 @@ local function BuildRemGeneral(p)
     p:Button("Test", function() ns.Reminders:Test() end, 2, -12, 100)
     p:Note("A buff reminder is dimmed while you can't cast the spell (no mana, on cooldown).")
 
-    p:Header("Sound")
+    p:Header("Default sound")
     p:Checkbox("Play a sound when a reminder comes up", "reminders.sound")
     p:Dropdown("Sound", {
         get = function() return ns.db.reminders.soundChoice end,
@@ -1049,6 +1049,49 @@ local function BuildRemSpells(p)
     end, 2, -18, 100)
     p:Note("The key appears in the icon's corner, like on an action button. Edit it in the list (Enter saves). Click a reminder's type to switch between Usable and Buff. Spells you don't know (yet) stay in the list but never show.")
     lists = p:ReminderLists()
+
+    p:Header("Sound per reminder")
+    p:Note("Every reminder can have its own sound. \"Default\" uses the sound from the General tab (if that is on), \"None\" keeps the reminder silent.")
+    local selected -- the spell text of the reminder being edited
+    local function entryIndex()
+        if selected then return ns.Reminders:Find(selected) end
+    end
+    local function soundChoices()
+        local list = { { text = "Default", value = "default" }, { text = "None", value = "none" } }
+        for _, o in ipairs(ns.Alerts.SoundOptions()) do list[#list + 1] = o end
+        return list
+    end
+    local soundDropdown
+    p:Dropdown("Reminder", {
+        get = function()
+            if not entryIndex() then selected = nil end
+            return selected
+        end,
+        set = function(v)
+            selected = v
+            soundDropdown.Refresh()
+        end,
+    }, function()
+        local list = {}
+        for _, entry in ipairs(ns.db.reminders.list) do
+            list[#list + 1] = { text = (ns.Reminders.Describe(entry.spell)), value = entry.spell }
+        end
+        return list
+    end)
+    soundDropdown = p:Dropdown("Sound", {
+        get = function()
+            local i = entryIndex()
+            if not i then return nil end
+            return ns.db.reminders.list[i].sound or "default"
+        end,
+        set = function(v)
+            local i = entryIndex()
+            if not i then return end
+            ns.Reminders:SetSound(i, v ~= "default" and v or nil)
+            local play = ns.Reminders.SoundFor(ns.db.reminders.list[i].sound)
+            if play then ns.Alerts.PlaySound(play, ns.db.reminders.channel) end -- preview on pick
+        end,
+    }, soundChoices, 2)
 end
 
 local function BuildRemLook(p)

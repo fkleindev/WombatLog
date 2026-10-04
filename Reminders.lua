@@ -299,7 +299,10 @@ function Reminders:Collect()
                 end
             end
             if show then
-                list[#list + 1] = { key = entry.spell, name = name, icon = icon, castable = castable, hotkey = entry.key }
+                list[#list + 1] = {
+                    key = entry.spell, name = name, icon = icon, castable = castable,
+                    hotkey = entry.key, sound = entry.sound,
+                }
             end
         end
     end
@@ -317,23 +320,37 @@ function Reminders:Update()
         list = self:Collect()
     end
 
-    -- a reminder that just came up pops in, and may play a sound
-    local now, appeared = GetTime(), false
+    -- a reminder that just came up pops in, and may play its sound
+    local R = ns.db.reminders
+    local now, sound = GetTime(), nil
     local shown = {}
     for _, d in ipairs(list) do
         shown[d.key] = true
         if not self.shown[d.key] then
             d.new = true
-            appeared = true
+            sound = sound or self.SoundFor(d.sound)
         end
     end
     self.shown = shown
-    local R = ns.db.reminders
-    if appeared and R.sound and not self.unlocked and now - (self.lastSound or 0) >= SOUND_THROTTLE then
+    if sound and not self.unlocked and now - (self.lastSound or 0) >= SOUND_THROTTLE then
         self.lastSound = now
-        ns.Alerts.PlaySound(R.soundChoice, R.channel)
+        ns.Alerts.PlaySound(sound, R.channel)
     end
     self:Render(list)
+end
+
+-- A reminder's own sound: nil follows the default (General tab), "none" stays silent.
+-- A sound picked for one reminder plays even with the default sound off.
+function Reminders.SoundFor(choice)
+    if choice == "none" then return nil end
+    if choice then return choice end
+    local R = ns.db.reminders
+    return R.sound and R.soundChoice or nil
+end
+
+function Reminders:SetSound(index, sound)
+    local entry = ns.db.reminders.list[index]
+    if entry then entry.sound = sound end
 end
 
 function Reminders:SetLocked(locked)

@@ -23,6 +23,14 @@ local CUSTOM_SOUNDS = {
     { value = "wl:impact", text = "WombatLog: Impact", file = MEDIA .. "Sounds\\CritImpact.ogg", streak = "CritImpactStreak" },
     { value = "wl:record", text = "WombatLog: Record fanfare", file = MEDIA .. "Sounds\\Record.ogg", streak = "RecordStreak" },
     { value = "wl:proc", text = "WombatLog: Proc ping", file = MEDIA .. "Sounds\\Proc.ogg", streak = "ProcStreak" },
+    -- soft ones made for spell reminders (they work for everything else, too)
+    { value = "wl:bell", text = "WombatLog: Soft bell", file = MEDIA .. "Sounds\\ReminderBell.ogg", streak = "ReminderBellStreak" },
+    { value = "wl:doubleping", text = "WombatLog: Double ping", file = MEDIA .. "Sounds\\ReminderDoublePing.ogg", streak = "ReminderDoublePingStreak" },
+    { value = "wl:pluck", text = "WombatLog: Pluck", file = MEDIA .. "Sounds\\ReminderPluck.ogg", streak = "ReminderPluckStreak" },
+    { value = "wl:marimba", text = "WombatLog: Marimba", file = MEDIA .. "Sounds\\ReminderMarimba.ogg", streak = "ReminderMarimbaStreak" },
+    { value = "wl:glass", text = "WombatLog: Glass", file = MEDIA .. "Sounds\\ReminderGlass.ogg", streak = "ReminderGlassStreak" },
+    { value = "wl:ready", text = "WombatLog: Ready", file = MEDIA .. "Sounds\\ReminderReady.ogg", streak = "ReminderReadyStreak" },
+    { value = "wl:woodblock", text = "WombatLog: Wood block", file = MEDIA .. "Sounds\\ReminderWoodblock.ogg", streak = "ReminderWoodblockStreak" },
 }
 
 -- Only offered when the client's SOUNDKIT table actually has the key.

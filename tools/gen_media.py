@@ -155,10 +155,118 @@ def gen_impact(pitch=1.0, name="CritImpact.ogg"):
     return finish(thump + noise + ring, name)
 
 
+# --- reminder sounds: soft, short and pleasant, made to be heard often --------
+
+def gen_softbell(pitch=1.0, name="ReminderBell.ogg"):
+    # one warm bell (G5) that rings out gently
+    buf = np.zeros(int(1.2 * RATE))
+    place(buf, bell(784 * pitch, 1.2, 0.45), 0.0)
+    return finish(lowpass(buf, 4500), name)
+
+
+def ping(freq, seconds, decay):
+    t = t_axis(seconds)
+    return (np.sin(2 * np.pi * freq * t) + 0.2 * np.sin(2 * np.pi * 2 * freq * t)) * envelope(t, 0.003, decay)
+
+
+def gen_doubleping(pitch=1.0, name="ReminderDoublePing.ogg"):
+    # two quick soft pings, the second a fourth higher
+    buf = np.zeros(int(0.55 * RATE))
+    place(buf, 0.8 * ping(1318.5 * pitch, 0.3, 0.07), 0.0)
+    place(buf, ping(1760 * pitch, 0.4, 0.1), 0.11)
+    return finish(lowpass(buf, 6000), name)
+
+
+def karplus(freq, seconds, damping=0.996, seed=3):
+    """Plucked string (Karplus-Strong): a short noise burst in a tuned, damped delay line."""
+    n = int(seconds * RATE)
+    period = max(2, int(RATE / freq))
+    rng = np.random.default_rng(seed)
+    line = list(lowpass(rng.uniform(-1, 1, period), 3000))
+    out = np.empty(n)
+    for i in range(n):
+        j = i % period
+        v = line[j]
+        out[i] = v
+        line[j] = damping * 0.5 * (v + line[(j + 1) % period])
+    return out
+
+
+def gen_pluck(pitch=1.0, name="ReminderPluck.ogg"):
+    # a plucked A4 with its fifth right after
+    buf = np.zeros(int(0.9 * RATE))
+    place(buf, karplus(440 * pitch, 0.9), 0.0)
+    place(buf, 0.6 * karplus(659.3 * pitch, 0.8, seed=5), 0.08)
+    return finish(lowpass(buf, 5000), name)
+
+
+def mallet(freq, seconds):
+    # wooden bar: fundamental plus the bright 4th partial that dies away fast
+    t = t_axis(seconds)
+    return np.sin(2 * np.pi * freq * t) * envelope(t, 0.002, 0.18) \
+        + 0.35 * np.sin(2 * np.pi * 4 * freq * t) * envelope(t, 0.001, 0.03)
+
+
+def gen_marimba(pitch=1.0, name="ReminderMarimba.ogg"):
+    # C5 then G5
+    buf = np.zeros(int(0.75 * RATE))
+    place(buf, 0.85 * mallet(523.25 * pitch, 0.6), 0.0)
+    place(buf, mallet(784 * pitch, 0.6), 0.12)
+    return finish(buf, name)
+
+
+def gen_glass(pitch=1.0, name="ReminderGlass.ogg"):
+    # a struck glass: high tone with its inharmonic partial and a slow shimmer
+    t = t_axis(1.0)
+    f = 2093 * pitch
+    tone = np.sin(2 * np.pi * f * t) + 0.6 * np.sin(2 * np.pi * f * 1.003 * t) \
+        + 0.25 * np.sin(2 * np.pi * f * 2.76 * t) * envelope(t, 0.0, 0.15)
+    return finish(lowpass(tone * envelope(t, 0.002, 0.35), 7000), name)
+
+
+def gen_ready(pitch=1.0, name="ReminderReady.ogg"):
+    # a quick rising triad (E5 G5 B5), the last note rings a little
+    buf = np.zeros(int(0.8 * RATE))
+    notes = (659.3, 784, 987.8)
+    for i, f in enumerate(notes):
+        last = i == len(notes) - 1
+        place(buf, (1.0 if last else 0.7) * bell(f * pitch, 0.6 if last else 0.25, 0.25 if last else 0.08), i * 0.07)
+    return finish(lowpass(buf, 5000), name)
+
+
+def knock(freq, seconds, seed):
+    t = t_axis(seconds)
+    rng = np.random.default_rng(seed)
+    body = np.sin(2 * np.pi * freq * t) * envelope(t, 0.0005, 0.03)
+    click = lowpass(rng.standard_normal(len(t)), 2500) * envelope(t, 0.0002, 0.004)
+    return body + 0.6 * click
+
+
+def gen_woodblock(pitch=1.0, name="ReminderWoodblock.ogg"):
+    # two dry wooden knocks, the second lower
+    buf = np.zeros(int(0.35 * RATE))
+    place(buf, knock(1200 * pitch, 0.2, 1), 0.0)
+    place(buf, 0.8 * knock(900 * pitch, 0.2, 2), 0.09)
+    return finish(buf, name)
+
+
+REMINDER_SOUNDS = (
+    (gen_softbell, "ReminderBell"), (gen_doubleping, "ReminderDoublePing"), (gen_pluck, "ReminderPluck"),
+    (gen_marimba, "ReminderMarimba"), (gen_glass, "ReminderGlass"), (gen_ready, "ReminderReady"),
+    (gen_woodblock, "ReminderWoodblock"),
+)
+
+
+def gen_reminders():
+    return [gen() for gen, _ in REMINDER_SOUNDS]
+
+
 def gen_streaks():
     # the chime's raised copies keep their original names (CritStreak2-4.ogg)
     paths = [chime(1046.5 * streak_pitch(st), f"CritStreak{level}.ogg") for level, st in STREAK_STEPS]
-    for gen, base in ((gen_coin, "CritCoin"), (gen_impact, "CritImpact"), (gen_record, "Record"), (gen_proc, "Proc")):
+    # every sound can be the crit sound, so each gets its raised copies
+    for gen, base in ((gen_coin, "CritCoin"), (gen_impact, "CritImpact"), (gen_record, "Record"), (gen_proc, "Proc"),
+                      *REMINDER_SOUNDS):
         for level, st in STREAK_STEPS:
             paths.append(gen(streak_pitch(st), f"{base}Streak{level}.ogg"))
     return paths
@@ -167,7 +275,7 @@ def gen_streaks():
 def main():
     os.makedirs(SOUNDS, exist_ok=True)
     gen_textures()
-    for path in (gen_chime(), gen_coin(), gen_impact(), gen_record(), gen_proc(), *gen_streaks()):
+    for path in (gen_chime(), gen_coin(), gen_impact(), gen_record(), gen_proc(), *gen_reminders(), *gen_streaks()):
         data, rate = sf.read(path)
         print(f"{os.path.basename(path)}: {len(data) / rate:.2f}s, {rate} Hz, peak {np.max(np.abs(data)):.2f}")
     print("textures: Gradient.tga, Glow.tga")
