@@ -66,37 +66,38 @@ change settings.
 
 ## Settings
 
-- **Appearance:** window width, row height and spacing, row background opacity
-  (0 = fully transparent), spell icons, incoming events on the right or left, newest
-  row on top or bottom, dimming of older rows, fonts (built-in plus LibSharedMedia),
-  text sizes, outline, short or full numbers, and which header parts to show.
-- **Crits:** each crit effect can be turned on or off, plus the pop size and the crit
-  number size.
-- **Alerts:** the visual and the sound crit alert, crit streaks and the record
-  alert (see below).
-- **Procs:** proc alerts on/off, the buffs to watch (type a name or spell ID, or
-  pick from the buffs you gained recently), sound, size, color and position.
+Every feature has its own tab in the sidebar. Bigger features are split into
+sub-tabs along the top.
+
+- **Combat log**
+  - *Layout:* window width, max rows, row height and spacing, row background
+    opacity (0 = fully transparent), spell icons, incoming events on the right or
+    left, newest row on top or bottom, dimming of older rows, fonts (built-in plus
+    LibSharedMedia), text sizes, outline, short or full numbers.
+  - *Header:* which header parts to show (DPS, HPS, timer, totals, biggest hit).
+  - *Crits:* each crit effect on or off, pop size, crit number size and the crit
+    highlight color.
+  - *Colors:* each event type and the seven damage schools.
+  - *Events:* which event types to show, pin running DoTs (on by default: one
+    counting row per DoT instead of a row per tick; the minimum amount and "only
+    crits" filters then don't apply to DoT ticks), minimum amounts, "only crits"
+    filters and the strict group filter.
+  - *Window:* when the window shows (only in combat or always), how long it stays
+    after combat, fade times, clearing the log when a new fight starts, drag to
+    move, X/Y position, scale, window opacity and frame layer.
+- **Crit alerts:** *Visual* (the pop-up, its look and position), *Sound*, and
+  *Streaks & records* (see below).
+- **Proc alerts:** *General* (on/off, sound), *Buffs* (type a name or spell ID, or
+  pick from the buffs you gained recently) and *Look* (size, color, position).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
-- **Resource display:** on/off, when it shows, fade times, opacity, position, size,
-  bar texture, gloss, border and background, plus its own section for each bar
-  (health, power, druid mana, combo points, cast bar) with on/off, height, colors
-  and text.
-- **Stats & history:** fight summary (display time, scale, position), fight
-  history (how many fights to keep, minimum fight length) and personal records.
-- **Session & minimap:** session tracker, an optional session line above the log
-  window, and the minimap button.
-- **Colors:** each event type, the crit highlight and the seven damage schools.
-- **Position:** drag to move, X/Y position, scale, window opacity and frame layer.
-- **Behaviour:**
-  - when the window shows (only in combat or always), how long it stays after
-    combat, fade times
-  - max rows, and whether to clear the log when a new fight starts
-  - pin running DoTs (on by default): one counting row per DoT instead of a row per
-    tick. With this on, the minimum amount and "only crits" filters don't apply to
-    DoT ticks.
-  - which event types to show
-  - minimum amounts, "only crits" filters, and the strict group filter
+- **Resource display:** *General* (on/off, when it shows, fade times, opacity),
+  *Look* (position, size, bar texture, gloss, border, background), and one sub-tab
+  each for *Health*, *Power* (with druid mana), *Combo points* and *Cast bar*.
+- **Fight summary:** *Summary* (display time, scale, position) and *History &
+  records* (how many fights to keep, minimum fight length, personal records).
+- **Session:** session tracker and an optional session line above the log window.
+- **Minimap button:** show or hide it.
 - **Profiles:** all your characters share the same list of profiles, and each
   character remembers which one it uses. You can create, copy, delete and reset
   profiles.

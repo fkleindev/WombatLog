@@ -7,6 +7,9 @@ local PAGE_WIDTH = 500
 local COL2_X = 260
 local WIDGET_W = 230
 local SIDEBAR_W = 124
+local PAGE_TOP = -50     -- pages of features without sub-tabs
+local SUBTAB_TOP = -50   -- the sub-tab bar
+local SUBPAGE_TOP = -84  -- pages under a sub-tab bar
 
 local widgets = {}
 local refreshing = false
@@ -105,12 +108,12 @@ end
 local Page = {}
 Page.__index = Page
 
-local function NewPage(parent)
+local function NewPage(parent, top)
     local ok, scroll = pcall(CreateFrame, "ScrollFrame", nil, parent, "ScrollFrameTemplate")
     if not ok or not scroll.ScrollBar then
         scroll = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
     end
-    scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", SIDEBAR_W + 26, -50)
+    scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", SIDEBAR_W + 26, top or PAGE_TOP)
     scroll:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -28, 8)
     local child = CreateFrame("Frame", nil, scroll)
     child:SetSize(PAGE_WIDTH, 1)
@@ -460,15 +463,16 @@ function Page:ProcLists()
 end
 
 ---------------------------------------------------------------------------
--- Tabs
+-- Combat log
 ---------------------------------------------------------------------------
 
-local function BuildAppearance(p)
+local function BuildLogLayout(p)
     p:Header("Layout")
     p:Slider("Window width", "appearance.width", 200, 600, 10, px)
-    p:Slider("Row height", "appearance.rowHeight", 14, 40, 1, px, 2)
-    p:Slider("Row spacing", "appearance.rowGap", 0, 10, 1, px)
-    p:Slider("Row background opacity", "appearance.rowBgOpacity", 0, 1, 0.05, pct, 2)
+    p:Slider("Max rows", "behaviour.lines", 3, 30, 1, nil, 2)
+    p:Slider("Row height", "appearance.rowHeight", 14, 40, 1, px)
+    p:Slider("Row spacing", "appearance.rowGap", 0, 10, 1, px, 2)
+    p:Slider("Row background opacity", "appearance.rowBgOpacity", 0, 1, 0.05, pct)
     p:Checkbox("Show spell icons", "appearance.showIcons")
     p:Checkbox("Incoming events on the right", "appearance.mirrorIncoming", 2)
     p:Checkbox("Newest row on top", "appearance.newestOnTop")
@@ -488,18 +492,21 @@ local function BuildAppearance(p)
         { text = "Full (12,345)", value = "full" },
         { text = "Short (12.3k)", value = "short" },
     }, 2)
-
-    p:Header("Header")
-    p:Checkbox("Show header", "appearance.header.show")
-    p:Checkbox("DPS", "appearance.header.dps", 2)
-    p:Checkbox("HPS", "appearance.header.hps")
-    p:Checkbox("Fight timer", "appearance.header.timer", 2)
-    p:Checkbox("Damage / taken totals", "appearance.header.totals")
-    p:Checkbox("Biggest hit", "appearance.header.biggest", 2)
 end
 
-local function BuildCrits(p)
-    p:Header("Crit effects")
+local function BuildLogHeader(p)
+    p:Header("Header")
+    p:Note("The line above the rows with live numbers for the current fight.")
+    p:Checkbox("Show header", "appearance.header.show")
+    p:Checkbox("DPS", "appearance.header.dps")
+    p:Checkbox("HPS", "appearance.header.hps", 2)
+    p:Checkbox("Fight timer", "appearance.header.timer")
+    p:Checkbox("Damage / taken totals", "appearance.header.totals", 2)
+    p:Checkbox("Biggest hit", "appearance.header.biggest")
+end
+
+local function BuildLogCrits(p)
+    p:Header("Crit rows")
     p:Note("Crit rows always get a bigger number and a thicker accent bar. These add the extras on top.")
     p:Checkbox("Pop-in animation", "crit.pop")
     p:Slider("Pop size", "crit.popScale", 1.1, 2.5, 0.1, times, 2)
@@ -509,274 +516,11 @@ local function BuildCrits(p)
     p:Checkbox("Icon border", "crit.iconBorder", 2)
     p:Checkbox("CRIT tag", "crit.tag")
     p:Slider("Crit number size", "appearance.critSize", 10, 40, 1)
-    p:Button("Replay crit animation", function() ns.Display:ReplayCrits() end, 2, -12)
-    p:Note("The crit highlight color is on the Colors tab.")
+    p:Color("Crit highlight color", "colors.crit", 2)
+    p:Button("Replay crit animation", function() ns.Display:ReplayCrits() end)
 end
 
-local function BuildAlerts(p)
-    p:Header("Visual crit alert")
-    p:Note("A separate pop-up over your character whenever you land a crit. It works independently of the log window and its filters.")
-    p:Checkbox("Show visual alert", "alerts.visual.enabled")
-    p:Checkbox("Include heal crits", "alerts.visual.heals", 2)
-    p:Slider("Min amount", "alerts.visual.minAmount", 0, 5000, 10)
-    p:Slider("Display time", "alerts.visual.duration", 0.5, 3, 0.1, secs, 2)
-    p:Slider("Number size", "alerts.visual.size", 20, 80, 1)
-    p:Slider("Scale", "alerts.visual.scale", 0.5, 2, 0.05, times, 2)
-    p:Checkbox("Spell icon", "alerts.visual.showIcon")
-    p:Checkbox("Spell name", "alerts.visual.showName", 2)
-    p:Checkbox("Glow burst", "alerts.visual.glow")
-    p:Checkbox("Use crit highlight color", "alerts.visual.useCritColor", 2)
-    p:Color("Custom alert color", "alerts.visual.color")
-    p:Checkbox("Unlock (drag the alert to move it)", {
-        get = function() return ns.Alerts.crit.unlocked end,
-        set = function(v) ns.Alerts.crit:SetLocked(not v) end,
-    })
-    p:Button("Test", function() ns.Alerts:Test() end)
-    p:Button("Reset position", function()
-        local V, D = ns.db.alerts.visual, ns.defaults.alerts.visual
-        V.x, V.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
-
-    p:Header("Sound crit alert")
-    p:Checkbox("Play sound", "alerts.sound.enabled")
-    p:Checkbox("Include heal crits", "alerts.sound.heals", 2)
-    p:Dropdown("Sound", {
-        get = function() return ns.db.alerts.sound.sound end,
-        set = function(v)
-            ns.db.alerts.sound.sound = v
-            ns.Alerts:PlayConfigured() -- preview on pick
-        end,
-    }, ns.Alerts.SoundOptions)
-    p:Dropdown("Sound channel", "alerts.sound.channel", {
-        { text = "Master", value = "Master" },
-        { text = "Sound effects", value = "SFX" },
-        { text = "Dialog", value = "Dialog" },
-        { text = "Ambience", value = "Ambience" },
-    }, 2)
-    p:Slider("Min amount", "alerts.sound.minAmount", 0, 5000, 10)
-    p:Slider("Min time between sounds", "alerts.sound.throttle", 0, 1, 0.05, secs, 2)
-    p:Button("Play sound", function() ns.Alerts:PlayConfigured() end)
-
-    p:Header("Crit streaks")
-    p:Note("Crits in a row add a growing \"x3 CRIT STREAK\" banner to the crit alert. Any normal hit or miss ends the streak.")
-    p:Checkbox("Show crit streaks", "alerts.streak.enabled")
-    p:Checkbox("Rising sound with the streak", "alerts.streak.escalatingSound", 2)
-    p:Slider("Show from streak", "alerts.streak.min", 2, 5, 1, function(v) return "x" .. v end)
-    p:Button("Test x3", function() ns.Alerts:TestStreak(3) end, 2, -12, 100)
-
-    p:Header("Record alert")
-    p:Note("When a hit beats one of your personal records (see Stats & history), the crit alert shows \"NEW RECORD!\".")
-    p:Checkbox("Record banner", "alerts.record.banner")
-    p:Checkbox("Record fanfare sound", "alerts.record.sound", 2)
-    p:Button("Test record", function() ns.Alerts:TestRecord() end)
-end
-
-local function BuildProcs(p)
-    p:Header("Proc & buff alerts")
-    p:Note("Shows a separate alert, with an optional sound, whenever you gain a buff from your list. Useful for procs like Clearcasting or Overpower windows.")
-    p:Checkbox("Enable proc alerts", "procs.enabled")
-    p:Checkbox("Play sound", "procs.sound", 2)
-    p:Dropdown("Sound", {
-        get = function() return ns.db.procs.soundChoice end,
-        set = function(v)
-            ns.db.procs.soundChoice = v
-            ns.Alerts:PlayProcSound()
-        end,
-    }, ns.Alerts.SoundOptions)
-    p:Dropdown("Sound channel", "procs.channel", {
-        { text = "Master", value = "Master" },
-        { text = "Sound effects", value = "SFX" },
-        { text = "Dialog", value = "Dialog" },
-        { text = "Ambience", value = "Ambience" },
-    }, 2)
-
-    p:Header("Buffs to watch")
-    local box = p:EditBox("Buff name or spell ID")
-    local lists
-    p:Button("Add", function()
-        if ns.Alerts:AddProc(box:GetText()) then
-            box:SetText("")
-            box:ClearFocus()
-            lists.Refresh()
-        end
-    end, 2, -18, 100)
-    lists = p:ProcLists()
-
-    p:Header("Look")
-    p:Slider("Display time", "procs.duration", 0.5, 4, 0.1, secs)
-    p:Slider("Text size", "procs.size", 16, 60, 1, nil, 2)
-    p:Slider("Scale", "procs.scale", 0.5, 2, 0.05, times)
-    p:Color("Proc color", "procs.color", 2)
-    p:Checkbox("Buff icon", "procs.showIcon")
-    p:Checkbox("Buff name", "procs.showName", 2)
-    p:Checkbox("Glow burst", "procs.glow")
-    p:Checkbox("Unlock (drag the alert to move it)", {
-        get = function() return ns.Alerts.proc.unlocked end,
-        set = function(v) ns.Alerts.proc:SetLocked(not v) end,
-    })
-    p:Button("Test", function() ns.Alerts:TestProc() end)
-    p:Button("Reset position", function()
-        local P, D = ns.db.procs, ns.defaults.procs
-        P.x, P.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
-end
-
-local function BuildSwing(p)
-    p:Header("Swing timer")
-    p:Note("A thin lane in the log window, right under the header, that restarts with every auto-attack. When main hand, off hand or ranged run at the same time, they share the lane. It moves, scales and fades with the log window.")
-    p:Checkbox("Show swing timer", "swing.enabled")
-    p:Checkbox("Time left", "swing.showTime", 2)
-    p:Checkbox("Off-hand bar", "swing.offhand")
-    p:Checkbox("Ranged bar (Auto Shot, wands)", "swing.ranged", 2)
-
-    p:Header("Look")
-    p:Slider("Lane height", "swing.height", 3, 20, 1, px)
-    p:Button("Test", function() ns.Swing:Test() end, 2, -12, 100)
-    p:Color("Main hand", "swing.color")
-    p:Color("Off hand", "swing.offColor", 2)
-    p:Color("Ranged", "swing.rangedColor")
-    p:Note("Time left is only drawn when a bar is at least 7 px high.")
-end
-
-local TEXT_MODES = {
-    { text = "None", value = "none" },
-    { text = "Value (12.3k)", value = "value" },
-    { text = "Value / max", value = "valuemax" },
-    { text = "Percent", value = "percent" },
-    { text = "Missing (-1.2k)", value = "deficit" },
-}
-
-local function BuildResources(p)
-    p:Header("Personal resource display")
-    p:Note("Health, power, druid mana, combo points and a cast bar under your character. In combat the game keeps your health and power secret from addons: the bars still fill correctly, but numbers in the text may disappear while you fight.")
-    p:Checkbox("Show resource display", "resources.enabled")
-    p:Button("Test", function() ns.Resources:Test() end, 2, -2, 100)
-    p:Dropdown("Show when", "resources.visibility", {
-        { text = "In combat or not full", value = "combatOrNotFull" },
-        { text = "Only in combat", value = "combat" },
-        { text = "Always", value = "always" },
-    })
-    p:Slider("Opacity", "resources.alpha", 0.1, 1, 0.05, pct, 2)
-    p:Slider("Fade-in time", "resources.fadeIn", 0, 2, 0.05, secs)
-    p:Slider("Fade-out time", "resources.fadeOut", 0, 3, 0.05, secs, 2)
-    p:Checkbox("Power counts for \"not full\"", "resources.power.countForVisibility")
-    p:Note("Rage counts while it is above 0; mana, energy and focus count while they are below full.")
-
-    p:Header("Position & look")
-    p:Checkbox("Unlock (drag the display to move it)", {
-        get = function() return ns.Resources.unlocked end,
-        set = function(v) ns.Resources:SetLocked(not v) end,
-    })
-    p:Button("Reset position", function()
-        local R, D = ns.db.resources, ns.defaults.resources
-        R.x, R.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
-    local sw, sh = math.ceil(GetScreenWidth()), math.ceil(GetScreenHeight())
-    p:Slider("Horizontal position", "resources.x", -sw, sw, 1)
-    p:Slider("Vertical position", "resources.y", -sh, sh, 1, nil, 2)
-    p:Slider("Width", "resources.width", 80, 500, 5, px)
-    p:Slider("Scale", "resources.scale", 0.5, 2.5, 0.05, times, 2)
-    p:Slider("Spacing", "resources.spacing", 0, 10, 1, px)
-    p:Slider("Background opacity", "resources.bgOpacity", 0, 1, 0.05, pct, 2)
-    p:Dropdown("Bar texture", "resources.texture", ns.Resources.TextureOptions)
-    p:Dropdown("Background", "resources.bgStyle", {
-        { text = "Fade (like the log rows)", value = "fade" },
-        { text = "Solid", value = "solid" },
-    }, 2)
-    p:Checkbox("Gloss", "resources.gloss")
-    p:Checkbox("Thin border", "resources.border", 2)
-    p:Checkbox("Smooth bar movement", "resources.smooth")
-
-    p:Header("Health")
-    p:Checkbox("Health bar", "resources.health.enabled")
-    p:Checkbox("Class color", "resources.health.classColor", 2)
-    p:Slider("Height", "resources.health.height", 4, 40, 1, px)
-    p:Color("Custom color", "resources.health.color", 2)
-    p:Dropdown("Left text", "resources.health.textLeft", TEXT_MODES)
-    p:Dropdown("Right text", "resources.health.textRight", TEXT_MODES, 2)
-    p:Slider("Text size", "resources.health.textSize", 7, 20, 1)
-
-    p:Header("Power")
-    p:Checkbox("Power bar (mana, rage, energy)", "resources.power.enabled")
-    p:Checkbox("Power type color", "resources.power.typeColor", 2)
-    p:Slider("Height", "resources.power.height", 2, 30, 1, px)
-    p:Color("Custom color", "resources.power.color", 2)
-    p:Dropdown("Left text", "resources.power.textLeft", TEXT_MODES)
-    p:Dropdown("Right text", "resources.power.textRight", TEXT_MODES, 2)
-    p:Slider("Text size", "resources.power.textSize", 7, 20, 1)
-
-    p:Header("Druid mana")
-    p:Checkbox("Mana bar in bear and cat form", "resources.druidMana.enabled")
-    p:Color("Color", "resources.druidMana.color", 2)
-    p:Slider("Height", "resources.druidMana.height", 2, 20, 1, px)
-
-    p:Header("Combo points")
-    p:Checkbox("Combo point bar", "resources.combo.enabled")
-    p:Checkbox("Only when you have combo points", "resources.combo.onlyWhenActive", 2)
-    p:Slider("Height", "resources.combo.height", 2, 24, 1, px)
-    p:Color("Color", "resources.combo.color", 2)
-    p:Checkbox("Segment lines", "resources.combo.ticks")
-
-    p:Header("Cast bar")
-    p:Checkbox("Cast bar", "resources.castbar.enabled")
-    p:Checkbox("Spell icon", "resources.castbar.icon", 2)
-    p:Checkbox("Spell name", "resources.castbar.name")
-    p:Checkbox("Time left", "resources.castbar.time", 2)
-    p:Slider("Height", "resources.castbar.height", 6, 30, 1, px)
-    p:Slider("Text size", "resources.castbar.textSize", 7, 20, 1, nil, 2)
-    p:Color("Color", "resources.castbar.color")
-    p:Color("Uninterruptible", "resources.castbar.uninterruptibleColor", 2)
-end
-
-local function BuildStats(p)
-    p:Header("Fight summary")
-    p:Note("A card after each fight: DPS, HPS, crit rate, biggest hit, longest streak, top spells and new records. Click it to open the journal, right-click to close, drag to move.")
-    p:Checkbox("Show summary after combat", "stats.summary.enabled")
-    p:Slider("Display time", "stats.summary.duration", 0, 30, 1, function(v)
-        return v == 0 and "until clicked" or (v .. "s")
-    end, 2)
-    p:Slider("Scale", "stats.summary.scale", 0.5, 2, 0.05, times)
-    p:Button("Show last fight", function() ns.Report:TestSummary() end, 2, -12)
-    p:Button("Reset position", function()
-        local S, D = ns.db.stats.summary, ns.defaults.stats.summary
-        S.x, S.y = D.x, D.y
-        ns.ApplyAll(true)
-    end)
-
-    p:Header("Fight history")
-    p:Checkbox("Record fight history", "stats.history.enabled")
-    p:Slider("Fights to keep", "stats.history.keep", 5, 100, 5)
-    p:Slider("Ignore fights shorter than", "stats.history.minDuration", 0, 30, 1, wholeSecs, 2)
-
-    p:Header("Personal records")
-    p:Note("Your best normal hit and best crit per spell, best DPS and longest crit streak, per character. A spell's first hit is saved silently; only beating a record counts as new.")
-    p:Checkbox("Track records", "stats.records.enabled")
-    p:Slider("Best DPS: min fight length", "stats.records.minDpsDuration", 0, 60, 1, wholeSecs)
-    p:Note("The record banner and sound are on the Alerts page.")
-    p:Button("Open journal", function() ns.Report:OpenJournal("fights") end)
-    p:Button("Records", function() ns.Report:OpenJournal("records") end, 2)
-end
-
-local function BuildSession(p)
-    p:Header("Session tracker")
-    p:Note("Tracks this play session: kills, XP per hour, time and kills to the next level, rested XP, deaths and money. A /reload continues the session; logging in again starts a new one.")
-    p:Checkbox("Track session", "session.enabled")
-    p:Checkbox("Session line above the log window", "session.headerLine", 2)
-    p:Button("Open session", function() ns.Report:OpenJournal("session") end)
-    p:Button("Reset session", function()
-        ns.Stats:ResetSession()
-        ns.Print("session reset.")
-    end, 2)
-
-    p:Header("Minimap button")
-    p:Checkbox("Show minimap button", "minimap.enabled")
-    p:Note("Click: journal. Right-click: settings. Shift-click: test fight. Drag it along the minimap edge. WombatLog is also listed in the addon compartment.")
-end
-
-local function BuildColors(p)
+local function BuildLogColors(p)
     p:Header("Row types")
     local kinds = {}
     for _, k in ipairs(KINDS) do
@@ -786,11 +530,8 @@ local function BuildColors(p)
         p:Color(k[2], "colors." .. k[1], (i % 2 == 0) and 2 or nil)
     end
 
-    p:Header("Crits")
-    p:Color("Crit highlight", "colors.crit")
-
     p:Header("Damage schools")
-    p:Note("Your damage rows use the color of the spell's school.")
+    p:Note("Your damage rows use the color of the spell's school. The crit color is on the Crits tab.")
     local i = 0
     for _, mask in ipairs({ 1, 2, 4, 8, 16, 32, 64 }) do
         i = i + 1
@@ -806,11 +547,41 @@ local function BuildColors(p)
     end)
 end
 
-local function BuildPosition(p)
+local function BuildLogEvents(p)
+    p:Header("Events to show")
+    for i, k in ipairs(KINDS) do
+        p:Checkbox(k[2], "behaviour.show." .. k[1], (i % 2 == 0) and 2 or nil)
+    end
+
+    p:Header("Damage over time")
+    p:Checkbox("Pin running DoTs", "behaviour.pinDots")
+    p:Note("One row per DoT on your target that counts up its damage, ticks and crit ticks, with the time left. When the DoT runs out, the row scrolls away like any other.")
+
+    p:Header("Filters")
+    p:Slider("Min amount: your hits & heals", "behaviour.minAmountOut", 0, 5000, 10)
+    p:Slider("Min amount: incoming", "behaviour.minAmountIn", 0, 5000, 10, nil, 2)
+    p:Checkbox("Only crits: your hits & heals", "behaviour.hideNormalOut")
+    p:Checkbox("Only crits: incoming", "behaviour.hideNormalIn", 2)
+    p:Note("Incoming covers damage taken and heals on you. Hidden rows still count toward DPS, HPS and totals.")
+    p:Checkbox("Strict group filter", "behaviour.strict")
+    p:Note("In a group, hits on your target that can't be matched to your own swing or cast are dropped. Turn this off to show them dimmed instead. They never count toward your DPS. (Not needed on Classic clients: there every hit comes with its source.)")
+end
+
+local function BuildLogWindow(p)
     local P = function() return ns.db.position end
     local sw, sh = math.ceil(GetScreenWidth()), math.ceil(GetScreenHeight())
 
-    p:Header("Window")
+    p:Header("Visibility")
+    p:Dropdown("Show the window", "behaviour.visibility", {
+        { text = "Only in combat", value = "combat" },
+        { text = "Always", value = "always" },
+    })
+    p:Slider("Stay after combat", "behaviour.linger", 0, 30, 1, wholeSecs, 2)
+    p:Slider("Fade-in time", "behaviour.fadeIn", 0, 2, 0.05, secs)
+    p:Slider("Fade-out time", "behaviour.fadeOut", 0, 3, 0.05, secs, 2)
+    p:Checkbox("Clear the log when a new fight starts", "behaviour.clearOnNewFight")
+
+    p:Header("Position")
     p:Checkbox("Unlock (drag the window to move it)", {
         get = function() return not ns.locked end,
         set = function(v) ns.Display:SetLocked(not v) end,
@@ -849,34 +620,322 @@ local function BuildPosition(p)
     end, 2)
 end
 
-local function BuildBehaviour(p)
+---------------------------------------------------------------------------
+-- Crit alerts
+---------------------------------------------------------------------------
+
+local SOUND_CHANNELS = {
+    { text = "Master", value = "Master" },
+    { text = "Sound effects", value = "SFX" },
+    { text = "Dialog", value = "Dialog" },
+    { text = "Ambience", value = "Ambience" },
+}
+
+local function BuildAlertVisual(p)
+    p:Header("Visual crit alert")
+    p:Note("A separate pop-up over your character whenever you land a crit. It works independently of the log window and its filters.")
+    p:Checkbox("Show visual alert", "alerts.visual.enabled")
+    p:Checkbox("Include heal crits", "alerts.visual.heals", 2)
+    p:Slider("Min amount", "alerts.visual.minAmount", 0, 5000, 10)
+    p:Slider("Display time", "alerts.visual.duration", 0.5, 3, 0.1, secs, 2)
+
+    p:Header("Look")
+    p:Slider("Number size", "alerts.visual.size", 20, 80, 1)
+    p:Slider("Scale", "alerts.visual.scale", 0.5, 2, 0.05, times, 2)
+    p:Checkbox("Spell icon", "alerts.visual.showIcon")
+    p:Checkbox("Spell name", "alerts.visual.showName", 2)
+    p:Checkbox("Glow burst", "alerts.visual.glow")
+    p:Checkbox("Use crit highlight color", "alerts.visual.useCritColor", 2)
+    p:Color("Custom alert color", "alerts.visual.color")
+
+    p:Header("Position")
+    p:Checkbox("Unlock (drag the alert to move it)", {
+        get = function() return ns.Alerts.crit.unlocked end,
+        set = function(v) ns.Alerts.crit:SetLocked(not v) end,
+    })
+    p:Button("Test", function() ns.Alerts:Test() end)
+    p:Button("Reset position", function()
+        local V, D = ns.db.alerts.visual, ns.defaults.alerts.visual
+        V.x, V.y = D.x, D.y
+        ns.ApplyAll(true)
+    end, 2)
+end
+
+local function BuildAlertSound(p)
+    p:Header("Sound crit alert")
+    p:Checkbox("Play sound", "alerts.sound.enabled")
+    p:Checkbox("Include heal crits", "alerts.sound.heals", 2)
+    p:Dropdown("Sound", {
+        get = function() return ns.db.alerts.sound.sound end,
+        set = function(v)
+            ns.db.alerts.sound.sound = v
+            ns.Alerts:PlayConfigured() -- preview on pick
+        end,
+    }, ns.Alerts.SoundOptions)
+    p:Dropdown("Sound channel", "alerts.sound.channel", SOUND_CHANNELS, 2)
+    p:Slider("Min amount", "alerts.sound.minAmount", 0, 5000, 10)
+    p:Slider("Min time between sounds", "alerts.sound.throttle", 0, 1, 0.05, secs, 2)
+    p:Button("Play sound", function() ns.Alerts:PlayConfigured() end)
+end
+
+local function BuildAlertStreaks(p)
+    p:Header("Crit streaks")
+    p:Note("Crits in a row add a growing \"x3 CRIT STREAK\" banner to the crit alert. Any normal hit or miss ends the streak.")
+    p:Checkbox("Show crit streaks", "alerts.streak.enabled")
+    p:Checkbox("Rising sound with the streak", "alerts.streak.escalatingSound", 2)
+    p:Slider("Show from streak", "alerts.streak.min", 2, 5, 1, function(v) return "x" .. v end)
+    p:Button("Test x3", function() ns.Alerts:TestStreak(3) end, 2, -12, 100)
+
+    p:Header("Record alert")
+    p:Note("When a hit beats one of your personal records, the crit alert shows \"NEW RECORD!\". Which records are tracked is set under Fight summary.")
+    p:Checkbox("Record banner", "alerts.record.banner")
+    p:Checkbox("Record fanfare sound", "alerts.record.sound", 2)
+    p:Button("Test record", function() ns.Alerts:TestRecord() end)
+end
+
+---------------------------------------------------------------------------
+-- Proc alerts
+---------------------------------------------------------------------------
+
+local function BuildProcGeneral(p)
+    p:Header("Proc & buff alerts")
+    p:Note("Shows a separate alert, with an optional sound, whenever you gain a buff from your list (Buffs tab). Useful for procs like Clearcasting or Overpower windows.")
+    p:Checkbox("Enable proc alerts", "procs.enabled")
+    p:Checkbox("Play sound", "procs.sound", 2)
+    p:Dropdown("Sound", {
+        get = function() return ns.db.procs.soundChoice end,
+        set = function(v)
+            ns.db.procs.soundChoice = v
+            ns.Alerts:PlayProcSound()
+        end,
+    }, ns.Alerts.SoundOptions)
+    p:Dropdown("Sound channel", "procs.channel", SOUND_CHANNELS, 2)
+    p:Button("Test", function() ns.Alerts:TestProc() end)
+end
+
+local function BuildProcBuffs(p)
+    p:Header("Buffs to watch")
+    local box = p:EditBox("Buff name or spell ID")
+    local lists
+    p:Button("Add", function()
+        if ns.Alerts:AddProc(box:GetText()) then
+            box:SetText("")
+            box:ClearFocus()
+            lists.Refresh()
+        end
+    end, 2, -18, 100)
+    lists = p:ProcLists()
+end
+
+local function BuildProcLook(p)
+    p:Header("Look")
+    p:Slider("Display time", "procs.duration", 0.5, 4, 0.1, secs)
+    p:Slider("Text size", "procs.size", 16, 60, 1, nil, 2)
+    p:Slider("Scale", "procs.scale", 0.5, 2, 0.05, times)
+    p:Color("Proc color", "procs.color", 2)
+    p:Checkbox("Buff icon", "procs.showIcon")
+    p:Checkbox("Buff name", "procs.showName", 2)
+    p:Checkbox("Glow burst", "procs.glow")
+
+    p:Header("Position")
+    p:Checkbox("Unlock (drag the alert to move it)", {
+        get = function() return ns.Alerts.proc.unlocked end,
+        set = function(v) ns.Alerts.proc:SetLocked(not v) end,
+    })
+    p:Button("Test", function() ns.Alerts:TestProc() end)
+    p:Button("Reset position", function()
+        local P, D = ns.db.procs, ns.defaults.procs
+        P.x, P.y = D.x, D.y
+        ns.ApplyAll(true)
+    end, 2)
+end
+
+---------------------------------------------------------------------------
+-- Swing timer
+---------------------------------------------------------------------------
+
+local function BuildSwing(p)
+    p:Header("Swing timer")
+    p:Note("A thin lane in the log window, right under the header, that restarts with every auto-attack. When main hand, off hand or ranged run at the same time, they share the lane. It moves, scales and fades with the log window.")
+    p:Checkbox("Show swing timer", "swing.enabled")
+    p:Checkbox("Time left", "swing.showTime", 2)
+    p:Checkbox("Off-hand bar", "swing.offhand")
+    p:Checkbox("Ranged bar (Auto Shot, wands)", "swing.ranged", 2)
+
+    p:Header("Look")
+    p:Slider("Lane height", "swing.height", 3, 20, 1, px)
+    p:Button("Test", function() ns.Swing:Test() end, 2, -12, 100)
+    p:Color("Main hand", "swing.color")
+    p:Color("Off hand", "swing.offColor", 2)
+    p:Color("Ranged", "swing.rangedColor")
+    p:Note("Time left is only drawn when a bar is at least 7 px high.")
+end
+
+---------------------------------------------------------------------------
+-- Resource display
+---------------------------------------------------------------------------
+
+local TEXT_MODES = {
+    { text = "None", value = "none" },
+    { text = "Value (12.3k)", value = "value" },
+    { text = "Value / max", value = "valuemax" },
+    { text = "Percent", value = "percent" },
+    { text = "Missing (-1.2k)", value = "deficit" },
+}
+
+local function BuildResGeneral(p)
+    p:Header("Personal resource display")
+    p:Note("Health, power, druid mana, combo points and a cast bar under your character. On Forever and Retail the game keeps your health and power secret from addons in combat: the bars still fill correctly, but numbers in the text may disappear while you fight.")
+    p:Checkbox("Show resource display", "resources.enabled")
+    p:Button("Test", function() ns.Resources:Test() end, 2, -2, 100)
+
     p:Header("Visibility")
-    p:Dropdown("Show the window", "behaviour.visibility", {
+    p:Dropdown("Show when", "resources.visibility", {
+        { text = "In combat or not full", value = "combatOrNotFull" },
         { text = "Only in combat", value = "combat" },
         { text = "Always", value = "always" },
     })
-    p:Slider("Stay after combat", "behaviour.linger", 0, 30, 1, wholeSecs, 2)
-    p:Slider("Fade-in time", "behaviour.fadeIn", 0, 2, 0.05, secs)
-    p:Slider("Fade-out time", "behaviour.fadeOut", 0, 3, 0.05, secs, 2)
-    p:Slider("Max rows", "behaviour.lines", 3, 30, 1)
-    p:Checkbox("Clear the log when a new fight starts", "behaviour.clearOnNewFight", 2)
-    p:Checkbox("Pin running DoTs", "behaviour.pinDots")
-    p:Note("One row per DoT on your target that counts up its damage, ticks and crit ticks, with the time left. When the DoT runs out, the row scrolls away like any other.")
-
-    p:Header("Events to show")
-    for i, k in ipairs(KINDS) do
-        p:Checkbox(k[2], "behaviour.show." .. k[1], (i % 2 == 0) and 2 or nil)
-    end
-
-    p:Header("Filters")
-    p:Slider("Min amount: your hits & heals", "behaviour.minAmountOut", 0, 5000, 10)
-    p:Slider("Min amount: incoming", "behaviour.minAmountIn", 0, 5000, 10, nil, 2)
-    p:Checkbox("Only crits: your hits & heals", "behaviour.hideNormalOut")
-    p:Checkbox("Only crits: incoming", "behaviour.hideNormalIn", 2)
-    p:Note("Incoming covers damage taken and heals on you. Hidden rows still count toward DPS, HPS and totals.")
-    p:Checkbox("Strict group filter", "behaviour.strict")
-    p:Note("In a group, hits on your target that can't be matched to your own swing or cast are dropped. Turn this off to show them dimmed instead. They never count toward your DPS.")
+    p:Slider("Opacity", "resources.alpha", 0.1, 1, 0.05, pct, 2)
+    p:Slider("Fade-in time", "resources.fadeIn", 0, 2, 0.05, secs)
+    p:Slider("Fade-out time", "resources.fadeOut", 0, 3, 0.05, secs, 2)
+    p:Checkbox("Power counts for \"not full\"", "resources.power.countForVisibility")
+    p:Note("Rage counts while it is above 0; mana, energy and focus count while they are below full.")
 end
+
+local function BuildResLook(p)
+    p:Header("Position")
+    p:Checkbox("Unlock (drag the display to move it)", {
+        get = function() return ns.Resources.unlocked end,
+        set = function(v) ns.Resources:SetLocked(not v) end,
+    })
+    p:Button("Reset position", function()
+        local R, D = ns.db.resources, ns.defaults.resources
+        R.x, R.y = D.x, D.y
+        ns.ApplyAll(true)
+    end, 2)
+    local sw, sh = math.ceil(GetScreenWidth()), math.ceil(GetScreenHeight())
+    p:Slider("Horizontal position", "resources.x", -sw, sw, 1)
+    p:Slider("Vertical position", "resources.y", -sh, sh, 1, nil, 2)
+
+    p:Header("Look")
+    p:Slider("Width", "resources.width", 80, 500, 5, px)
+    p:Slider("Scale", "resources.scale", 0.5, 2.5, 0.05, times, 2)
+    p:Slider("Spacing", "resources.spacing", 0, 10, 1, px)
+    p:Slider("Background opacity", "resources.bgOpacity", 0, 1, 0.05, pct, 2)
+    p:Dropdown("Bar texture", "resources.texture", ns.Resources.TextureOptions)
+    p:Dropdown("Background", "resources.bgStyle", {
+        { text = "Fade (like the log rows)", value = "fade" },
+        { text = "Solid", value = "solid" },
+    }, 2)
+    p:Checkbox("Gloss", "resources.gloss")
+    p:Checkbox("Thin border", "resources.border", 2)
+    p:Checkbox("Smooth bar movement", "resources.smooth")
+end
+
+local function BuildResHealth(p)
+    p:Header("Health")
+    p:Checkbox("Health bar", "resources.health.enabled")
+    p:Checkbox("Class color", "resources.health.classColor", 2)
+    p:Slider("Height", "resources.health.height", 4, 40, 1, px)
+    p:Color("Custom color", "resources.health.color", 2)
+    p:Dropdown("Left text", "resources.health.textLeft", TEXT_MODES)
+    p:Dropdown("Right text", "resources.health.textRight", TEXT_MODES, 2)
+    p:Slider("Text size", "resources.health.textSize", 7, 20, 1)
+end
+
+local function BuildResPower(p)
+    p:Header("Power")
+    p:Checkbox("Power bar (mana, rage, energy)", "resources.power.enabled")
+    p:Checkbox("Power type color", "resources.power.typeColor", 2)
+    p:Slider("Height", "resources.power.height", 2, 30, 1, px)
+    p:Color("Custom color", "resources.power.color", 2)
+    p:Dropdown("Left text", "resources.power.textLeft", TEXT_MODES)
+    p:Dropdown("Right text", "resources.power.textRight", TEXT_MODES, 2)
+    p:Slider("Text size", "resources.power.textSize", 7, 20, 1)
+
+    p:Header("Druid mana")
+    p:Checkbox("Mana bar in bear and cat form", "resources.druidMana.enabled")
+    p:Color("Color", "resources.druidMana.color", 2)
+    p:Slider("Height", "resources.druidMana.height", 2, 20, 1, px)
+end
+
+local function BuildResCombo(p)
+    p:Header("Combo points")
+    p:Checkbox("Combo point bar", "resources.combo.enabled")
+    p:Checkbox("Only when you have combo points", "resources.combo.onlyWhenActive", 2)
+    p:Slider("Height", "resources.combo.height", 2, 24, 1, px)
+    p:Color("Color", "resources.combo.color", 2)
+    p:Checkbox("Segment lines", "resources.combo.ticks")
+end
+
+local function BuildResCast(p)
+    p:Header("Cast bar")
+    p:Checkbox("Cast bar", "resources.castbar.enabled")
+    p:Checkbox("Spell icon", "resources.castbar.icon", 2)
+    p:Checkbox("Spell name", "resources.castbar.name")
+    p:Checkbox("Time left", "resources.castbar.time", 2)
+    p:Slider("Height", "resources.castbar.height", 6, 30, 1, px)
+    p:Slider("Text size", "resources.castbar.textSize", 7, 20, 1, nil, 2)
+    p:Color("Color", "resources.castbar.color")
+    p:Color("Uninterruptible", "resources.castbar.uninterruptibleColor", 2)
+end
+
+---------------------------------------------------------------------------
+-- Fight summary, session, minimap
+---------------------------------------------------------------------------
+
+local function BuildStatsSummary(p)
+    p:Header("Fight summary")
+    p:Note("A card after each fight: DPS, HPS, crit rate, biggest hit, longest streak, top spells and new records. Click it to open the journal, right-click to close, drag to move.")
+    p:Checkbox("Show summary after combat", "stats.summary.enabled")
+    p:Slider("Display time", "stats.summary.duration", 0, 30, 1, function(v)
+        return v == 0 and "until clicked" or (v .. "s")
+    end, 2)
+    p:Slider("Scale", "stats.summary.scale", 0.5, 2, 0.05, times)
+    p:Button("Show last fight", function() ns.Report:TestSummary() end, 2, -12)
+    p:Button("Reset position", function()
+        local S, D = ns.db.stats.summary, ns.defaults.stats.summary
+        S.x, S.y = D.x, D.y
+        ns.ApplyAll(true)
+    end)
+end
+
+local function BuildStatsHistory(p)
+    p:Header("Fight history")
+    p:Checkbox("Record fight history", "stats.history.enabled")
+    p:Slider("Fights to keep", "stats.history.keep", 5, 100, 5)
+    p:Slider("Ignore fights shorter than", "stats.history.minDuration", 0, 30, 1, wholeSecs, 2)
+
+    p:Header("Personal records")
+    p:Note("Your best normal hit and best crit per spell, best DPS and longest crit streak, per character. A spell's first hit is saved silently; only beating a record counts as new.")
+    p:Checkbox("Track records", "stats.records.enabled")
+    p:Slider("Best DPS: min fight length", "stats.records.minDpsDuration", 0, 60, 1, wholeSecs)
+    p:Note("The record banner and sound are under Crit alerts, Streaks & records.")
+    p:Button("Open journal", function() ns.Report:OpenJournal("fights") end)
+    p:Button("Records", function() ns.Report:OpenJournal("records") end, 2)
+end
+
+local function BuildSession(p)
+    p:Header("Session tracker")
+    p:Note("Tracks this play session: kills, XP per hour, time and kills to the next level, rested XP, deaths and money. A /reload continues the session; logging in again starts a new one.")
+    p:Checkbox("Track session", "session.enabled")
+    p:Checkbox("Session line above the log window", "session.headerLine", 2)
+    p:Button("Open session", function() ns.Report:OpenJournal("session") end)
+    p:Button("Reset session", function()
+        ns.Stats:ResetSession()
+        ns.Print("session reset.")
+    end, 2)
+end
+
+local function BuildMinimap(p)
+    p:Header("Minimap button")
+    p:Checkbox("Show minimap button", "minimap.enabled")
+    p:Note("Click: journal. Right-click: settings. Shift-click: test fight. Drag it along the minimap edge. WombatLog is also listed in the addon compartment.")
+end
+
+---------------------------------------------------------------------------
+-- Profiles
+---------------------------------------------------------------------------
 
 local function BuildProfiles(p)
     local Profiles = ns.Profiles
@@ -930,18 +989,42 @@ local function BuildProfiles(p)
     end)
 end
 
+-- One sidebar tab per feature; bigger features split into sub-tabs along the top.
+-- An entry is { "Name", builder } or { "Name", { { "Sub-tab", builder }, ... } }.
 local TABS = {
-    { "Appearance", BuildAppearance },
-    { "Crits", BuildCrits },
-    { "Alerts", BuildAlerts },
-    { "Procs", BuildProcs },
+    { "Combat log", {
+        { "Layout", BuildLogLayout },
+        { "Header", BuildLogHeader },
+        { "Crits", BuildLogCrits },
+        { "Colors", BuildLogColors },
+        { "Events", BuildLogEvents },
+        { "Window", BuildLogWindow },
+    } },
+    { "Crit alerts", {
+        { "Visual", BuildAlertVisual },
+        { "Sound", BuildAlertSound },
+        { "Streaks & records", BuildAlertStreaks },
+    } },
+    { "Proc alerts", {
+        { "General", BuildProcGeneral },
+        { "Buffs", BuildProcBuffs },
+        { "Look", BuildProcLook },
+    } },
     { "Swing timer", BuildSwing },
-    { "Resource display", BuildResources },
-    { "Stats & history", BuildStats },
-    { "Session & minimap", BuildSession },
-    { "Colors", BuildColors },
-    { "Position", BuildPosition },
-    { "Behaviour", BuildBehaviour },
+    { "Resource display", {
+        { "General", BuildResGeneral },
+        { "Look", BuildResLook },
+        { "Health", BuildResHealth },
+        { "Power", BuildResPower },
+        { "Combo points", BuildResCombo },
+        { "Cast bar", BuildResCast },
+    } },
+    { "Fight summary", {
+        { "Summary", BuildStatsSummary },
+        { "History & records", BuildStatsHistory },
+    } },
+    { "Session", BuildSession },
+    { "Minimap button", BuildMinimap },
     { "Profiles", BuildProfiles },
 }
 
@@ -949,12 +1032,52 @@ local TABS = {
 -- Panel
 ---------------------------------------------------------------------------
 
-function Config:SelectTab(index)
+-- Sidebar tabs mark the active one on the left edge, sub-tabs along the bottom.
+local function TabButton(parent, label, mark)
+    local b = CreateFrame("Button", nil, parent)
+    local bg = b:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(1, 1, 1, 0.05)
+    local hl = b:CreateTexture(nil, "HIGHLIGHT")
+    hl:SetAllPoints()
+    hl:SetColorTexture(1, 1, 1, 0.08)
+    b.underline = b:CreateTexture(nil, "ARTWORK")
+    b.underline:SetColorTexture(1, 0.82, 0, 0.9)
+    b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    b.text:SetText(label)
+    if mark == "bottom" then
+        b.underline:SetHeight(2)
+        b.underline:SetPoint("BOTTOMLEFT")
+        b.underline:SetPoint("BOTTOMRIGHT")
+        b.text:SetPoint("CENTER", 0, 1)
+    else
+        b.underline:SetWidth(3)
+        b.underline:SetPoint("TOPLEFT")
+        b.underline:SetPoint("BOTTOMLEFT")
+        b.text:SetPoint("LEFT", 10, 0)
+    end
+    return b
+end
+
+local function Highlight(b, on)
+    b.underline:SetShown(on)
+    b.text:SetTextColor(on and 1 or 0.7, on and 0.82 or 0.7, on and 0 or 0.7)
+end
+
+-- sub: which sub-tab to show; each feature remembers its last one.
+function Config:SelectTab(index, sub)
     for i, tab in ipairs(self.tabs) do
         local on = i == index
-        tab.page.scroll:SetShown(on)
-        tab.underline:SetShown(on)
-        tab.text:SetTextColor(on and 1 or 0.7, on and 0.82 or 0.7, on and 0 or 0.7)
+        Highlight(tab, on)
+        if tab.page then tab.page.scroll:SetShown(on) end
+        if tab.subs then
+            if on and sub then tab.sub = sub end
+            tab.bar:SetShown(on)
+            for j, s in ipairs(tab.subs) do
+                Highlight(s, j == tab.sub)
+                s.page.scroll:SetShown(on and j == tab.sub)
+            end
+        end
     end
 end
 
@@ -979,26 +1102,31 @@ function Config:Init()
 
     self.tabs = {}
     for i, def in ipairs(TABS) do
-        local tab = CreateFrame("Button", nil, panel)
+        local tab = TabButton(panel, def[1])
         tab:SetSize(SIDEBAR_W, 24)
         tab:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -50 - (i - 1) * 27)
-        local bg = tab:CreateTexture(nil, "BACKGROUND")
-        bg:SetAllPoints()
-        bg:SetColorTexture(1, 1, 1, 0.05)
-        local hl = tab:CreateTexture(nil, "HIGHLIGHT")
-        hl:SetAllPoints()
-        hl:SetColorTexture(1, 1, 1, 0.08)
-        tab.underline = tab:CreateTexture(nil, "ARTWORK")
-        tab.underline:SetColorTexture(1, 0.82, 0, 0.9)
-        tab.underline:SetWidth(3)
-        tab.underline:SetPoint("TOPLEFT")
-        tab.underline:SetPoint("BOTTOMLEFT")
-        tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        tab.text:SetPoint("LEFT", 10, 0)
-        tab.text:SetText(def[1])
-
-        tab.page = NewPage(panel)
-        def[2](tab.page)
+        if type(def[2]) == "function" then
+            tab.page = NewPage(panel)
+            def[2](tab.page)
+        else
+            tab.sub = 1
+            tab.subs = {}
+            tab.bar = CreateFrame("Frame", nil, panel)
+            tab.bar:SetPoint("TOPLEFT", panel, "TOPLEFT", SIDEBAR_W + 26, SUBTAB_TOP)
+            tab.bar:SetSize(PAGE_WIDTH, 24)
+            local x = 0
+            for j, sub in ipairs(def[2]) do
+                local s = TabButton(tab.bar, sub[1], "bottom")
+                local w = math.ceil(s.text:GetStringWidth()) + 22
+                s:SetSize(w, 24)
+                s:SetPoint("TOPLEFT", x, 0)
+                x = x + w + 3
+                s.page = NewPage(panel, SUBPAGE_TOP)
+                sub[2](s.page)
+                s:SetScript("OnClick", function() Config:SelectTab(i, j) end)
+                tab.subs[j] = s
+            end
+        end
         tab:SetScript("OnClick", function() Config:SelectTab(i) end)
         self.tabs[i] = tab
     end
