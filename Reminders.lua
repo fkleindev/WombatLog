@@ -83,33 +83,53 @@ local function cooldownLeft(spell)
     return math.max(0, start + duration - GetTime())
 end
 
--- Seconds left on your buff with this name: nil when missing, math.huge when it
--- has no duration. unreadable is true when the client hid buff names from us.
-local function buffLeft(name)
-    local unreadable = false
+-- Your buffs as far as the client lets us read them: expiration time by name
+-- (math.huge without a duration). Returns nil when they're hidden: in combat on
+-- Forever and Retail, reading auras even errors ("cannot be accessed when secret").
+local function readBuffs()
+    local buffs = {}
     for i = 1, 40 do
         local auraName, expires
         if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
-            local a = C_UnitAuras.GetAuraDataByIndex("player", i, "HELPFUL")
+            local ok, a = pcall(C_UnitAuras.GetAuraDataByIndex, "player", i, "HELPFUL")
+            if not ok then return nil end
             if not a then break end
             a = SafeTable(a)
-            auraName, expires = a and Safe(a.name), a and Safe(a.expirationTime)
-            if not a then unreadable = true end
+            if not a then return nil end
+            auraName, expires = Safe(a.name), Safe(a.expirationTime)
         elseif UnitBuff then
-            local n, _, _, _, _, exp = UnitBuff("player", i)
-            if not n then break end
+            local ok, n, _, _, _, _, exp = pcall(UnitBuff, "player", i)
+            if not ok then return nil end
+            if n == nil then break end
             auraName, expires = Safe(n), Safe(exp)
         else
-            return nil, true
+            return nil
         end
-        if auraName == nil then
-            unreadable = true
-        elseif auraName == name then
-            if not expires or expires == 0 then return math.huge end
-            return expires - GetTime()
-        end
+        if auraName == nil then return nil end
+        buffs[auraName] = (not expires or expires == 0) and math.huge or expires
     end
-    return nil, unreadable
+    return buffs
+end
+
+-- Last readable state per buff name: expiration time, or false when it was missing.
+-- While buffs are hidden, reminders go on from this (and from your own casts).
+local buffCache = {}
+
+-- Seconds left on your buff with this name: nil when missing, math.huge when it
+-- has no duration. unknown is true when it can't be told at all.
+local function buffLeft(name, buffs)
+    local expires
+    if buffs then
+        expires = buffs[name] or false
+        buffCache[name] = expires
+    else
+        expires = buffCache[name]
+        if expires == nil then return nil, true end
+    end
+    if not expires then return nil end
+    local left = expires - GetTime()
+    if left <= 0 then return nil end
+    return left
 end
 
 ---------------------------------------------------------------------------
@@ -279,6 +299,7 @@ function Reminders:Collect()
     if R.combatOnly and not Safe(UnitAffectingCombat("player")) then return list end
     if Safe(UnitIsDeadOrGhost("player")) or Safe(UnitOnTaxi("player")) then return list end
 
+    local buffs, buffsRead = nil, false
     for _, entry in ipairs(R.list) do
         local name, icon, id = resolve(entry.spell)
         local known = name and (knows(id) or knows(tonumber(entry.spell)))
@@ -291,9 +312,10 @@ function Reminders:Collect()
             if entry.mode == "usable" then
                 show = castable
             else
-                local left, unreadable = buffLeft(name)
+                if not buffsRead then buffs, buffsRead = readBuffs(), true end
+                local left, unknown = buffLeft(name, buffs)
                 if left == nil then
-                    show = not unreadable -- missing (but don't nag when buffs are hidden from us)
+                    show = not unknown -- missing (but don't nag when we can't tell)
                 else
                     show = R.refreshAt > 0 and left < R.refreshAt
                 end
@@ -369,6 +391,12 @@ function Reminders:Test()
     self.shown = {}
     self:Update()
 end
+
+-- Recast while buffs are hidden: count it as on you until they're readable again.
+ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, _, spellID)
+    local info = ns.SpellInfo(Safe(spellID))
+    if info and buffCache[info.name] ~= nil then buffCache[info.name] = math.huge end
+end, "player")
 
 ---------------------------------------------------------------------------
 -- The list
