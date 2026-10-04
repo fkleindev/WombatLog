@@ -101,7 +101,9 @@ sub-tabs along the top.
 - **Spell reminders:** *General* (on/off, only in combat, how early buffs and
   debuffs count as running out, sound), *Spells* (type a name or spell ID, choose "Usable",
   "Buff" or "Debuff" and optionally the key to show on the icon, or add a suggestion for your
-  class; each reminder can also get its own sound or stay silent) and *Look* (icon size, scale, spacing,
+  class; each reminder can also get its own sound or stay silent, and show only in
+  combat or always). The list shows only your class's reminders, so characters
+  sharing a profile don't see each other's. and *Look* (icon size, scale, spacing,
   color, names, glow, position).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.

@@ -126,6 +126,16 @@ local function auraDuration(id)
     return d and d[5]
 end
 
+-- The spell's own cooldown from the shipped spell data (talents aren't included).
+local function spellCooldown(id)
+    local d = id and ns.SPELL_DATA and ns.SPELL_DATA[id]
+    return d and d[6]
+end
+
+-- When the game hides cooldowns (in combat on Forever and Retail), your own casts
+-- tell when a spell is ready again: spell name -> time its cooldown ends.
+local readyAt = {}
+
 local function cooldownLeft(spell)
     local start, duration
     if C_Spell and C_Spell.GetSpellCooldown then
@@ -410,8 +420,8 @@ function Reminders:Collect()
     local R = ns.db.reminders
     local list = {}
     if not R.enabled then return list end
-    if R.combatOnly and not Safe(UnitAffectingCombat("player")) then return list end
     if Safe(UnitIsDeadOrGhost("player")) or Safe(UnitOnTaxi("player")) then return list end
+    local inCombat = Safe(UnitAffectingCombat("player")) and true or false
 
     local buffs, buffsRead = nil, false
     local debuffs, debuffsRead, tkey = nil, false, nil
@@ -419,22 +429,22 @@ function Reminders:Collect()
     for _, entry in ipairs(R.list) do
         local name, icon, id = resolve(entry.spell)
         local known = name and (knows(id) or knows(tonumber(entry.spell)))
-        if known then
+        if known and self:IsMine(entry) and (inCombat or not self.CombatOnly(entry)) then
             local spell = id or name
+            -- In combat on Forever and Retail both can be secret (nil here). The
+            -- cooldown then comes from your last cast and the spell data; a reactive
+            -- ability follows its trigger. Usability includes the resource cost, so
+            -- when it is secret, resources can't be checked (they're secret too).
             local usable = isUsable(spell)
             local cd = cooldownLeft(spell)
-            -- In combat on Forever and Retail both can be secret (nil here). A reactive
-            -- ability then follows its trigger; an unknown cooldown doesn't block.
+            if cd == nil then cd = math.max(0, (readyAt[name] or 0) - GetTime()) end
             if usable == nil and reactiveRule(name) then
                 usable = (reactiveOpen[name] or 0) > GetTime()
             end
-            local unknown = usable == nil and cd == nil
-            local castable = usable ~= false and (cd == 0 or (cd == nil and usable == true))
+            local castable = usable ~= false and cd == 0
             local show = false
             if entry.mode == "usable" then
-                show = castable and not unknown
-            elseif unknown then
-                castable = true -- can't tell: don't dim
+                show = castable
             elseif entry.mode == "debuff" then
                 if hostile then
                     if not debuffsRead then
@@ -535,6 +545,8 @@ ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, _, spellID)
     local duration = auraDuration(spellID)
     local expires = duration and GetTime() + duration or math.huge
     reactiveOpen[info.name] = nil -- used up
+    local cooldown = spellCooldown(spellID)
+    readyAt[info.name] = cooldown and GetTime() + cooldown or nil
     for _, entry in ipairs(ns.db.reminders.list) do
         if (resolve(entry.spell)) == info.name then
             if entry.mode == "buff" then
@@ -548,6 +560,52 @@ ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, _, spellID)
         end
     end
 end, "player")
+
+-- /wl debug: what the game lets us read for each reminder right now. Run it in
+-- combat to see which values are secret.
+function Reminders:Debug()
+    local function show(v)
+        if v ~= nil and issecretvalue and issecretvalue(v) then return "|cffff8080secret|r" end
+        return tostring(v)
+    end
+    local list = ns.db.reminders.list
+    if #list == 0 then
+        ns.Print("spell reminders: none in the list")
+        return
+    end
+    local power = UnitPower("player")
+    ns.Print("spell reminders (" .. (Safe(UnitAffectingCombat("player")) and "in combat" or "out of combat")
+        .. "), your power: " .. show(power))
+    for _, entry in ipairs(list) do
+        local name, _, id = resolve(entry.spell)
+        if not name then
+            ns.Print("  " .. entry.spell .. ": not found")
+        else
+            local spell = id or name
+            local usable, cdStart, cdDur
+            if C_Spell and C_Spell.IsSpellUsable then
+                usable = C_Spell.IsSpellUsable(spell)
+            elseif IsUsableSpell then
+                usable = IsUsableSpell(spell)
+            end
+            if C_Spell and C_Spell.GetSpellCooldown then
+                local c = C_Spell.GetSpellCooldown(spell)
+                if c and issecrettable and issecrettable(c) then
+                    cdStart = c -- the whole table is secret
+                elseif c then
+                    local ok = pcall(function() cdStart, cdDur = c.startTime, c.duration end)
+                    if not ok then cdStart = "error" end
+                end
+            elseif GetSpellCooldown then
+                cdStart, cdDur = GetSpellCooldown(spell)
+            end
+            local tracked = math.max(0, (readyAt[name] or 0) - GetTime())
+            ns.Print(string.format("  %s (%s, id %s): usable %s, cooldown %s/%s, own cast: %.1fs left, data cooldown %s",
+                name, entry.mode, tostring(id), show(usable), show(cdStart), show(cdDur), tracked,
+                tostring(spellCooldown(id))))
+        end
+    end
+end
 
 -- An attack on you ("in") or yours ("out") was parried, dodged or blocked: opens
 -- the window of the reactive abilities it enables. Called by both combat sources.
@@ -569,11 +627,50 @@ end)
 -- The list
 ---------------------------------------------------------------------------
 
+-- The list is part of the profile, which all your characters may share, so every
+-- reminder belongs to the class that added it. Older ones without a class go to
+-- the first class that knows the spell.
+local function playerClass()
+    return select(2, UnitClass("player"))
+end
+
+function Reminders:IsMine(entry)
+    if entry.class then return entry.class == playerClass() end
+    local name, _, id = resolve(entry.spell)
+    if name and (knows(id) or knows(tonumber(entry.spell))) then
+        entry.class = playerClass()
+        return true
+    end
+    return false
+end
+
+-- Indexes (into the whole list) of this class's reminders, in list order.
+function Reminders:Visible()
+    local out = {}
+    for i, entry in ipairs(ns.db.reminders.list) do
+        if self:IsMine(entry) then out[#out + 1] = i end
+    end
+    return out
+end
+
 function Reminders:Find(text)
     local l = (text or ""):lower()
     for i, entry in ipairs(ns.db.reminders.list) do
-        if entry.spell:lower() == l then return i end
+        if entry.spell:lower() == l and self:IsMine(entry) then return i end
     end
+end
+
+-- when: nil follows "Only in combat" on the General tab, or "combat" / "always".
+function Reminders.CombatOnly(entry)
+    if entry.when == "combat" then return true end
+    if entry.when == "always" then return false end
+    return ns.db.reminders.combatOnly
+end
+
+function Reminders:SetWhen(index, when)
+    local entry = ns.db.reminders.list[index]
+    if entry then entry.when = when end
+    self:Update()
 end
 
 -- key: optional text shown on the icon, the key you press for it ("Q", "S-2")
@@ -586,7 +683,7 @@ function Reminders:Add(text, mode, key)
     text = strtrim(text or "")
     if text == "" or self:Find(text) then return false end
     mode = (mode == "buff" or mode == "debuff") and mode or "usable"
-    table.insert(ns.db.reminders.list, { spell = text, mode = mode, key = cleanKey(key) })
+    table.insert(ns.db.reminders.list, { spell = text, mode = mode, key = cleanKey(key), class = playerClass() })
     self:Update()
     return true
 end

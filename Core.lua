@@ -624,6 +624,7 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.Print("client: " .. ns.FLAVOR .. " (" .. INTERFACE .. "), hits from "
             .. (ns.useCombatLog and "the combat log (exact)" or "UNIT_COMBAT (estimated)"))
         ns.Resources:Debug()
+        ns.Reminders:Debug()
     elseif cmd == "trace" then
         ns.trace = not ns.trace
         ns.Print("event trace " .. (ns.trace and "on - hits, casts and swings print to chat" or "off"))

@@ -530,9 +530,11 @@ function Page:ReminderLists()
     emptySuggested:SetText("No more suggestions for your class and level.")
 
     holder.Refresh = function()
-        local list = ns.db.reminders.list
-        for i, r in ipairs(mine) do
-            local entry = list[i]
+        -- only this class's reminders; i is the index into the whole list
+        local list, visible = ns.db.reminders.list, ns.Reminders:Visible()
+        for row, r in ipairs(mine) do
+            local i = visible[row]
+            local entry = i and list[i]
             if entry then
                 local name, icon = ns.Reminders.Describe(entry.spell)
                 r.icon:SetTexture(icon)
@@ -554,7 +556,7 @@ function Page:ReminderLists()
                 r:Hide()
             end
         end
-        emptyMine:SetShown(#list == 0)
+        emptyMine:SetShown(#visible == 0)
         local sugg = ns.Reminders:Suggestions()
         for i, r in ipairs(suggested) do
             local sg = sugg[i]
@@ -1004,7 +1006,7 @@ local function BuildRemGeneral(p)
     p:Header("Spell reminders")
     p:Note("Icons that light up while a spell from your list (Spells tab) wants attention. \"Usable\": the spell is usable right now and off cooldown, such as Riposte after a parry or Overpower after a dodge. \"Buff\": your buff of that name is missing or about to run out, such as Battle Shout or Arcane Intellect. \"Debuff\": your debuff of that name on your hostile target is missing or about to run out, such as a DoT, Sunder Armor or Hunter's Mark.")
     p:Checkbox("Enable spell reminders", "reminders.enabled")
-    p:Checkbox("Only in combat", "reminders.combatOnly", 2)
+    p:Checkbox("Only in combat (default for each reminder)", "reminders.combatOnly", 2)
     p:Slider("Refresh buffs with less than", "reminders.refreshAt", 0, 60, 1, function(v)
         return v == 0 and "only when missing" or (v .. "s left")
     end)
@@ -1014,6 +1016,7 @@ local function BuildRemGeneral(p)
     end)
     p:Note("Buff and debuff reminders are dimmed while you can't cast the spell (no mana, on cooldown, target out of range).")
     p:Note("On Forever and Retail the game hides auras from addons during combat. Reminders then go on from what they last saw and from your own casts: a debuff you cast counts as on the target for its normal duration, even if it was resisted or dispelled. Classic clients always see the real auras.")
+    p:Note("Cooldowns can be hidden there in combat, too: a \"Usable\" reminder then disappears when you cast the spell and comes back when its normal cooldown (from the game data, without talents) is over. Whether you have enough mana, rage or energy can only be checked while the game shows it. /wl debug lists what is readable right now.")
 
     p:Header("Default sound")
     p:Checkbox("Play a sound when a reminder comes up", "reminders.sound")
@@ -1055,8 +1058,8 @@ local function BuildRemSpells(p)
     p:Note("The key appears in the icon's corner, like on an action button. Edit it in the list (Enter saves). Click a reminder's type to switch between Usable, Buff and Debuff. Spells you don't know (yet) stay in the list but never show.")
     lists = p:ReminderLists()
 
-    p:Header("Sound per reminder")
-    p:Note("Every reminder can have its own sound. \"Default\" uses the sound from the General tab (if that is on), \"None\" keeps the reminder silent.")
+    p:Header("Reminder details")
+    p:Note("Pick a reminder to give it its own sound and to choose when it shows. \"Default\" follows the General tab; a sound of \"None\" keeps the reminder silent.")
     local selected -- the spell text of the reminder being edited
     local function entryIndex()
         if selected then return ns.Reminders:Find(selected) end
@@ -1066,7 +1069,7 @@ local function BuildRemSpells(p)
         for _, o in ipairs(ns.Alerts.SoundOptions()) do list[#list + 1] = o end
         return list
     end
-    local soundDropdown
+    local soundDropdown, whenDropdown
     p:Dropdown("Reminder", {
         get = function()
             if not entryIndex() then selected = nil end
@@ -1075,10 +1078,12 @@ local function BuildRemSpells(p)
         set = function(v)
             selected = v
             soundDropdown.Refresh()
+            whenDropdown.Refresh()
         end,
     }, function()
         local list = {}
-        for _, entry in ipairs(ns.db.reminders.list) do
+        for _, i in ipairs(ns.Reminders:Visible()) do
+            local entry = ns.db.reminders.list[i]
             list[#list + 1] = { text = (ns.Reminders.Describe(entry.spell)), value = entry.spell }
         end
         return list
@@ -1097,6 +1102,21 @@ local function BuildRemSpells(p)
             if play then ns.Alerts.PlaySound(play, ns.db.reminders.channel) end -- preview on pick
         end,
     }, soundChoices, 2)
+    whenDropdown = p:Dropdown("Show", {
+        get = function()
+            local i = entryIndex()
+            if not i then return nil end
+            return ns.db.reminders.list[i].when or "default"
+        end,
+        set = function(v)
+            local i = entryIndex()
+            if i then ns.Reminders:SetWhen(i, v ~= "default" and v or nil) end
+        end,
+    }, {
+        { text = "Default (General tab)", value = "default" },
+        { text = "Only in combat", value = "combat" },
+        { text = "Always", value = "always" },
+    })
 end
 
 local function BuildRemLook(p)
