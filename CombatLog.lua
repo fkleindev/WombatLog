@@ -223,6 +223,18 @@ local function onEvent()
         spellId, spellName = a1, a2
     end
 
+    -- enemy casts, for interrupt reminders
+    if not mine then
+        if sub == "SPELL_CAST_START" then
+            ns.Reminders:OnEnemyCast(sourceGUID, spellId, spellName)
+        elseif sub == "SPELL_CAST_SUCCESS" or sub == "SPELL_CAST_FAILED" then
+            ns.Reminders:OnEnemyCastEnd(sourceGUID)
+        end
+    end
+    if sub == "SPELL_INTERRUPT" or sub == "UNIT_DIED" then
+        ns.Reminders:OnEnemyCastEnd(destGUID)
+    end
+
     if mine then
         if sub == "SWING_DAMAGE" then
             -- amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing, isOffHand

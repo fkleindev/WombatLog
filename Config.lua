@@ -463,7 +463,7 @@ function Page:ProcLists()
 end
 
 -- Two lists side by side: your reminders (type toggle, remove) and class suggestions (add).
-local MODE_TEXT = { usable = "Usable", buff = "Buff", debuff = "Debuff" }
+local MODE_TEXT = { usable = "Usable", buff = "Buff", debuff = "Debuff", interrupt = "Interrupt" }
 
 function Page:ReminderLists()
     local holder = CreateFrame("Frame", nil, self.child)
@@ -1004,7 +1004,7 @@ end
 
 local function BuildRemGeneral(p)
     p:Header("Spell reminders")
-    p:Note("Icons that light up while a spell from your list (Spells tab) wants attention. \"Usable\": the spell is usable right now and off cooldown, such as Riposte after a parry or Overpower after a dodge. \"Buff\": your buff of that name is missing or about to run out, such as Battle Shout or Arcane Intellect. \"Debuff\": your debuff of that name on your hostile target is missing or about to run out, such as a DoT, Sunder Armor or Hunter's Mark.")
+    p:Note("Icons that light up while a spell from your list (Spells tab) wants attention. \"Usable\": the spell is usable right now and off cooldown, such as Riposte after a parry or Overpower after a dodge. \"Buff\": your buff of that name is missing or about to run out, such as Battle Shout or Arcane Intellect. \"Debuff\": your debuff of that name on your hostile target is missing or about to run out, such as a DoT, Sunder Armor or Hunter's Mark. \"Interrupt\": the spell is usable while your hostile target casts something you can interrupt, such as Kick or Counterspell.")
     p:Checkbox("Enable spell reminders", "reminders.enabled")
     p:Checkbox("Only in combat (default for each reminder)", "reminders.combatOnly", 2)
     p:Slider("Refresh buffs with less than", "reminders.refreshAt", 0, 60, 1, function(v)
@@ -1042,6 +1042,7 @@ local function BuildRemSpells(p)
         { text = "Usable (Riposte, Overpower)", value = "usable" },
         { text = "Buff missing (Battle Shout)", value = "buff" },
         { text = "Debuff missing on target (Sunder, DoTs)", value = "debuff" },
+        { text = "Interrupt (target is casting)", value = "interrupt" },
     }, 2)
     local keyBox = p:EditBox("Key to show (optional, e.g. Q or S-2)")
     keyBox:SetMaxLetters(8)
@@ -1055,7 +1056,7 @@ local function BuildRemSpells(p)
             lists.Refresh()
         end
     end, 2, -18, 100)
-    p:Note("The key appears in the icon's corner, like on an action button. Edit it in the list (Enter saves). Click a reminder's type to switch between Usable, Buff and Debuff. Spells you don't know (yet) stay in the list but never show.")
+    p:Note("The key appears in the icon's corner, like on an action button. Edit it in the list (Enter saves). Click a reminder's type to switch between Usable, Buff, Debuff and Interrupt. Spells you don't know (yet) stay in the list but never show.")
     lists = p:ReminderLists()
 
     p:Header("Reminder details")

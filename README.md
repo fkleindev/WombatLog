@@ -29,7 +29,8 @@ combat starts and fades out a few seconds after it ends.
   either because it just became usable (Riposte after a parry, Overpower, Execute)
   because its buff on you is missing or about to run out (Battle Shout, Arcane
   Intellect), or because your debuff on your target is missing or about to run out
-  (DoTs, Sunder Armor, Hunter's Mark). On Forever and Retail, where auras are hidden
+  (DoTs, Sunder Armor, Hunter's Mark), or because your target is casting something
+  you can interrupt (Kick, Pummel, Counterspell). On Forever and Retail, where auras are hidden
   from addons in combat, reminders go on from what they last saw and from your own
   casts. Each reminder can show the key to press and play its own sound;
   WombatLog brings a set of soft sounds made for this (soft bell, double ping,
@@ -103,7 +104,7 @@ sub-tabs along the top.
   pick from the buffs you gained recently) and *Look* (size, color, position).
 - **Spell reminders:** *General* (on/off, only in combat, how early buffs and
   debuffs count as running out, sound), *Spells* (type a name or spell ID, choose "Usable",
-  "Buff" or "Debuff" and optionally the key to show on the icon, or add a suggestion for your
+  "Buff", "Debuff" or "Interrupt" and optionally the key to show on the icon, or add a suggestion for your
   class; each reminder can also get its own sound or stay silent, and show only in
   combat or always). The list shows only your class's reminders, so characters
   sharing a profile don't see each other's. and *Look* (icon size, scale, spacing,

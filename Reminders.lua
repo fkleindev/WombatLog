@@ -10,6 +10,8 @@ local Safe, SafeTable = ns.Safe, ns.SafeTable
 --             Arcane Intellect, armors, ...)
 --   "debuff": your debuff of that name on your hostile target is missing or about
 --             to run out (DoTs, Sunder Armor, Hunter's Mark, Faerie Fire, ...)
+--   "interrupt": usable while your hostile target is casting something you can
+--             interrupt (Kick, Pummel, Counterspell, Earth Shock, ...)
 
 local MEDIA = "Interface\\AddOns\\WombatLog\\Media\\"
 local GLOW = MEDIA .. "Glow"
@@ -25,18 +27,26 @@ Reminders.SUGGESTIONS = {
     WARRIOR = {
         { 7384, "usable" }, { 6572, "usable" }, { 5308, "usable" }, { 6673, "buff" },
         { 7386, "debuff" }, { 772, "debuff" }, { 1160, "debuff" }, { 6343, "debuff" },
+        { 6552, "interrupt" }, { 72, "interrupt" },
     },
-    ROGUE = { { 14251, "usable" }, { 8647, "debuff" } },
+    ROGUE = { { 14251, "usable" }, { 8647, "debuff" }, { 1766, "interrupt" } },
     HUNTER = {
         { 1495, "usable" }, { 19306, "usable" }, { 13165, "buff" }, { 19506, "buff" },
-        { 1130, "debuff" }, { 1978, "debuff" },
+        { 1130, "debuff" }, { 1978, "debuff" }, { 147362, "interrupt" },
     },
-    MAGE = { { 1459, "buff" }, { 168, "buff" }, { 7302, "buff" }, { 6117, "buff" } },
-    PRIEST = { { 1243, "buff" }, { 588, "buff" }, { 589, "debuff" } },
-    DRUID = { { 1126, "buff" }, { 467, "buff" }, { 770, "debuff" }, { 8921, "debuff" }, { 5570, "debuff" } },
+    MAGE = { { 1459, "buff" }, { 168, "buff" }, { 7302, "buff" }, { 6117, "buff" }, { 2139, "interrupt" } },
+    PRIEST = { { 1243, "buff" }, { 588, "buff" }, { 589, "debuff" }, { 15487, "interrupt" } },
+    DRUID = {
+        { 1126, "buff" }, { 467, "buff" }, { 770, "debuff" }, { 8921, "debuff" }, { 5570, "debuff" },
+        { 106839, "interrupt" },
+    },
     WARLOCK = { { 687, "buff" }, { 706, "buff" }, { 172, "debuff" }, { 980, "debuff" }, { 348, "debuff" } },
-    SHAMAN = { { 324, "buff" }, { 8050, "debuff" } },
-    PALADIN = { { 19740, "buff" }, { 25780, "buff" } },
+    SHAMAN = { { 324, "buff" }, { 8050, "debuff" }, { 8042, "interrupt" }, { 57994, "interrupt" } },
+    PALADIN = { { 19740, "buff" }, { 25780, "buff" }, { 96231, "interrupt" } },
+    DEATHKNIGHT = { { 47528, "interrupt" } },
+    DEMONHUNTER = { { 183752, "interrupt" } },
+    MONK = { { 116705, "interrupt" } },
+    EVOKER = { { 351338, "interrupt" } },
 }
 
 -- Abilities that only become usable after something happened in combat. On Forever
@@ -601,6 +611,7 @@ function Reminders:Collect()
     local buffs, buffsRead = nil, false
     local debuffs, debuffsRead, tkey = nil, false, nil
     local hostile = hostileTarget()
+    local casting -- checked once, only when an interrupt reminder needs it
     for _, entry in ipairs(R.list) do
         local name, icon, id = resolve(entry.spell)
         local known = name and (knows(id) or knows(tonumber(entry.spell)))
@@ -620,6 +631,12 @@ function Reminders:Collect()
             local show = false
             if entry.mode == "usable" then
                 show = castable
+            elseif entry.mode == "interrupt" then
+                if hostile and castable then
+                    if casting == nil then casting = targetCasting() end
+                    show = casting
+                    if show and inRange(spell) == false then castable = false end
+                end
             elseif entry.mode == "debuff" then
                 if hostile then
                     if not debuffsRead then
@@ -783,6 +800,74 @@ function Reminders:Debug()
     end
 end
 
+---------------------------------------------------------------------------
+-- Enemy casts (for interrupt reminders)
+---------------------------------------------------------------------------
+
+-- Casts seen in the combat log (Classic): GUID -> time the cast should end. Older
+-- Classic clients don't always show other units' casts through UnitCastingInfo.
+local enemyCasts = {}
+local CAST_GUESS = 3 -- when a cast's length is unknown
+
+local function castTime(spellId, spellName)
+    local ms
+    local key = (spellId and spellId > 0) and spellId or spellName
+    if not key then return nil end
+    if C_Spell and C_Spell.GetSpellInfo then
+        local info = SafeTable(C_Spell.GetSpellInfo(key))
+        ms = info and Safe(info.castTime)
+    elseif GetSpellInfo then
+        ms = select(4, GetSpellInfo(key))
+    end
+    if ms and ms > 0 then return ms / 1000 end
+end
+
+function Reminders:OnEnemyCast(guid, spellId, spellName)
+    if not guid then return end
+    enemyCasts[guid] = GetTime() + math.min(10, castTime(spellId, spellName) or CAST_GUESS)
+    self:Update()
+end
+
+function Reminders:OnEnemyCastEnd(guid)
+    if guid and enemyCasts[guid] then
+        enemyCasts[guid] = nil
+        self:Update()
+    end
+end
+
+-- One value from the cast APIs: true if there is one (secret counts), false if not.
+local function present(v)
+    if v ~= nil and issecretvalue and issecretvalue(v) then return true end
+    return v ~= nil
+end
+
+-- Is your target casting or channeling something you can interrupt? On Forever
+-- and Retail the details can be secret in combat: any cast then counts, and an
+-- unknown "can't be interrupted" counts as interruptible.
+local function targetCasting()
+    local name, _, _, _, _, _, _, notInterruptible = UnitCastingInfo("target")
+    if present(name) then return Safe(notInterruptible) ~= true end
+    local cname, _, _, _, _, _, cNotInterruptible = UnitChannelInfo("target")
+    if present(cname) then return Safe(cNotInterruptible) ~= true end
+    local guid = Safe(UnitGUID("target"))
+    local ends = guid and enemyCasts[guid]
+    if ends then
+        if GetTime() < ends then return true end
+        enemyCasts[guid] = nil
+    end
+    return false
+end
+
+-- React right away when the target starts or stops casting (interrupts are urgent).
+for _, ev in ipairs({
+    "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED", "UNIT_SPELLCAST_INTERRUPTED",
+    "UNIT_SPELLCAST_CHANNEL_START", "UNIT_SPELLCAST_CHANNEL_STOP",
+}) do
+    ns.Listen(ev, function()
+        if Reminders.frame then Reminders:Update() end
+    end, "target")
+end
+
 -- An attack on you ("in") or yours ("out") was parried, dodged or blocked: opens
 -- the window of the reactive abilities it enables. Called by both combat sources.
 function Reminders:OnAvoid(dir, outcome)
@@ -858,7 +943,7 @@ end
 function Reminders:Add(text, mode, key)
     text = strtrim(text or "")
     if text == "" or self:Find(text) then return false end
-    mode = (mode == "buff" or mode == "debuff") and mode or "usable"
+    mode = (mode == "buff" or mode == "debuff" or mode == "interrupt") and mode or "usable"
     table.insert(ns.db.reminders.list, { spell = text, mode = mode, key = cleanKey(key), class = playerClass() })
     self:Update()
     return true
@@ -875,7 +960,7 @@ function Reminders:SetKey(index, key)
     self:Update()
 end
 
-local NEXT_MODE = { usable = "buff", buff = "debuff", debuff = "usable" }
+local NEXT_MODE = { usable = "buff", buff = "debuff", debuff = "interrupt", interrupt = "usable" }
 
 function Reminders:ToggleMode(index)
     local entry = ns.db.reminders.list[index]
