@@ -133,6 +133,14 @@ ns.defaults.resources = {
                 color = { 1.00, 0.75, 0.25 }, uninterruptibleColor = { 0.60, 0.60, 0.60 } },
 }
 
+-- pop-up when a mob you fought dies: XP counting up, XP bar, multi-kills, sound
+ns.defaults.killAlert = {
+    enabled = true, noXpKills = true,  -- also kills without XP (grey mobs, max level)
+    showXP = true, showBar = true, showName = true, multiKill = true, duration = 2.5,
+    sound = true, soundChoice = "wl:kill", channel = "Master", risingPitch = true,
+    size = 30, scale = 1, color = { 0.72, 0.52, 1.00 }, x = 0, y = 260,
+}
+
 ns.defaults.session = { enabled = true, headerLine = false }
 ns.defaults.minimap = { enabled = true, angle = 200 }
 
@@ -291,6 +299,7 @@ function ns.ApplyAll(refreshPanel)
     ns.Resources:Apply()
     ns.Minimap:Apply()
     ns.Reminders:Apply()
+    ns.KillAlert:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
 
@@ -587,6 +596,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.Resources:Init()
     ns.Minimap:Init()
     ns.Reminders:Init()
+    ns.KillAlert:Init()
     if ns.Config then ns.Config:Init() end
 end)
 

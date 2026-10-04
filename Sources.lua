@@ -362,6 +362,7 @@ local function onTarget(action, flag, amount, school)
     if a then labelFromAction(e, a) else labelUnmatched(e, school) end
     if mine then
         if e.kind ~= "avoid" then rememberHit(e, a) end
+        if e.kind == "damage" then ns.KillAlert:OnHitTarget() end -- its death counts as your kill
         ns.OnOutgoing(e)
         if e.kind == "avoid" then ns.Reminders:OnAvoid("out", action) end -- Overpower
     end

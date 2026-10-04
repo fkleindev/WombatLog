@@ -31,6 +31,9 @@ local CUSTOM_SOUNDS = {
     { value = "wl:glass", text = "WombatLog: Glass", file = MEDIA .. "Sounds\\ReminderGlass.ogg", streak = "ReminderGlassStreak" },
     { value = "wl:ready", text = "WombatLog: Ready", file = MEDIA .. "Sounds\\ReminderReady.ogg", streak = "ReminderReadyStreak" },
     { value = "wl:woodblock", text = "WombatLog: Wood block", file = MEDIA .. "Sounds\\ReminderWoodblock.ogg", streak = "ReminderWoodblockStreak" },
+    -- for kill alerts
+    { value = "wl:kill", text = "WombatLog: Kill", file = MEDIA .. "Sounds\\Kill.ogg", streak = "KillStreak" },
+    { value = "wl:xp", text = "WombatLog: XP sparkle", file = MEDIA .. "Sounds\\XPSparkle.ogg", streak = "XPSparkleStreak" },
 }
 
 -- Only offered when the client's SOUNDKIT table actually has the key.
@@ -91,16 +94,23 @@ function Alerts:PlayConfigured()
     play(S.sound, S.channel)
 end
 
--- The crit sound raised for a streak of n. Sounds from WoW or SharedMedia have no
--- raised copies, so they play as they are.
-function Alerts:PlayStreak(n)
-    local S = ns.db.alerts.sound
-    for _, s in ipairs(CUSTOM_SOUNDS) do
-        if s.value == S.sound then
-            return PlaySoundFile(MEDIA .. "Sounds\\" .. s.streak .. math.min(n, 4) .. ".ogg", S.channel)
+-- A sound raised for step n of a streak (2, 3, 4+). Sounds from WoW or SharedMedia
+-- have no raised copies, so they play as they are.
+function Alerts.PlayRaised(value, channel, n)
+    if n and n >= 2 then
+        for _, s in ipairs(CUSTOM_SOUNDS) do
+            if s.value == value and s.streak then
+                return PlaySoundFile(MEDIA .. "Sounds\\" .. s.streak .. math.min(n, 4) .. ".ogg", channel)
+            end
         end
     end
-    play(S.sound, S.channel)
+    play(value, channel)
+end
+
+-- The crit sound raised for a crit streak of n.
+function Alerts:PlayStreak(n)
+    local S = ns.db.alerts.sound
+    Alerts.PlayRaised(S.sound, S.channel, n)
 end
 
 function Alerts:PlayProcSound()

@@ -36,6 +36,9 @@ combat starts and fades out a few seconds after it ends.
   pluck, marimba, glass, ready, wood block).
 - **Personal resource display** under your character: health, power, druid mana,
   combo points and a cast bar.
+- **Kill alerts:** a rewarding pop-up when a mob you fought dies, with the XP you got
+  counting up, your XP bar filling, "LEVEL UP!", a multi-kill counter and a sound
+  that rises with each kill in a row.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
@@ -105,6 +108,9 @@ sub-tabs along the top.
   combat or always). The list shows only your class's reminders, so characters
   sharing a profile don't see each other's. and *Look* (icon size, scale, spacing,
   color, names, glow, animations, position).
+- **Kill alerts:** *General* (on/off, kills without XP, what to show, display time),
+  *Sound* (sound, channel, rising pitch for multi-kills) and *Look* (text size, scale,
+  XP color, position).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),
@@ -292,6 +298,7 @@ As a result:
 | `Stats.lua` | Fight statistics, history, records, crit streaks and the session tracker |
 | `Alerts.lua` | Crit, streak, record and proc alerts (visual and sound) |
 | `Reminders.lua` | Spell reminders (usable spells, buffs to refresh) |
+| `KillAlert.lua` | Kill alert (XP, XP bar, multi-kills) |
 | `Report.lua` | Fight summary card and the journal window |
 | `Swing.lua` | Swing timer lane inside the log window |
 | `Resources.lua` | Personal resource display |

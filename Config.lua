@@ -1143,6 +1143,58 @@ local function BuildRemLook(p)
 end
 
 ---------------------------------------------------------------------------
+-- Kill alerts
+---------------------------------------------------------------------------
+
+local function BuildKillGeneral(p)
+    p:Header("Kill alert")
+    p:Note("A pop-up when a mob you fought dies: the XP you got counting up, the mob's name, your XP bar filling and, for kills in quick succession, a multi-kill counter.")
+    p:Checkbox("Show kill alerts", "killAlert.enabled")
+    p:Button("Test", function() ns.KillAlert:Test() end, 2, -2, 100)
+    p:Checkbox("Also kills without XP (grey mobs, max level)", "killAlert.noXpKills")
+    p:Slider("Display time", "killAlert.duration", 1, 6, 0.5, secs, 2)
+    p:Checkbox("XP gained", "killAlert.showXP")
+    p:Checkbox("XP bar", "killAlert.showBar", 2)
+    p:Checkbox("Mob name", "killAlert.showName")
+    p:Checkbox("Multi-kill counter", "killAlert.multiKill", 2)
+    p:Note("Kills come from the XP message on every client. On Classic clients the combat log also reports kills without XP. On Forever and Retail there is no such event: a kill without XP is noticed when your target dies after you hit it, so it has to be targeted.")
+end
+
+local function BuildKillSound(p)
+    p:Header("Sound")
+    p:Checkbox("Play a sound", "killAlert.sound")
+    p:Checkbox("Rising pitch for multi-kills", "killAlert.risingPitch", 2)
+    p:Dropdown("Sound", {
+        get = function() return ns.db.killAlert.soundChoice end,
+        set = function(v)
+            local K = ns.db.killAlert
+            K.soundChoice = v
+            ns.Alerts.PlaySound(v, K.channel)
+        end,
+    }, ns.Alerts.SoundOptions)
+    p:Dropdown("Sound channel", "killAlert.channel", SOUND_CHANNELS, 2)
+    p:Note("Rising pitch works with the WombatLog sounds; sounds from WoW or SharedMedia play unchanged.")
+end
+
+local function BuildKillLook(p)
+    p:Header("Look")
+    p:Slider("Text size", "killAlert.size", 16, 60, 1)
+    p:Slider("Scale", "killAlert.scale", 0.5, 2, 0.05, times, 2)
+    p:Color("XP color", "killAlert.color")
+
+    p:Header("Position")
+    p:Checkbox("Unlock (drag the alert to move it)", {
+        get = function() return ns.KillAlert.unlocked end,
+        set = function(v) ns.KillAlert:SetLocked(not v) end,
+    })
+    p:Button("Reset position", function()
+        local K, D = ns.db.killAlert, ns.defaults.killAlert
+        K.x, K.y = D.x, D.y
+        ns.ApplyAll(true)
+    end, 2)
+end
+
+---------------------------------------------------------------------------
 -- Fight summary, session, minimap
 ---------------------------------------------------------------------------
 
@@ -1276,6 +1328,11 @@ local TABS = {
         { "General", BuildRemGeneral },
         { "Spells", BuildRemSpells },
         { "Look", BuildRemLook },
+    } },
+    { "Kill alerts", {
+        { "General", BuildKillGeneral },
+        { "Sound", BuildKillSound },
+        { "Look", BuildKillLook },
     } },
     { "Swing timer", BuildSwing },
     { "Resource display", {
@@ -1412,6 +1469,7 @@ function Config:Init()
         if ns.Alerts.crit.unlocked then ns.Alerts.crit:SetLocked(true) end
         if ns.Alerts.proc.unlocked then ns.Alerts.proc:SetLocked(true) end
         if ns.Reminders.unlocked then ns.Reminders:SetLocked(true) end
+        if ns.KillAlert.unlocked then ns.KillAlert:SetLocked(true) end
     end)
 
     if Settings and Settings.RegisterCanvasLayoutCategory then

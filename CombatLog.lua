@@ -253,6 +253,7 @@ local function onEvent()
             if fromMe then onCast(spellId, spellName) end
             return
         elseif sub == "PARTY_KILL" then
+            ns.KillAlert:OnKill(destName, destGUID, nil, nil)
             ns.Emit({ kind = "kill", dir = "out", name = destName or "?", icon = ICONS.kill })
             return
         elseif sub == "SPELL_AURA_APPLIED" or sub == "SPELL_AURA_REFRESH" or sub == "SPELL_AURA_REMOVED" then
