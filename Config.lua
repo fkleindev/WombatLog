@@ -462,6 +462,121 @@ function Page:ProcLists()
     return holder
 end
 
+-- Two lists side by side: your reminders (type toggle, remove) and class suggestions (add).
+local MODE_TEXT = { usable = "Usable", buff = "Buff" }
+
+function Page:ReminderLists()
+    local holder = CreateFrame("Frame", nil, self.child)
+    holder:SetSize(PAGE_WIDTH - 32, 24 + LIST_ROWS * 22)
+    local left = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    left:SetPoint("TOPLEFT")
+    left:SetText("Your reminders")
+    local right = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    right:SetPoint("TOPLEFT", COL2_X - 16, 0)
+    right:SetText("Suggestions for your class")
+
+    local function makeRow(x, i, twoButtons)
+        local r = CreateFrame("Frame", nil, holder)
+        r:SetSize(WIDGET_W, 20)
+        r:SetPoint("TOPLEFT", x, -20 - (i - 1) * 22)
+        r.icon = r:CreateTexture(nil, "ARTWORK")
+        r.icon:SetSize(16, 16)
+        r.icon:SetPoint("LEFT")
+        r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        r.text:SetPoint("LEFT", 20, 0)
+        r.text:SetWidth(WIDGET_W - (twoButtons and 150 or 86))
+        r.text:SetJustifyH("LEFT")
+        r.text:SetWordWrap(false)
+        r.btn = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.btn:SetPoint("RIGHT")
+        if twoButtons then
+            r.btn:SetSize(24, 18)
+            r.btn:SetText("X")
+            r.mode = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+            r.mode:SetSize(58, 18)
+            r.mode:SetPoint("RIGHT", r.btn, "LEFT", -2, 0)
+            -- the key shown on the icon; saved on Enter or when the box loses focus
+            r.keyBox = CreateFrame("EditBox", nil, r, "InputBoxTemplate")
+            r.keyBox:SetSize(36, 18)
+            r.keyBox:SetPoint("RIGHT", r.mode, "LEFT", -4, 0)
+            r.keyBox:SetAutoFocus(false)
+            r.keyBox:SetMaxLetters(8)
+            r.keyBox:SetScript("OnEscapePressed", r.keyBox.ClearFocus)
+            r.keyBox:SetScript("OnEnterPressed", r.keyBox.ClearFocus)
+            r.keyBox:SetScript("OnEditFocusLost", function(box)
+                if r.index then ns.Reminders:SetKey(r.index, box:GetText()) end
+            end)
+        else
+            r.btn:SetSize(60, 18)
+            r.btn:SetText("Add")
+        end
+        return r
+    end
+    local mine, suggested = {}, {}
+    for i = 1, LIST_ROWS do
+        mine[i] = makeRow(0, i, true)
+        suggested[i] = makeRow(COL2_X - 16, i, false)
+    end
+    local emptyMine = holder:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    emptyMine:SetPoint("TOPLEFT", 0, -22)
+    emptyMine:SetWidth(WIDGET_W)
+    emptyMine:SetJustifyH("LEFT")
+    emptyMine:SetText("Empty. Add a spell by name or spell ID above, or pick a suggestion on the right.")
+    local emptySuggested = holder:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    emptySuggested:SetPoint("TOPLEFT", COL2_X - 16, -22)
+    emptySuggested:SetWidth(WIDGET_W)
+    emptySuggested:SetJustifyH("LEFT")
+    emptySuggested:SetText("No more suggestions for your class and level.")
+
+    holder.Refresh = function()
+        local list = ns.db.reminders.list
+        for i, r in ipairs(mine) do
+            local entry = list[i]
+            if entry then
+                local name, icon = ns.Reminders.Describe(entry.spell)
+                r.icon:SetTexture(icon)
+                r.text:SetText(name)
+                r.mode:SetText(MODE_TEXT[entry.mode] or entry.mode)
+                r.index = i
+                if not r.keyBox:HasFocus() then r.keyBox:SetText(entry.key or "") end
+                r.mode:SetScript("OnClick", function()
+                    ns.Reminders:ToggleMode(i)
+                    holder.Refresh()
+                end)
+                r.btn:SetScript("OnClick", function()
+                    ns.Reminders:Remove(i)
+                    holder.Refresh()
+                end)
+                r:Show()
+            else
+                r.index = nil
+                r:Hide()
+            end
+        end
+        emptyMine:SetShown(#list == 0)
+        local sugg = ns.Reminders:Suggestions()
+        for i, r in ipairs(suggested) do
+            local sg = sugg[i]
+            if sg then
+                r.icon:SetTexture(sg.icon or 134400)
+                r.text:SetText(sg.name .. " |cff999999(" .. MODE_TEXT[sg.mode] .. ")|r")
+                r.btn:SetScript("OnClick", function()
+                    ns.Reminders:Add(sg.text, sg.mode)
+                    holder.Refresh()
+                end)
+                r:Show()
+            else
+                r:Hide()
+            end
+        end
+        emptySuggested:SetShown(#sugg == 0)
+    end
+    register(holder)
+    self:Add(holder, 30 + LIST_ROWS * 22)
+    return holder
+end
+
 ---------------------------------------------------------------------------
 -- Combat log
 ---------------------------------------------------------------------------
@@ -881,6 +996,82 @@ local function BuildResCast(p)
 end
 
 ---------------------------------------------------------------------------
+-- Spell reminders
+---------------------------------------------------------------------------
+
+local function BuildRemGeneral(p)
+    p:Header("Spell reminders")
+    p:Note("Icons that light up while a spell from your list (Spells tab) wants attention. \"Usable\": the spell is usable right now and off cooldown, such as Riposte after a parry or Overpower after a dodge. \"Buff\": your buff of that name is missing or about to run out, such as Battle Shout or Arcane Intellect.")
+    p:Checkbox("Enable spell reminders", "reminders.enabled")
+    p:Checkbox("Only in combat", "reminders.combatOnly", 2)
+    p:Slider("Refresh buffs with less than", "reminders.refreshAt", 0, 60, 1, function(v)
+        return v == 0 and "only when missing" or (v .. "s left")
+    end)
+    p:Button("Test", function() ns.Reminders:Test() end, 2, -12, 100)
+    p:Note("A buff reminder is dimmed while you can't cast the spell (no mana, on cooldown).")
+
+    p:Header("Sound")
+    p:Checkbox("Play a sound when a reminder comes up", "reminders.sound")
+    p:Dropdown("Sound", {
+        get = function() return ns.db.reminders.soundChoice end,
+        set = function(v)
+            local R = ns.db.reminders
+            R.soundChoice = v
+            ns.Alerts.PlaySound(v, R.channel)
+        end,
+    }, ns.Alerts.SoundOptions)
+    p:Dropdown("Sound channel", "reminders.channel", SOUND_CHANNELS, 2)
+end
+
+local function BuildRemSpells(p)
+    p:Header("Spells to watch")
+    local box = p:EditBox("Spell name or spell ID")
+    local addMode = "usable"
+    p:Dropdown("Remind when", {
+        get = function() return addMode end,
+        set = function(v) addMode = v end,
+    }, {
+        { text = "Usable (Riposte, Overpower)", value = "usable" },
+        { text = "Buff missing (Battle Shout)", value = "buff" },
+    }, 2)
+    local keyBox = p:EditBox("Key to show (optional, e.g. Q or S-2)")
+    keyBox:SetMaxLetters(8)
+    local lists
+    p:Button("Add", function()
+        if ns.Reminders:Add(box:GetText(), addMode, keyBox:GetText()) then
+            box:SetText("")
+            keyBox:SetText("")
+            box:ClearFocus()
+            keyBox:ClearFocus()
+            lists.Refresh()
+        end
+    end, 2, -18, 100)
+    p:Note("The key appears in the icon's corner, like on an action button. Edit it in the list (Enter saves). Click a reminder's type to switch between Usable and Buff. Spells you don't know (yet) stay in the list but never show.")
+    lists = p:ReminderLists()
+end
+
+local function BuildRemLook(p)
+    p:Header("Look")
+    p:Slider("Icon size", "reminders.size", 20, 80, 1, px)
+    p:Slider("Scale", "reminders.scale", 0.5, 2, 0.05, times, 2)
+    p:Slider("Spacing", "reminders.spacing", 0, 20, 1, px)
+    p:Color("Highlight color", "reminders.color", 2)
+    p:Checkbox("Spell name", "reminders.showName")
+    p:Checkbox("Pulsing glow", "reminders.glow", 2)
+
+    p:Header("Position")
+    p:Checkbox("Unlock (drag the icons to move them)", {
+        get = function() return ns.Reminders.unlocked end,
+        set = function(v) ns.Reminders:SetLocked(not v) end,
+    })
+    p:Button("Reset position", function()
+        local R, D = ns.db.reminders, ns.defaults.reminders
+        R.x, R.y = D.x, D.y
+        ns.ApplyAll(true)
+    end, 2)
+end
+
+---------------------------------------------------------------------------
 -- Fight summary, session, minimap
 ---------------------------------------------------------------------------
 
@@ -1009,6 +1200,11 @@ local TABS = {
         { "General", BuildProcGeneral },
         { "Buffs", BuildProcBuffs },
         { "Look", BuildProcLook },
+    } },
+    { "Spell reminders", {
+        { "General", BuildRemGeneral },
+        { "Spells", BuildRemSpells },
+        { "Look", BuildRemLook },
     } },
     { "Swing timer", BuildSwing },
     { "Resource display", {
@@ -1144,6 +1340,7 @@ function Config:Init()
         if not ns.locked then ns.Display:SetLocked(true) end
         if ns.Alerts.crit.unlocked then ns.Alerts.crit:SetLocked(true) end
         if ns.Alerts.proc.unlocked then ns.Alerts.proc:SetLocked(true) end
+        if ns.Reminders.unlocked then ns.Reminders:SetLocked(true) end
     end)
 
     if Settings and Settings.RegisterCanvasLayoutCategory then

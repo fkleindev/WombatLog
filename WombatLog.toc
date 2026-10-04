@@ -19,6 +19,7 @@ CombatLog.lua
 Stats.lua
 Display.lua
 Alerts.lua
+Reminders.lua
 Report.lua
 Swing.lua
 Resources.lua

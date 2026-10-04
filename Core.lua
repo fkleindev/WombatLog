@@ -136,6 +136,16 @@ ns.defaults.resources = {
 ns.defaults.session = { enabled = true, headerLine = false }
 ns.defaults.minimap = { enabled = true, angle = 200 }
 
+-- icons for spells that want attention: usable now (Riposte) or a buff to refresh
+ns.defaults.reminders = {
+    enabled = true, combatOnly = false,
+    refreshAt = 10,             -- buff reminders also show when less than this is left (0 = only when missing)
+    list = {},                  -- { spell = "Riposte" or "14251", mode = "usable" | "buff" }
+    sound = false, soundChoice = "wl:proc", channel = "Master",
+    size = 40, scale = 1, spacing = 6, showName = true, glow = true,
+    color = { 1.00, 0.82, 0.18 }, x = 0, y = 60,
+}
+
 ns.fight = { active = false, start = 0, stop = nil, damage = 0, healing = 0, taken = 0 }
 ns.locked = true
 
@@ -278,6 +288,7 @@ function ns.ApplyAll(refreshPanel)
     ns.Report:Apply()
     ns.Resources:Apply()
     ns.Minimap:Apply()
+    ns.Reminders:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
 
@@ -573,6 +584,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.Report:Init()
     ns.Resources:Init()
     ns.Minimap:Init()
+    ns.Reminders:Init()
     if ns.Config then ns.Config:Init() end
 end)
 

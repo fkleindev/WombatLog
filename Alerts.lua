@@ -81,6 +81,7 @@ local function play(value, channel)
     -- unknown or missing sound: fall back to the default chime
     PlaySoundFile(CUSTOM_SOUNDS[1].file, channel)
 end
+Alerts.PlaySound = play -- also used by the spell reminders
 
 function Alerts:PlayConfigured()
     local S = ns.db.alerts.sound

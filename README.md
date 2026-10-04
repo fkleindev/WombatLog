@@ -25,6 +25,10 @@ combat starts and fades out a few seconds after it ends.
 - **Crit streaks and records:** crits in a row grow a "x3 CRIT STREAK" banner with a
   rising sound, and beating a personal record shows "NEW RECORD!" with a fanfare.
 - **Proc alerts** for buffs you choose, such as Clearcasting.
+- **Spell reminders:** icons that light up while a spell you chose wants attention,
+  either because it just became usable (Riposte after a parry, Overpower, Execute)
+  or because its buff on you is missing or about to run out (Battle Shout, Arcane
+  Intellect).
 - **Personal resource display** under your character: health, power, druid mana,
   combo points and a cast bar.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
@@ -89,6 +93,11 @@ sub-tabs along the top.
   *Streaks & records* (see below).
 - **Proc alerts:** *General* (on/off, sound), *Buffs* (type a name or spell ID, or
   pick from the buffs you gained recently) and *Look* (size, color, position).
+- **Spell reminders:** *General* (on/off, only in combat, how early buffs count as
+  running out, sound), *Spells* (type a name or spell ID, choose "Usable" or
+  "Buff" and optionally the key to show on the icon, or add a suggestion for your
+  class) and *Look* (icon size, scale, spacing,
+  color, names, glow, position).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),
@@ -273,6 +282,7 @@ As a result:
 | `Display.lua` | The window, header, rows, animations and live preview |
 | `Stats.lua` | Fight statistics, history, records, crit streaks and the session tracker |
 | `Alerts.lua` | Crit, streak, record and proc alerts (visual and sound) |
+| `Reminders.lua` | Spell reminders (usable spells, buffs to refresh) |
 | `Report.lua` | Fight summary card and the journal window |
 | `Swing.lua` | Swing timer lane inside the log window |
 | `Resources.lua` | Personal resource display |
