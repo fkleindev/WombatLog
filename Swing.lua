@@ -140,11 +140,25 @@ end
 -- Events
 ---------------------------------------------------------------------------
 
-ns.Listen("PLAYER_SWING", function(...)
-    if not (ns.db and ns.db.swing.enabled and Swing.lane) then return end
+-- A melee swing of yours; isOff nil when the client doesn't say which hand.
+function Swing:OnSwing(isOff)
+    if not (ns.db and ns.db.swing.enabled and self.lane) then return end
     local main, off = UnitAttackSpeed("player")
     main, off = Safe(main) or 2, Safe(off)
+    if isOff == nil and off then
+        -- no hint: a swing early in the main-hand cycle has to be the off-hand
+        local m = self.bars.main
+        isOff = m.active and (GetTime() - m.start) < m.dur * 0.5
+    end
+    if isOff then
+        self:Start("off", off or main)
+    else
+        self:Start("main", main)
+    end
+end
 
+-- Forever: PLAYER_SWING (clients with the combat log call OnSwing from CombatLog.lua)
+ns.Listen("PLAYER_SWING", function(...)
     -- the payload may say which hand swung; read it defensively
     local isOff
     for i = 1, select("#", ...) do
@@ -156,16 +170,7 @@ ns.Listen("PLAYER_SWING", function(...)
             if u:find("OFF") then isOff = true elseif u:find("MAIN") then isOff = false end
         end
     end
-    if isOff == nil and off then
-        -- no hint: a swing early in the main-hand cycle has to be the off-hand
-        local m = Swing.bars.main
-        isOff = m.active and (GetTime() - m.start) < m.dur * 0.5
-    end
-    if isOff then
-        Swing:Start("off", off or main)
-    else
-        Swing:Start("main", main)
-    end
+    Swing:OnSwing(isOff)
 end)
 
 ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, _, spellID)

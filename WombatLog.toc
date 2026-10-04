@@ -1,4 +1,4 @@
-## Interface: 16001
+## Interface: 16001, 11509, 20506, 50504, 120100
 ## Title: WombatLog
 ## Notes: Borderless, transparent in-combat feed of your combat events with live DPS/HPS, crit alerts, fight journal and session stats.
 ## Version: 1.1.0
@@ -9,8 +9,13 @@
 ## AddonCompartmentFuncOnLeave: WombatLog_OnAddonCompartmentLeave
 
 Core.lua
-SpellData.lua
+SpellData_Forever.lua
+SpellData_Vanilla.lua
+SpellData_TBC.lua
+SpellData_Mists.lua
+SpellData_Retail.lua
 Sources.lua
+CombatLog.lua
 Stats.lua
 Display.lua
 Alerts.lua

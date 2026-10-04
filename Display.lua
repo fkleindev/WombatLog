@@ -791,7 +791,7 @@ local function PinEntry(e, now)
     return {
         kind = e.kind, dir = e.dir, name = e.name, icon = e.icon, school = e.school, spellID = e.spellID,
         amount = 0, ticks = 0, critTicks = 0,
-        pin = { key = e.spellID or e.name, period = e.tickPeriod, lastTick = now },
+        pin = { key = e.pinKey or e.spellID or e.name, period = e.tickPeriod, lastTick = now },
     }
 end
 
@@ -825,7 +825,7 @@ function Display:Push(e, instant)
     local now = GetTime()
     local pinned = e.tick and not e.dim and ns.db.behaviour.pinDots
     if pinned then
-        local existing = FindPin(e.spellID or e.name)
+        local existing = FindPin(e.pinKey or e.spellID or e.name)
         if existing then
             AddTick(existing.entry, e, now)
             Fill(existing, existing.entry)
@@ -864,6 +864,12 @@ function Display:Push(e, instant)
     r:Show()
 
     if crit and not instant then PlayCrit(r) end
+end
+
+-- The DoT behind this pin key is gone (the combat log said so): unpin it now.
+function Display:EndPin(key)
+    local r = key and FindPin(key)
+    if r and not r.entry.pin.frozen then Unpin(r) end
 end
 
 -- Settings preview: a pinned DoT frozen half-way.

@@ -1,6 +1,15 @@
 # WombatLog
 
-A combat feed for **World of Warcraft: Forever** (client 1.60.1, interface 16001).
+A combat feed for World of Warcraft. Supported clients:
+
+| Client | Version | Where hits come from |
+| --- | --- | --- |
+| WoW Forever | 1.60.1 | Estimated from the events addons may still read |
+| Classic Era (incl. Hardcore, Season of Discovery) | 1.15.9 | Exact, from the combat log |
+| TBC Anniversary | 2.5.6 | Exact, from the combat log |
+| Mists of Pandaria Classic | 5.5.4 | Exact, from the combat log |
+| Retail (Midnight) | 12.1 | Estimated, best effort (see below) |
+
 Your combat events show up in a borderless, transparent window that fades in when
 combat starts and fades out a few seconds after it ends.
 
@@ -34,7 +43,8 @@ Every extra feature can be turned off on its own in the settings.
 ## Installation
 
 1. Download or clone this repository.
-2. Copy the folder to `<WoW Forever install>\Interface\AddOns\WombatLog`. The folder
+2. Copy the folder to `<WoW install>\<_client_>\Interface\AddOns\WombatLog` of your
+   client (for example `_classic_era_`, `_anniversary_`, `_classic_`, `_retail_`). The folder
    must contain `WombatLog.toc` and the `Media` folder.
 3. Restart the game, or `/reload` if it was already running.
 
@@ -171,9 +181,16 @@ session, and logging in again starts a new one. Test fights are never saved.
 
 ## How it works and its limits
 
-Forever uses the same addon restrictions as retail Midnight: addons can't read the
-combat log (`COMBAT_LOG_EVENT_UNFILTERED` is blocked). WombatLog builds its feed from
-the events that are still allowed:
+**Classic clients** (Era, TBC Anniversary, Mists Classic) still give addons the
+combat log (`COMBAT_LOG_EVENT_UNFILTERED`). There every row comes straight from it,
+with the real source, target, spell and flags: nothing is guessed, AoE hits on mobs
+you haven't targeted count too, and a pinned DoT ends exactly when its debuff fades
+(`CombatLog.lua`). The rest of this section is about the other clients.
+
+**Forever and Retail** use the Midnight addon restrictions: addons can't read the
+combat log, and some values are kept secret during combat. WombatLog builds its feed
+from the events that are still allowed (`Sources.lua`). On Retail that is best
+effort: whatever the client keeps secret is left out.
 
 | Source | Used for |
 | --- | --- |
@@ -190,7 +207,8 @@ the events that are still allowed:
 Every hit on your target is matched to the swing or cast most likely behind it:
 
 - **Built-in spell data:** WombatLog ships the facts for every class spell of all
-  classes and all ranks, generated from the WoW Forever game data: damage school,
+  classes and all ranks, generated from each client's own game data (one
+  `SpellData_<Client>.lua` per client, since spell IDs and mechanics differ): damage school,
   direct damage or heal, damage over time with its tick interval and duration, channeling,
   "on next swing" and projectiles, and spells that never deal damage (Hunter's
   Mark, Concussive Shot, seals). These are right from the first cast. Learning only
@@ -248,8 +266,9 @@ As a result:
 | File | Purpose |
 | --- | --- |
 | `Core.lua` | Settings defaults, profiles, the fight start/end cycle, filters, slash commands |
-| `SpellData.lua` | Generated facts for every class spell (school, DoT ticks, channels, …) |
-| `Sources.lua` | Turns game events into feed entries and decides which hits are yours |
+| `SpellData_*.lua` | Generated facts for every class spell, one file per client (school, DoT ticks and duration, channels, …) |
+| `Sources.lua` | Forever and Retail: turns game events into feed entries and decides which hits are yours |
+| `CombatLog.lua` | Classic clients: turns the combat log into feed entries |
 | `Display.lua` | The window, header, rows, animations and live preview |
 | `Stats.lua` | Fight statistics, history, records, crit streaks and the session tracker |
 | `Alerts.lua` | Crit, streak, record and proc alerts (visual and sound) |
@@ -261,11 +280,12 @@ As a result:
 | `Media/Gradient.tga` | White-to-transparent texture used for the row backgrounds |
 | `Media/Glow.tga` | Radial glow used by the crit alert |
 | `Media/Sounds/*.ogg` | Alert sounds (crit, streak, record, proc) |
-| `tools/gen_spelldata.py` | Regenerates `SpellData.lua` from a WoW Forever build's game data (via wago.tools) |
+| `tools/gen_spelldata.py` | Regenerates the `SpellData_*.lua` files from each client's game data via wago.tools (`--all`, or `--flavor forever\|vanilla\|tbc\|mists\|retail [--build x.y.z.n]`) |
 | `tools/gen_media.py` | Regenerates everything in `Media` (`pip install numpy soundfile`) |
 
 ## Reporting problems
 
 Run `/console scriptErrors 1` so errors show on screen, reproduce the problem, and
-open an issue with the full error text. Forever is in beta, so its API can change
-between builds.
+open an issue with the full error text, and the output of `/wl debug` (it shows which
+client and which data source WombatLog detected). Forever is in beta, so its API can
+change between builds.

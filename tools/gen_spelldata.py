@@ -1,11 +1,15 @@
-"""Generates SpellData.lua: what every class spell does, from the game's own data.
+"""Generates SpellData_<Flavor>.lua: what every class spell does, from the game's own data.
 
-Reads the DB2 tables of a WoW Forever build from wago.tools (CSV export) and writes,
-for every class ability and every rank: damage school, whether it deals direct
-damage or heals, damage over time (tick interval, school and duration), channeling,
-on-next-swing, projectiles, and spells that never deal damage at all.
+Reads the DB2 tables of a WoW build from wago.tools (CSV export) and writes, for every
+class ability and every rank: damage school, whether it deals direct damage or heals,
+damage over time (tick interval, school and duration), channeling, on-next-swing,
+projectiles, and spells that never deal damage at all. Spell IDs and mechanics differ
+between game versions, so every supported client gets its own file; each file only
+builds its table on the client it belongs to.
 
-Run from the repository root:  python tools/gen_spelldata.py [--build 1.60.1.70205]
+Run from the repository root:
+    python tools/gen_spelldata.py --all                  every supported client
+    python tools/gen_spelldata.py --flavor tbc [--build 2.5.6.69795]
 Needs only the Python standard library and internet access.
 """
 import argparse
@@ -16,7 +20,14 @@ import urllib.request
 from collections import defaultdict
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-DEFAULT_BUILD = "1.60.1.70205"
+# flavor -> (file suffix, default build); the flavor names match ns.FLAVOR in Core.lua
+FLAVORS = {
+    "forever": ("Forever", "1.60.1.70205"),
+    "vanilla": ("Vanilla", "1.15.9.70003"),
+    "tbc": ("TBC", "2.5.6.69795"),
+    "mists": ("Mists", "5.5.4.70032"),
+    "retail": ("Retail", "12.1.0.69933"),
+}
 TABLES = ["SpellMisc", "SpellEffect", "SkillLineAbility", "SkillLine", "SpellName", "SpellDuration"]
 CLASS_SKILL_CATEGORY = "7"
 
@@ -35,6 +46,8 @@ PERIODIC_DUMMY = 226
 ATTR0_PASSIVE = 0x40
 ATTR0_NEXT_SWING = 0x4 | 0x400
 ATTR1_CHANNELED = 0x4 | 0x40
+TRIGGER_SPELL = 64
+ORDER = "dhwnorcpux"
 
 
 def load(table, build, cache):
@@ -52,13 +65,8 @@ def load(table, build, cache):
     return list(csv.DictReader(io.StringIO(text)))
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--build", default=DEFAULT_BUILD)
-    ap.add_argument("--cache", help="folder to keep downloaded CSVs in")
-    ap.add_argument("--out", default=os.path.join(ROOT, "SpellData.lua"))
-    args = ap.parse_args()
-    t = {name: load(name, args.build, args.cache) for name in TABLES}
+def generate(flavor, build, cache, out):
+    t = {name: load(name, build, cache) for name in TABLES}
 
     class_lines = {r["ID"] for r in t["SkillLine"] if r["CategoryID"] == CLASS_SKILL_CATEGORY}
     spells = sorted({int(r["Spell"]) for r in t["SkillLineAbility"] if r["SkillLine"] in class_lines})
@@ -70,11 +78,11 @@ def main():
         if r["DifficultyID"] == "0":
             effects[int(r["SpellID"])].append(r)
 
-    lines, counts = [], defaultdict(int)
-    for sid in spells:
+    def analyze(sid):
+        """School, flags, tick interval, tick school and duration of one spell (None if unknown)."""
         m = misc.get(sid)
-        if not m or int(m["Attributes_0"]) & ATTR0_PASSIVE:
-            continue
+        if not m:
+            return None
         school = int(m["SchoolMask"]) or 1
         attr0, attr1 = int(m["Attributes_0"]), int(m["Attributes_1"])
         channel = bool(attr1 & ATTR1_CHANNELED)
@@ -113,14 +121,47 @@ def main():
             flags.add("n")
         if float(m["Speed"] or 0) > 0:
             flags.add("p")
+        duration = durations.get(m["DurationIndex"], 0) if "o" in flags else 0
+        return {"school": school, "flags": flags, "tick": tick, "tick_school": tick_school,
+                "duration": duration, "passive": bool(attr0 & ATTR0_PASSIVE)}
+
+    # Newer clients split many spells: the cast triggers a second spell that carries
+    # the debuff (Corruption 172 -> 146739). Its ticks and auras use that second ID, so
+    # it gets an entry of its own, and the cast inherits its damage over time.
+    data, children = {}, {}
+    for sid in spells:
+        a = analyze(sid)
+        if not a or a["passive"]:
+            continue
+        data[sid] = a
+        for e in effects.get(sid, []):
+            child = int(e["EffectTriggerSpell"] or 0)
+            if int(e["Effect"]) != TRIGGER_SPELL or not child or child == sid:
+                continue
+            c = analyze(child)
+            if not c or not c["flags"] & set("dhor"):
+                continue
+            children.setdefault(child, c)
+            if "o" in c["flags"] and "o" not in a["flags"]:
+                a["flags"].add("o")
+                a["tick"] = c["tick"]
+                a["duration"] = c["duration"]
+                if c["school"] != a["school"]:
+                    a["tick_school"] = c["tick_school"] or c["school"]
+    for child, c in children.items():
+        data.setdefault(child, c)
+
+    lines, counts = [], defaultdict(int)
+    for sid in sorted(data):
+        a = data[sid]
+        flags = a["flags"]
         if not flags & set("dhoru"):
             flags.add("x")  # utility: never deals damage or heals
-        order = "dhwnorcpux"
-        f = "".join(c for c in order if c in flags)
-        fields = [str(school), f'"{f}"']
-        if tick:
-            fields.append(f"{tick:g}")
-            duration = durations.get(m["DurationIndex"], 0) if "o" in flags else 0
+        f = "".join(c for c in ORDER if c in flags)
+        fields = [str(a["school"]), f'"{f}"']
+        if a["tick"]:
+            fields.append(f"{a['tick']:g}")
+            duration, tick_school = a["duration"], a["tick_school"]
             if tick_school or duration > 0:
                 fields.append(str(tick_school) if tick_school else "nil")
             if duration > 0:
@@ -131,19 +172,33 @@ def main():
             counts[c] += 1
 
     header = [
-        f"-- Generated by tools/gen_spelldata.py from WoW Forever build {args.build}. Do not edit by hand.",
+        f"-- Generated by tools/gen_spelldata.py from the {flavor} build {build}. Do not edit by hand.",
         "-- [spellID] = { schoolMask, flags, tickSeconds, tickSchool, durationSeconds }",
         "--   d direct damage  h direct heal  w weapon-based  n on next swing",
         "--   o damage over time  r heal over time  c channeled  p projectile",
         "--   u effect that may deal damage indirectly (script/trigger)  x never damages or heals",
         "local ADDON, ns = ...",
+        f'if ns.FLAVOR ~= "{flavor}" then return end',
         "",
         "ns.SPELL_DATA = {",
     ]
-    out = "\n".join(header + lines + ["}", ""])
-    open(args.out, "w", encoding="utf-8", newline="\n").write(out)
-    print(f"{len(lines)} spells -> {args.out} ({len(out) // 1024} KB)")
-    print("flags:", dict(sorted(counts.items())))
+    text = "\n".join(header + lines + ["}", ""])
+    open(out, "w", encoding="utf-8", newline="\n").write(text)
+    print(f"{flavor}: {len(lines)} spells -> {out} ({len(text) // 1024} KB)")
+    print("  flags:", dict(sorted(counts.items())))
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--flavor", choices=sorted(FLAVORS), default="forever")
+    ap.add_argument("--all", action="store_true", help="every flavor with its default build")
+    ap.add_argument("--build", help="overrides the flavor's default build")
+    ap.add_argument("--cache", help="folder to keep downloaded CSVs in")
+    args = ap.parse_args()
+    for flavor in (sorted(FLAVORS) if args.all else [args.flavor]):
+        suffix, default_build = FLAVORS[flavor]
+        build = (not args.all and args.build) or default_build
+        generate(flavor, build, args.cache, os.path.join(ROOT, f"SpellData_{suffix}.lua"))
 
 
 if __name__ == "__main__":

@@ -11,6 +11,16 @@ local Safe = ns.Safe
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local GRADIENT = "Interface\\AddOns\\WombatLog\\Media\\Gradient"
 local MANA, RAGE, ENERGY, COMBO = 0, 1, 3, 4
+
+-- Classic clients may keep combo points on the target instead of the player.
+local function comboPoints()
+    local cp = Safe(UnitPower("player", COMBO))
+    if (cp == nil or cp == 0) and GetComboPoints then
+        local onTarget = Safe(GetComboPoints("player", "target"))
+        if onTarget and onTarget > 0 then return onTarget end
+    end
+    return cp
+end
 local ORDER = { "health", "power", "druidMana", "combo", "castbar" }
 
 local TEXTURES = {
@@ -210,7 +220,7 @@ local function applies(key)
     elseif key == "combo" then
         if not hasCombo() then return false end
         if cfg.onlyWhenActive then
-            local cp = Safe(UnitPower("player", COMBO))
+            local cp = comboPoints()
             return cp == nil or cp > 0 -- unreadable counts as active
         end
         return true
@@ -303,7 +313,7 @@ function Resources:Update()
     if bars.combo:IsShown() then
         local cpMax = UnitPowerMax("player", COMBO)
         if not isSecret(cpMax) and (not cpMax or cpMax <= 0) then cpMax = 5 end
-        setBar(bars.combo, UnitPower("player", COMBO), cpMax)
+        setBar(bars.combo, comboPoints() or UnitPower("player", COMBO), cpMax)
         comboTicks(bars.combo, cpMax)
     end
 end
@@ -661,6 +671,7 @@ for _, ev in ipairs({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_POWER_UPDATE", "UNI
 end
 ns.Listen("UNIT_DISPLAYPOWER", relayout, "player")
 ns.Listen("UPDATE_SHAPESHIFT_FORM", relayout)
+ns.Listen("PLAYER_TARGET_CHANGED", changed) -- combo points on the target (Classic)
 ns.Listen("PLAYER_ENTERING_WORLD", relayout)
 ns.Listen("PLAYER_REGEN_DISABLED", refresh)
 ns.Listen("PLAYER_REGEN_ENABLED", changed)

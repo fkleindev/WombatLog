@@ -1,6 +1,33 @@
 local ADDON, ns = ...
 _G.WombatLog = ns
 
+-- Which game client this is, from its interface number. Picks the matching
+-- SpellData_<Flavor>.lua and the combat data source.
+local INTERFACE = select(4, GetBuildInfo()) or 0
+if INTERFACE >= 100000 then
+    ns.FLAVOR = "retail"
+elseif INTERFACE >= 50000 and INTERFACE < 60000 then
+    ns.FLAVOR = "mists"
+elseif INTERFACE >= 20000 and INTERFACE < 30000 then
+    ns.FLAVOR = "tbc"
+elseif INTERFACE >= 10000 and INTERFACE < 16000 then
+    ns.FLAVOR = "vanilla"
+else
+    ns.FLAVOR = "forever" -- 16xxx, and the closest data for anything unknown
+end
+ns.isForever = ns.FLAVOR == "forever"
+ns.isRetail = ns.FLAVOR == "retail"
+
+-- Classic clients still hand addons the full combat log: exact sources, targets,
+-- spell IDs and aura ends. Forever and Retail (Midnight rules) don't, so there the
+-- feed is pieced together from UNIT_COMBAT and timing (Sources.lua).
+ns.useCombatLog = false
+if not ns.isForever and not ns.isRetail and CombatLogGetCurrentEventInfo then
+    local probe = CreateFrame("Frame")
+    ns.useCombatLog = pcall(probe.RegisterEvent, probe, "COMBAT_LOG_EVENT_UNFILTERED")
+    pcall(probe.UnregisterAllEvents, probe)
+end
+
 ns.defaults = {
     appearance = {
         width = 300, rowHeight = 22, rowGap = 2,
@@ -118,6 +145,23 @@ ns.SCHOOL_NAMES = {
     [16] = "Frost", [32] = "Shadow", [64] = "Arcane",
 }
 
+-- Shared by both combat sources (Sources.lua, CombatLog.lua)
+local ICONS = "Interface\\Icons\\"
+ns.ICONS = {
+    melee = ICONS .. "INV_Sword_04", taken = ICONS .. "Ability_Warrior_DefensiveStance",
+    heal = ICONS .. "Spell_Holy_Heal", pet = ICONS .. "Ability_Hunter_BeastTaming",
+    spell = ICONS .. "Spell_Nature_StarFall", kill = ICONS .. "Ability_Rogue_Eviscerate",
+}
+-- miss type -> row tag, for your attacks and for attacks on you
+ns.AVOID_OUT = {
+    MISS = "MISS", DODGE = "DODGE", PARRY = "PARRY", BLOCK = "BLOCK", RESIST = "RESIST",
+    IMMUNE = "IMMUNE", EVADE = "EVADE", DEFLECT = "DEFLECT", REFLECT = "REFLECT", ABSORB = "ABSORB",
+}
+ns.AVOID_IN = {
+    MISS = "MISSED", DODGE = "DODGED", PARRY = "PARRIED", BLOCK = "BLOCKED", RESIST = "RESISTED",
+    IMMUNE = "IMMUNE", EVADE = "EVADED", DEFLECT = "DEFLECTED", REFLECT = "REFLECTED", ABSORB = "ABSORBED",
+}
+
 ---------------------------------------------------------------------------
 -- Helpers
 ---------------------------------------------------------------------------
@@ -184,6 +228,15 @@ function ns.SpellInfo(id)
         cached = { name = name, icon = ns.Safe(info.iconID) or ns.Safe(info.originalIconID) or 134400 }
         spellCache[id] = cached
         return cached
+    end
+    if not (C_Spell and C_Spell.GetSpellInfo) and GetSpellInfo then
+        -- older API (some Classic clients)
+        local n, _, icon = GetSpellInfo(id)
+        if n then
+            cached = { name = n, icon = icon or 134400 }
+            spellCache[id] = cached
+            return cached
+        end
     end
     if C_Spell and C_Spell.RequestLoadSpellData then
         C_Spell.RequestLoadSpellData(id)
@@ -555,6 +608,8 @@ SlashCmdList.WOMBATLOG = function(msg)
     elseif cmd == "test" then
         ns.RunTest()
     elseif cmd == "debug" then
+        ns.Print("client: " .. ns.FLAVOR .. " (" .. INTERFACE .. "), hits from "
+            .. (ns.useCombatLog and "the combat log (exact)" or "UNIT_COMBAT (estimated)"))
         ns.Resources:Debug()
     elseif cmd == "trace" then
         ns.trace = not ns.trace

@@ -1,21 +1,22 @@
 local ADDON, ns = ...
 local Safe = ns.Safe
 
--- Forever blocks COMBAT_LOG_EVENT_UNFILTERED, so the feed is rebuilt from
+-- Forever and Retail block COMBAT_LOG_EVENT_UNFILTERED, so the feed is rebuilt from
 -- UNIT_COMBAT (player/target), PLAYER_SWING, UNIT_SPELLCAST_SUCCEEDED and UNIT_AURA.
 -- UNIT_COMBAT has no source, so hits on the target are attributed to you by timing.
+-- Clients with the combat log use CombatLog.lua instead.
+if ns.useCombatLog then return end
 
 local SWING_WINDOW = 0.4  -- a target hit this soon after your swing is yours
 local SPELL_WINDOW = 1.5  -- travel time allowance after a successful cast
 local MAX_ACTIONS = 24
 
-local I = "Interface\\Icons\\"
-local ICON_MELEE  = I .. "INV_Sword_04"
-local ICON_TAKEN  = I .. "Ability_Warrior_DefensiveStance"
-local ICON_HEAL   = I .. "Spell_Holy_Heal"
-local ICON_PET    = I .. "Ability_Hunter_BeastTaming"
-local ICON_SPELL  = I .. "Spell_Nature_StarFall"
-local ICON_KILL   = I .. "Ability_Rogue_Eviscerate"
+local ICON_MELEE  = ns.ICONS.melee
+local ICON_TAKEN  = ns.ICONS.taken
+local ICON_HEAL   = ns.ICONS.heal
+local ICON_PET    = ns.ICONS.pet
+local ICON_SPELL  = ns.ICONS.spell
+local ICON_KILL   = ns.ICONS.kill
 
 local IGNORE_CASTS = { [6603] = true } -- Auto Attack (melee swings come from PLAYER_SWING)
 -- Ranged auto attacks: matched like spells (so their hits get a name), but they never
@@ -23,14 +24,7 @@ local IGNORE_CASTS = { [6603] = true } -- Auto Attack (melee swings come from PL
 local AUTO_SHOTS = { [75] = true, [5019] = true } -- Auto Shot, Shoot (wands)
 local TICK = 3 -- most damage-over-time effects tick every 3 s from when they're applied
 
-local AVOID_OUT = {
-    MISS = "MISS", DODGE = "DODGE", PARRY = "PARRY", BLOCK = "BLOCK", RESIST = "RESIST",
-    IMMUNE = "IMMUNE", EVADE = "EVADE", DEFLECT = "DEFLECT", REFLECT = "REFLECT", ABSORB = "ABSORB",
-}
-local AVOID_IN = {
-    MISS = "MISSED", DODGE = "DODGED", PARRY = "PARRIED", BLOCK = "BLOCKED", RESIST = "RESISTED",
-    IMMUNE = "IMMUNE", EVADE = "EVADED", DEFLECT = "DEFLECTED", REFLECT = "REFLECTED", ABSORB = "ABSORBED",
-}
+local AVOID_OUT, AVOID_IN = ns.AVOID_OUT, ns.AVOID_IN
 
 ---------------------------------------------------------------------------
 -- Recent actions (swings and casts) used for attribution
