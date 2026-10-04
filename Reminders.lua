@@ -13,6 +13,7 @@ local Safe, SafeTable = ns.Safe, ns.SafeTable
 
 local MEDIA = "Interface\\AddOns\\WombatLog\\Media\\"
 local GLOW = MEDIA .. "Glow"
+local GRADIENT = MEDIA .. "Gradient" -- white, alpha 1 -> 0 left to right
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local CHECK_EVERY = 0.2
 local GCD = 1.5 -- a cooldown this short is the global cooldown, not the spell's own
@@ -268,8 +269,27 @@ local function setScaleAnim(anim, from, to)
     end
 end
 
+local function anim(group, kind, target, duration, order, smoothing)
+    local a = group:CreateAnimation(kind)
+    if target then a:SetTarget(target) end
+    a:SetDuration(duration)
+    a:SetOrder(order or 1)
+    if smoothing then a:SetSmoothing(smoothing) end
+    return a
+end
+
+-- Tinted fade, strongest at the given side (like the log rows' shine).
+local function fade(tex, side)
+    tex:SetTexture(GRADIENT)
+    if side == "right" then tex:SetTexCoord(1, 0, 0, 1) else tex:SetTexCoord(0, 1, 0, 1) end
+    tex:SetBlendMode("ADD")
+end
+
 local function CreateIcon(parent)
     local b = CreateFrame("Frame", nil, parent)
+    -- a real size from the start: effects on a frame without one can be drawn
+    -- across the whole screen (Style sets the configured size)
+    b:SetSize(40, 40)
     b.glow = b:CreateTexture(nil, "BACKGROUND")
     b.glow:SetTexture(GLOW)
     b.glow:SetPoint("CENTER")
@@ -287,23 +307,127 @@ local function CreateIcon(parent)
     b.hotkey:SetPoint("TOPRIGHT", b, "TOPRIGHT", -3, -3)
     b.hotkey:SetJustifyH("RIGHT")
 
+    -- effects for coming up: a white flash over the icon, a light sweep across it
+    -- and a ring of glow bursting outwards
+    -- (each stays hidden unless its animation plays)
+    b.flash = b:CreateTexture(nil, "OVERLAY", nil, 1)
+    b.flash:SetTexture(WHITE)
+    b.flash:SetBlendMode("ADD")
+    b.flash:SetPoint("TOPLEFT", b, "TOPLEFT", 2, -2)
+    b.flash:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -2, 2)
+    b.flash:SetAlpha(0)
+    b.flash:Hide()
+    b.burst = b:CreateTexture(nil, "BACKGROUND", nil, 1)
+    b.burst:SetTexture(GLOW)
+    b.burst:SetBlendMode("ADD")
+    b.burst:SetPoint("CENTER", b, "CENTER")
+    b.burst:SetSize(100, 100)
+    b.burst:SetAlpha(0)
+    b.burst:Hide()
+    local clip = CreateFrame("Frame", nil, b)
+    clip:SetPoint("TOPLEFT", b, "TOPLEFT", 2, -2)
+    clip:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -2, 2)
+    if clip.SetClipsChildren then clip:SetClipsChildren(true) end
+    b.shine = CreateFrame("Frame", nil, clip)
+    b.shine:SetSize(28, 40)
+    b.shine:SetPoint("LEFT", clip, "LEFT", -28, 0)
+    b.shine:SetAlpha(0)
+    b.shine:Hide()
+    b.shineLeft = b.shine:CreateTexture(nil, "OVERLAY")
+    b.shineLeft:SetPoint("TOPLEFT"); b.shineLeft:SetPoint("BOTTOMRIGHT", b.shine, "BOTTOM")
+    fade(b.shineLeft, "right")
+    b.shineRight = b.shine:CreateTexture(nil, "OVERLAY")
+    b.shineRight:SetPoint("TOPRIGHT"); b.shineRight:SetPoint("BOTTOMLEFT", b.shine, "BOTTOM")
+    fade(b.shineRight, "left")
+
     -- the glow breathes while the reminder is up
     b.pulse = b.glow:CreateAnimationGroup()
     b.pulse:SetLooping("BOUNCE")
-    local beat = b.pulse:CreateAnimation("Alpha")
-    beat:SetFromAlpha(0.25); beat:SetToAlpha(0.9); beat:SetDuration(0.6); beat:SetSmoothing("IN_OUT")
+    local beat = anim(b.pulse, "Alpha", nil, 0.6, 1, "IN_OUT")
+    beat:SetFromAlpha(0.25); beat:SetToAlpha(0.9)
 
-    b.pop = b:CreateAnimationGroup()
-    local grow = b.pop:CreateAnimation("Scale")
-    setScaleAnim(grow, 1.5, 1)
-    grow:SetDuration(0.2); grow:SetSmoothing("OUT")
+    -- coming up: drops in big and snaps to size, flashes, sweeps and bursts
+    b.inAnim = b:CreateAnimationGroup()
+    local grow = anim(b.inAnim, "Scale", nil, 0.28, 1, "OUT")
+    setScaleAnim(grow, 2.2, 1)
+    local appear = anim(b.inAnim, "Alpha", nil, 0.12, 1)
+    appear:SetFromAlpha(0); appear:SetToAlpha(1)
+    b.appear = appear
+
+    b.flashAnim = b.flash:CreateAnimationGroup()
+    local flash = anim(b.flashAnim, "Alpha", nil, 0.4, 1, "OUT")
+    flash:SetFromAlpha(0.9); flash:SetToAlpha(0)
+    b.flashAnim:SetScript("OnFinished", function() b.flash:SetAlpha(0); b.flash:Hide() end)
+
+    -- the ring is sized by hand in OnUpdate (StepBurst): a Scale animation on it
+    -- while the icon itself scales could get drawn across the whole screen
+
+    b.shineAnim = b.shine:CreateAnimationGroup()
+    local sIn = anim(b.shineAnim, "Alpha", nil, 0.06, 1)
+    sIn:SetFromAlpha(0); sIn:SetToAlpha(1)
+    b.shineMove = anim(b.shineAnim, "Translation", nil, 0.42, 1, "IN_OUT")
+    local sOut = anim(b.shineAnim, "Alpha", nil, 0.1, 1)
+    sOut:SetFromAlpha(1); sOut:SetToAlpha(0); sOut:SetStartDelay(0.32)
+    b.shineAnim:SetScript("OnFinished", function() b.shine:SetAlpha(0); b.shine:Hide() end)
+
+    -- going away: a last flash, then it shrinks and fades
+    b.outAnim = b:CreateAnimationGroup()
+    if b.outAnim.SetToFinalAlpha then b.outAnim:SetToFinalAlpha(true) end
+    local shrink = anim(b.outAnim, "Scale", nil, 0.22, 1, "IN")
+    setScaleAnim(shrink, 1, 0.3)
+    local vanish = anim(b.outAnim, "Alpha", nil, 0.22, 1, "IN")
+    vanish:SetFromAlpha(1); vanish:SetToAlpha(0)
+    b.outAnim:SetScript("OnFinished", function()
+        if b.leaving then Reminders:Release(b) end
+    end)
+
     b:Hide()
     return b
+end
+
+local function StopEffects(b)
+    b.inAnim:Stop(); b.flashAnim:Stop(); b.shineAnim:Stop(); b.outAnim:Stop()
+    b.burstT = nil
+    b.flash:SetAlpha(0); b.burst:SetAlpha(0); b.shine:SetAlpha(0)
+    b.flash:Hide(); b.burst:Hide(); b.shine:Hide()
+end
+
+local BURST_TIME = 0.55
+
+-- One frame of the glow ring: grows from 0.4x to 1.8x while it fades out.
+local function StepBurst(b, dt)
+    b.burstT = b.burstT + dt
+    local p = math.min(1, b.burstT / BURST_TIME)
+    if p >= 1 then
+        b.burstT = nil
+        b.burst:Hide()
+        return
+    end
+    local eased = 1 - (1 - p) * (1 - p) -- fast at first, then slower
+    local size = (b.burstBase or 100) * (0.4 + 1.4 * eased)
+    b.burst:SetSize(size, size)
+    b.burst:SetAlpha(1 - p * p)
+    b.burst:Show()
+end
+
+local function PlayIn(b, alpha)
+    b.appear:SetToAlpha(alpha)
+    b.inAnim:Play()
+    b.flash:Show(); b.flashAnim:Play()
+    b.burstT = 0 -- StepBurst grows and fades it
+    b.shine:Show(); b.shineAnim:Play()
 end
 
 ---------------------------------------------------------------------------
 -- Frame
 ---------------------------------------------------------------------------
+
+local SLIDE_SPEED = 14 -- icons glide to their new place when others come or go
+
+local function Place(b)
+    b:ClearAllPoints()
+    b:SetPoint("CENTER", b:GetParent(), "CENTER", b.x, 0)
+end
 
 function Reminders:Init()
     local f = CreateFrame("Frame", "WombatLogReminders", UIParent)
@@ -334,7 +458,8 @@ function Reminders:Init()
     f.overlayText:Hide()
 
     self.frame = f
-    self.icons = {}
+    self.byKey = {} -- reminder key -> its icon (also while it animates out)
+    self.pool = {}
     self.shown = {} -- entry text -> true while its reminder is up
     local clock = 0
     f:SetScript("OnUpdate", function(_, dt)
@@ -342,6 +467,14 @@ function Reminders:Init()
         if clock >= CHECK_EVERY then
             clock = 0
             self:Update()
+        end
+        local k = math.min(1, dt * SLIDE_SPEED)
+        for _, b in pairs(self.byKey) do
+            if b.burstT then StepBurst(b, dt) end
+            if b.x ~= b.tx then
+                b.x = math.abs(b.tx - b.x) < 0.5 and b.tx or b.x + (b.tx - b.x) * k
+                Place(b)
+            end
         end
     end)
     self:Apply()
@@ -356,7 +489,8 @@ function Reminders:Apply()
     f:SetPoint("CENTER", UIParent, "CENTER", R.x, R.y)
     f:SetSize(R.size * 3, R.size + 20)
     f:Show() -- the OnUpdate check needs it; icons hide themselves
-    for _, b in ipairs(self.icons) do b.styled = nil end
+    for _, b in pairs(self.byKey) do b.styled = nil end
+    for _, b in ipairs(self.pool) do b.styled = nil end
     self:Update()
 end
 
@@ -366,27 +500,62 @@ local function Style(b, R)
     b.glow:SetSize(R.size * 2.2, R.size * 2.2)
     b.glow:SetVertexColor(R.color[1], R.color[2], R.color[3], 1)
     b.glow:SetShown(R.glow)
+    b.burstBase = R.size * 2.6
+    b.burst:SetSize(b.burstBase, b.burstBase)
+    b.burst:SetVertexColor(R.color[1], R.color[2], R.color[3], 1)
+    local band = math.floor(R.size * 0.7)
+    b.shine:SetSize(band, R.size)
+    b.shine:ClearAllPoints()
+    b.shine:SetPoint("LEFT", b.shine:GetParent(), "LEFT", -band, 0)
+    b.shineMove:SetOffset(R.size + band, 0)
+    for _, t in ipairs({ b.shineLeft, b.shineRight }) do t:SetVertexColor(1, 1, 1, 0.7) end
     ns.SetFont(b.name, A.nameFont, math.max(9, math.floor(R.size * 0.3)), "OUTLINE")
     b.name:SetShown(R.showName)
     ns.SetFont(b.hotkey, A.amountFont, math.max(9, math.floor(R.size * 0.34)), "OUTLINE")
     b.styled = true
 end
 
+-- An icon that went away (or finished going away) goes back to the pool.
+function Reminders:Release(b)
+    StopEffects(b)
+    b.pulse:Stop()
+    b:Hide()
+    b:SetAlpha(1)
+    b.leaving = nil
+    if b.key and self.byKey[b.key] == b then self.byKey[b.key] = nil end
+    b.key = nil
+    self.pool[#self.pool + 1] = b
+end
+
 -- list: { name, icon, castable, key, new } in display order, centered as a row.
+-- With animations on, new icons pop in with a flash, leaving ones shrink away and
+-- the rest glide to their new places.
 function Reminders:Render(list)
     local R = ns.db.reminders
     local f = self.frame
+    local animate = R.animate
     local n = #list
     local width = n * R.size + math.max(0, n - 1) * R.spacing
+    local keep = {}
     for i, d in ipairs(list) do
-        local b = self.icons[i]
-        if not b then
-            b = CreateIcon(f)
-            self.icons[i] = b
+        keep[d.key] = true
+        local b = self.byKey[d.key]
+        local fresh = false
+        if b and b.leaving then
+            -- came back while going away: catch it
+            StopEffects(b)
+            b.leaving = nil
+        elseif not b then
+            b = table.remove(self.pool) or CreateIcon(f)
+            b.key = d.key
+            self.byKey[d.key] = b
+            fresh = true
         end
         if not b.styled then Style(b, R) end
-        b:ClearAllPoints()
-        b:SetPoint("LEFT", f, "CENTER", -width / 2 + (i - 1) * (R.size + R.spacing), 0)
+        b.tx = -width / 2 + (i - 1) * (R.size + R.spacing) + R.size / 2
+        if fresh or not animate or not b.x then b.x = b.tx end
+        Place(b)
+
         b.icon:SetTexture(d.icon or 134400)
         b.name:SetText(d.name or "")
         b.hotkey:SetText(d.hotkey or "")
@@ -394,24 +563,30 @@ function Reminders:Render(list)
         local c = d.castable and R.color or { 0.5, 0.5, 0.5 }
         b.border:SetColorTexture(c[1], c[2], c[3], 1)
         if b.icon.SetDesaturated then b.icon:SetDesaturated(not d.castable) end
-        b:SetAlpha(d.castable and 1 or 0.7)
-        if b.key ~= d.key then
-            b.key = d.key
-            if d.new then b.pop:Play() end
-        end
+        local alpha = d.castable and 1 or 0.7
+        b:SetAlpha(alpha)
         if R.glow and d.castable then
             if not b.pulse:IsPlaying() then b.pulse:Play() end
         else
             b.pulse:Stop()
             b.glow:SetAlpha(R.glow and 0.25 or 0)
         end
-        b:Show()
+        if fresh then
+            b:Show()
+            if animate and d.new then PlayIn(b, alpha) end
+        end
     end
-    for i = n + 1, #self.icons do
-        local b = self.icons[i]
-        b.key = nil
-        b.pulse:Stop()
-        b:Hide()
+    for key, b in pairs(self.byKey) do
+        if not keep[key] and not b.leaving then
+            if animate and b:IsShown() then
+                StopEffects(b)
+                b.pulse:Stop()
+                b.leaving = true
+                b.outAnim:Play()
+            else
+                self:Release(b)
+            end
+        end
     end
 end
 
@@ -532,6 +707,7 @@ end
 function Reminders:Test()
     self.testUntil = GetTime() + 4
     self.shown = {}
+    for _, b in pairs(self.byKey) do self:Release(b) end -- so the samples pop in again
     self:Update()
 end
 

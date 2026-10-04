@@ -104,7 +104,7 @@ sub-tabs along the top.
   class; each reminder can also get its own sound or stay silent, and show only in
   combat or always). The list shows only your class's reminders, so characters
   sharing a profile don't see each other's. and *Look* (icon size, scale, spacing,
-  color, names, glow, position).
+  color, names, glow, animations, position).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),

@@ -144,6 +144,7 @@ ns.defaults.reminders = {
     list = {},                  -- { spell = "Riposte" or "14251", mode = "usable" | "buff" | "debuff" }
     sound = false, soundChoice = "wl:bell", channel = "Master", -- each reminder can pick its own, too
     size = 40, scale = 1, spacing = 6, showName = true, glow = true,
+    animate = true,             -- pop in with flash, sweep and burst; shrink away; glide into place
     color = { 1.00, 0.82, 0.18 }, x = 0, y = 60,
 }
 

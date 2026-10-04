@@ -1127,6 +1127,8 @@ local function BuildRemLook(p)
     p:Color("Highlight color", "reminders.color", 2)
     p:Checkbox("Spell name", "reminders.showName")
     p:Checkbox("Pulsing glow", "reminders.glow", 2)
+    p:Checkbox("Animations (pop in with a flash, shrink away)", "reminders.animate")
+    p:Button("Test", function() ns.Reminders:Test() end, 2, -2, 100)
 
     p:Header("Position")
     p:Checkbox("Unlock (drag the icons to move them)", {
