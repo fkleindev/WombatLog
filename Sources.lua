@@ -363,6 +363,7 @@ local function onTarget(action, flag, amount, school)
     if mine then
         if e.kind ~= "avoid" then rememberHit(e, a) end
         ns.OnOutgoing(e)
+        if e.kind == "avoid" then ns.Reminders:OnAvoid("out", action) end -- Overpower
     end
     ns.Emit(e)
 end
@@ -392,10 +393,12 @@ local function onPlayer(action, flag, amount, school)
             e.name = (ns.SCHOOL_NAMES[school] or "Spell") .. " damage"
         end
         ns.AddStat("taken", amount)
+        if flag == "BLOCK_REDUCED" then ns.Reminders:OnAvoid("in", "BLOCK") end -- Revenge
     else
         e.kind, e.icon = "avoid", ICON_TAKEN
         e.tag = AVOID_IN[action] or (action == "WOUND" and "ABSORBED") or action
         e.name = "Incoming"
+        ns.Reminders:OnAvoid("in", action) -- Riposte, Revenge
     end
     ns.Emit(e)
 end

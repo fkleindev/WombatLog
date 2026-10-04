@@ -161,6 +161,7 @@ local function outgoingDamage(sub, destGUID, spellId, spellName, pet, amount, sc
 end
 
 local function outgoingMiss(sub, spellId, spellName, pet, missType)
+    if not pet then ns.Reminders:OnAvoid("out", missType) end
     local e = { kind = "avoid", dir = "out", tag = AVOID_OUT[missType] or missType }
     if sub == "SWING_MISSED" then
         if pet then e.name, e.icon = "Pet", ICONS.pet else e.name, e.icon = "Melee", ICONS.melee end
@@ -298,6 +299,7 @@ local function onEvent()
         ns.Emit(e)
     elseif sub == "SWING_MISSED" or sub == "SPELL_MISSED" or sub == "RANGE_MISSED" or sub == "SPELL_PERIODIC_MISSED" then
         local missType = sub == "SWING_MISSED" and a1 or a4
+        ns.Reminders:OnAvoid("in", missType)
         ns.Emit({ kind = "avoid", dir = "in", tag = AVOID_IN[missType] or missType, name = "Incoming", icon = ICONS.taken })
     elseif (sub == "SPELL_HEAL" or sub == "SPELL_PERIODIC_HEAL") and not mine then
         local e = { kind = "healIn", dir = "in", amount = a4, crit = a7 and true or false }

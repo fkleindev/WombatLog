@@ -38,6 +38,20 @@ Reminders.SUGGESTIONS = {
     PALADIN = { { 19740, "buff" }, { 25780, "buff" } },
 }
 
+-- Abilities that only become usable after something happened in combat. On Forever
+-- and Retail the game hides whether a spell is usable while you fight, but the
+-- events themselves are readable: they open a window instead.
+-- [spell ID] = { "in" (an attack on you) or "out" (your attack), outcomes }
+local REACTIVE = {
+    [14251] = { "in", { PARRY = true } },                            -- Riposte
+    [19306] = { "in", { PARRY = true } },                            -- Counterattack
+    [6572] = { "in", { PARRY = true, DODGE = true, BLOCK = true } }, -- Revenge
+    [7384] = { "out", { DODGE = true } },                            -- Overpower
+    [1495] = { "out", { DODGE = true } },                            -- Mongoose Bite
+}
+local REACTIVE_WINDOW = 5
+if ns.isRetail then REACTIVE = {} end -- none of these is reactive there any more
+
 local SAMPLE = {
     { name = "Riposte", icon = "Interface\\Icons\\Ability_Warrior_Challange", castable = true, hotkey = "Q" },
     { name = "Battle Shout", icon = "Interface\\Icons\\Ability_Warrior_BattleShout", castable = false, hotkey = "S-2" },
@@ -75,6 +89,23 @@ local function isUsable(spell)
     if C_Spell and C_Spell.IsSpellUsable then return Safe((C_Spell.IsSpellUsable(spell))) end
     if IsUsableSpell then return Safe((IsUsableSpell(spell))) end
 end
+
+-- Reactive rules by spell name (names follow the client's language).
+local reactiveByName
+local function reactiveRule(name)
+    if not reactiveByName then
+        local map, complete = {}, true
+        for id, rule in pairs(REACTIVE) do
+            local info = ns.SpellInfo(id)
+            if info then map[info.name] = rule else complete = false end
+        end
+        if not complete then return map[name] end -- spell data still loading: try again later
+        reactiveByName = map
+    end
+    return reactiveByName[name]
+end
+
+local reactiveOpen = {} -- spell name -> time its window closes
 
 -- Seconds of the spell's own cooldown left (the global cooldown counts as ready).
 -- false when the target is out of range (nil when the client can't tell)
@@ -392,10 +423,18 @@ function Reminders:Collect()
             local spell = id or name
             local usable = isUsable(spell)
             local cd = cooldownLeft(spell)
-            local castable = usable == true and cd == 0
+            -- In combat on Forever and Retail both can be secret (nil here). A reactive
+            -- ability then follows its trigger; an unknown cooldown doesn't block.
+            if usable == nil and reactiveRule(name) then
+                usable = (reactiveOpen[name] or 0) > GetTime()
+            end
+            local unknown = usable == nil and cd == nil
+            local castable = usable ~= false and (cd == 0 or (cd == nil and usable == true))
             local show = false
             if entry.mode == "usable" then
-                show = castable
+                show = castable and not unknown
+            elseif unknown then
+                castable = true -- can't tell: don't dim
             elseif entry.mode == "debuff" then
                 if hostile then
                     if not debuffsRead then
@@ -495,6 +534,7 @@ ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, _, spellID)
     if not info then return end
     local duration = auraDuration(spellID)
     local expires = duration and GetTime() + duration or math.huge
+    reactiveOpen[info.name] = nil -- used up
     for _, entry in ipairs(ns.db.reminders.list) do
         if (resolve(entry.spell)) == info.name then
             if entry.mode == "buff" then
@@ -508,6 +548,17 @@ ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, _, spellID)
         end
     end
 end, "player")
+
+-- An attack on you ("in") or yours ("out") was parried, dodged or blocked: opens
+-- the window of the reactive abilities it enables. Called by both combat sources.
+function Reminders:OnAvoid(dir, outcome)
+    for id, rule in pairs(REACTIVE) do
+        if rule[1] == dir and rule[2][outcome] then
+            local info = ns.SpellInfo(id)
+            if info then reactiveOpen[info.name] = GetTime() + REACTIVE_WINDOW end
+        end
+    end
+end
 
 -- Without a readable GUID all targets share one entry: start it fresh per target.
 ns.Listen("PLAYER_TARGET_CHANGED", function()
