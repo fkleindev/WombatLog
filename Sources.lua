@@ -77,9 +77,12 @@ local function has(d, flag)
     return d[2]:find(flag, 1, true) ~= nil
 end
 
+local DOT_DELAY_FIT = 0.5 -- a DoT-like hit only goes to a spell landing this close to its usual delay
+
 -- Higher is a better fit; nil rules the action out for this hit.
 -- dotLikely: the hit lines up with one of your DoTs ticking, so a spell we know
--- nothing about yet shouldn't claim it (and learn the wrong school from it).
+-- nothing about yet shouldn't claim it (and learn the wrong school from it), and a
+-- known one only when the hit arrives when that spell usually lands.
 local function score(a, age, school, dotLikely)
     if a.isSwing then
         if school ~= 1 or age > SWING_WINDOW then return nil end
@@ -96,6 +99,7 @@ local function score(a, age, school, dotLikely)
         end
         local p = getProfile(a.spellID)
         if p and p.delay then
+            if dotLikely and math.abs(age - p.delay) > DOT_DELAY_FIT then return nil end
             s = s + (2 - math.min(2, math.abs(age - p.delay) / 0.25))
         elseif has(d, "n") or (has(d, "w") and not has(d, "p")) then
             -- melee abilities land right away (on-next-swing ones with the swing)
@@ -112,6 +116,7 @@ local function score(a, age, school, dotLikely)
         s = s + 3
     end
     if p and p.delay then
+        if dotLikely and math.abs(age - p.delay) > DOT_DELAY_FIT then return nil end
         s = s + (2 - math.min(2, math.abs(age - p.delay) / 0.25))
     end
     return s
@@ -184,14 +189,16 @@ local auraSeq = 0
 -- Forever, so a DoT may never show up in auraCache; its cast still tells us which
 -- spell it was and when its tick clock started.
 local dotCasts = {}
-local DOT_MAX_AGE = 30
+local DOT_MAX_AGE = 30 -- for DoTs whose duration isn't known
 local TRAVEL = 1.2 -- a cast's DoT starts when the projectile lands, up to this much later
 
 -- Which of your DoTs on the target most likely produced a tick landing now.
 -- Read from the caches: querying the target's auras in combat errors on Forever.
 -- A DoT fits when it started a whole number of tick intervals ago and its learned
 -- tick school matches; one that ticks in another school (or a mark that never
--- ticks) loses. Among equal fits the most recently applied wins.
+-- ticks) loses. A DoT that just got a tick can't tick again before its next
+-- interval, so with several DoTs of one school each gets its share. Without an exact
+-- fit the one closest in time wins, then the most recently applied.
 -- Returns the candidate, how many line up in time, its score, its tick interval and
 -- when it runs out (nil when neither the aura nor SpellData tell its duration).
 local function tickDebuff(school)
@@ -215,15 +222,22 @@ local function tickDebuff(school)
         if not s then return end
         local age = now - c.t
         local phase = age % period
-        local fits
+        -- how far off the expected tick time (a cast's DoT starts when it lands)
+        local dist
         if fromCast then
-            fits = age >= period - 0.2 and (phase <= travel or phase >= period - 0.2)
+            dist = phase <= travel and 0 or math.min(phase - travel, period - phase)
         else
-            fits = age >= period - 0.4 and math.min(phase, period - phase) <= 0.4
+            dist = math.min(phase, period - phase)
         end
-        if fits then
+        local early = age < period - (fromCast and 0.2 or 0.4)
+        if not early and dist <= (fromCast and 0.2 or 0.4) then
             s = s + 4 -- timing counts more than a learned school
             aligned = aligned + 1
+        elseif not early then
+            s = s + 2 * (1 - math.min(1, dist / (period / 2))) -- near miss: latency
+        end
+        if c.lastTick and now - c.lastTick < period * 0.6 then
+            s = s - 5 -- already ticked this interval
         end
         s = s + c.seq * 1e-6 -- tie: the most recent one
         if not bestScore or s > bestScore then
@@ -240,7 +254,8 @@ local function tickDebuff(school)
         if a.spellId then seen[a.spellId] = true end
     end
     for id, c in pairs(dotCasts) do
-        if now - c.t > DOT_MAX_AGE then
+        local d = spellData(id)
+        if now - c.t > (d and d[5] or DOT_MAX_AGE) + TRAVEL + 1 then
             dotCasts[id] = nil
         elseif not seen[id] then
             consider(c, true) -- readable aura timing beats cast timing
@@ -267,6 +282,7 @@ local function myTargetDebuff(school)
             if p.tickVotes[school] >= 2 then p.tickSchool = school end
         end
     end
+    best.lastTick = GetTime()
     local name, icon = best.name, best.icon
     if not name and best.spellId then
         local info = ns.SpellInfo(best.spellId)

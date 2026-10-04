@@ -9,7 +9,7 @@ local POOL_SIZE = 30
 local HEADER_FULL, HEADER_COMPACT, HEADER_GAP = 50, 36, 6
 local PREVIEW_STRATA = "FULLSCREEN_DIALOG" -- above the Settings panel
 local PIN_END_GRACE = 0.5  -- the last tick lands right at the DoT's end
-local PIN_STALL = 1.5      -- no tick for a period plus this: the DoT is gone (target switched, dispelled)
+local PIN_STALL = 1.5      -- no tick for two periods plus this: the DoT is gone (target dead, dispelled)
 
 local TAGS = { cast = "CAST", buff = "BUFF", debuffIn = "DEBUFF", debuffOut = "APPLY", fade = "FADES", kill = "KILL" }
 local PREFIX = { heal = "+", healIn = "+", taken = "-" }
@@ -433,8 +433,14 @@ local function UpdatePins()
         local r = active[i]
         local pin = r and r.entry.pin
         if pin and not pin.frozen then
-            local stalled = now - pin.lastTick > (pin.period or 3) + PIN_STALL
-            if stalled or (pin.expires and now > pin.expires + PIN_END_GRACE) then
+            -- one missed tick (a dodge, a tick put down to another spell) doesn't end it
+            local stalled = now - pin.lastTick > 2 * (pin.period or 3) + PIN_STALL
+            local expired = pin.expires and now > pin.expires + PIN_END_GRACE
+            if stalled or expired then
+                if ns.trace then
+                    ns.Print(string.format("unpin %s (%s, %d ticks)", r.entry.name or "?",
+                        expired and "ran out" or "no tick for " .. string.format("%.1fs", now - pin.lastTick), r.entry.ticks))
+                end
                 Unpin(r)
             else
                 UpdatePinTimer(r, now)
