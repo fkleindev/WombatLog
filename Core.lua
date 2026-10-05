@@ -86,6 +86,7 @@ ns.defaults.alerts = {
         enabled = true, heals = true, minAmount = 0, duration = 1.2, size = 44, scale = 1,
         showIcon = true, showName = true, glow = true,
         useCritColor = true, color = { 1.00, 0.82, 0.18 },
+        font = "", nameFont = "", outline = "THICKOUTLINE", -- "" font = the log window's
         x = 0, y = 180,
     },
     sound = {
@@ -139,6 +140,19 @@ ns.defaults.killAlert = {
     showXP = true, showBar = true, showName = true, multiKill = true, duration = 2.5,
     sound = true, soundChoice = "wl:kill", channel = "Master", risingPitch = true,
     size = 30, scale = 1, color = { 0.72, 0.52, 1.00 }, x = 0, y = 260,
+    font = "", nameFont = "", outline = "THICKOUTLINE", -- "" font = the log window's
+    bar = {
+        width = 0, height = 0,          -- 0 = follows the text size
+        texture = "flat", bgOpacity = 0.55, border = false,
+        segments = 0,                   -- dividers like the game's XP bar (0 = none)
+        useTextColor = true, color = { 0.72, 0.52, 1.00 },
+        speed = 6,                      -- how fast the bar fills
+        spark = true, gloss = false,
+        gainFlash = true,               -- the part just gained lights up and fades
+        glow = false,                   -- soft glow behind the bar while it fills
+        rested = true,                  -- rested XP as a pale stretch after the fill
+        percent = false,                -- percent text on the bar
+    },
 }
 
 ns.defaults.session = { enabled = true, headerLine = false }

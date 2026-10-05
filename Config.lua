@@ -82,6 +82,22 @@ local function fontOptions()
     return list
 end
 
+-- For the pop-up alerts: their own font or the log window's.
+local function alertFontOptions()
+    local list = { { text = "Same as log window", value = "" } }
+    for _, f in ipairs(fontOptions()) do list[#list + 1] = f end
+    return list
+end
+
+local OUTLINE_OPTIONS = {
+    { text = "None", value = "" },
+    { text = "Outline", value = "OUTLINE" },
+    { text = "Thick outline", value = "THICKOUTLINE" },
+    { text = "Monochrome", value = "OUTLINE, MONOCHROME" },
+}
+
+local function autoPx(v) return v == 0 and "Auto" or v .. " px" end
+
 local KINDS = {
     { "damage", "Your damage" }, { "heal", "Your heals" }, { "avoid", "Misses & avoids" },
     { "taken", "Damage taken" }, { "healIn", "Heals received" }, { "cast", "Casts" },
@@ -600,11 +616,7 @@ local function BuildLogLayout(p)
     p:Dropdown("Name font", "appearance.nameFont", fontOptions, 2)
     p:Slider("Number size", "appearance.amountSize", 8, 28, 1)
     p:Slider("Name size", "appearance.nameSize", 8, 24, 1, nil, 2)
-    p:Dropdown("Outline", "appearance.outline", {
-        { text = "None", value = "" },
-        { text = "Outline", value = "OUTLINE" },
-        { text = "Thick outline", value = "THICKOUTLINE" },
-    })
+    p:Dropdown("Outline", "appearance.outline", OUTLINE_OPTIONS)
     p:Dropdown("Number format", "appearance.numberFormat", {
         { text = "Full (12,345)", value = "full" },
         { text = "Short (12.3k)", value = "short" },
@@ -764,6 +776,11 @@ local function BuildAlertVisual(p)
     p:Checkbox("Glow burst", "alerts.visual.glow")
     p:Checkbox("Use crit highlight color", "alerts.visual.useCritColor", 2)
     p:Color("Custom alert color", "alerts.visual.color")
+
+    p:Header("Text")
+    p:Dropdown("Number font", "alerts.visual.font", alertFontOptions)
+    p:Dropdown("Name font", "alerts.visual.nameFont", alertFontOptions, 2)
+    p:Dropdown("Outline", "alerts.visual.outline", OUTLINE_OPTIONS)
 
     p:Header("Position")
     p:Checkbox("Unlock (drag the alert to move it)", {
@@ -1183,6 +1200,11 @@ local function BuildKillLook(p)
     p:Slider("Scale", "killAlert.scale", 0.5, 2, 0.05, times, 2)
     p:Color("XP color", "killAlert.color")
 
+    p:Header("Text")
+    p:Dropdown("Number font", "killAlert.font", alertFontOptions)
+    p:Dropdown("Name font", "killAlert.nameFont", alertFontOptions, 2)
+    p:Dropdown("Outline", "killAlert.outline", OUTLINE_OPTIONS)
+
     p:Header("Position")
     p:Checkbox("Unlock (drag the alert to move it)", {
         get = function() return ns.KillAlert.unlocked end,
@@ -1193,6 +1215,29 @@ local function BuildKillLook(p)
         K.x, K.y = D.x, D.y
         ns.ApplyAll(true)
     end, 2)
+end
+
+local function BuildKillBar(p)
+    p:Header("XP bar")
+    p:Note("Your XP bar under the kill alert. Turn it on or off under General. Unlock the alert under Look to see changes live.")
+    p:Slider("Length", "killAlert.bar.width", 0, 500, 10, autoPx)
+    p:Slider("Thickness", "killAlert.bar.height", 0, 30, 1, autoPx, 2)
+    p:Dropdown("Bar texture", "killAlert.bar.texture", ns.Resources.TextureOptions)
+    p:Slider("Background opacity", "killAlert.bar.bgOpacity", 0, 1, 0.05, pct, 2)
+    p:Slider("Segments", "killAlert.bar.segments", 0, 20, 1, function(v) return v < 2 and "None" or tostring(v) end)
+    p:Checkbox("Thin border", "killAlert.bar.border", 2)
+    p:Checkbox("Same color as the XP text", "killAlert.bar.useTextColor")
+    p:Color("Custom bar color", "killAlert.bar.color", 2)
+    p:Slider("Fill speed", "killAlert.bar.speed", 1, 20, 1)
+
+    p:Header("Effects")
+    p:Checkbox("Spark at the fill's edge", "killAlert.bar.spark")
+    p:Checkbox("Gloss", "killAlert.bar.gloss", 2)
+    p:Checkbox("Light up the XP just gained", "killAlert.bar.gainFlash")
+    p:Checkbox("Glow behind the bar", "killAlert.bar.glow", 2)
+    p:Checkbox("Show rested XP", "killAlert.bar.rested")
+    p:Checkbox("Percent text", "killAlert.bar.percent", 2)
+    p:Button("Test", function() ns.KillAlert:Test() end)
 end
 
 ---------------------------------------------------------------------------
@@ -1334,6 +1379,7 @@ local TABS = {
         { "General", BuildKillGeneral },
         { "Sound", BuildKillSound },
         { "Look", BuildKillLook },
+        { "XP bar", BuildKillBar },
     } },
     { "Swing timer", BuildSwing },
     { "Resource display", {

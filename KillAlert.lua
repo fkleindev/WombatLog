@@ -14,6 +14,7 @@ local Safe = ns.Safe
 
 local MEDIA = "Interface\\AddOns\\WombatLog\\Media\\"
 local GLOW = MEDIA .. "Glow"
+local GRADIENT = MEDIA .. "Gradient"
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local SKULL = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local MERGE = 1.2        -- signals this close belong to one kill (death, XP message, XP bar)
@@ -23,6 +24,9 @@ local POP = 0.25
 local BURST_TIME = 0.6
 local FADE_OUT = 0.5
 local HIT_MEMORY = 30    -- a target you hit this recently counts as yours when it dies
+local MAX_SEGMENTS = 20
+local FLASH_HOLD = 0.4   -- the gained part stays lit this long, then fades
+local FLASH_FADE = 1.0
 
 local SAMPLE = { name = "Defias Thug", xp = 342, rested = 171 }
 
@@ -136,9 +140,48 @@ local function CreateFrames()
     f.barBg = f.bar:CreateTexture(nil, "BACKGROUND")
     f.barBg:SetAllPoints()
     f.barBg:SetColorTexture(0, 0, 0, 0.55)
-    f.barSpark = f.bar:CreateTexture(nil, "OVERLAY")
+    -- soft glow behind the bar
+    f.barGlow = c:CreateTexture(nil, "BACKGROUND")
+    f.barGlow:SetTexture(GLOW)
+    f.barGlow:SetBlendMode("ADD")
+    f.barGlow:SetPoint("CENTER", f.bar, "CENTER")
+    f.barGlow:Hide()
+    -- thin border
+    f.barEdges = {}
+    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT", 0, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", 0, -1 },
+                            { "TOPLEFT", "BOTTOMLEFT", -1, 0 }, { "TOPRIGHT", "BOTTOMRIGHT", 1, 0 } }) do
+        local t = f.bar:CreateTexture(nil, "BACKGROUND", nil, -1)
+        t:SetColorTexture(0, 0, 0, 1)
+        t:SetPoint(side[1], f.bar, side[1], side[3], side[4])
+        t:SetPoint(side[2], f.bar, side[2], side[3], side[4])
+        if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
+        f.barEdges[i] = t
+    end
+    -- rested XP: a pale stretch after the fill (behind it)
+    f.barRested = f.bar:CreateTexture(nil, "BORDER")
+    f.barRested:SetTexture(WHITE)
+    -- the part just gained, lit up
+    f.barGain = f.bar:CreateTexture(nil, "OVERLAY")
+    f.barGain:SetTexture(WHITE)
+    f.barGain:SetBlendMode("ADD")
+    -- gloss: the gradient turned to fade from the top edge down
+    f.barGloss = f.bar:CreateTexture(nil, "OVERLAY", nil, 1)
+    f.barGloss:SetAllPoints()
+    f.barGloss:SetTexture(GRADIENT)
+    f.barGloss:SetTexCoord(0, 0, 1, 0, 0, 1, 1, 1)
+    f.barGloss:SetVertexColor(1, 1, 1, 0.22)
+    f.barTicks = {}
+    for i = 1, MAX_SEGMENTS - 1 do
+        local t = f.bar:CreateTexture(nil, "OVERLAY", nil, 2)
+        t:SetColorTexture(0, 0, 0, 0.6)
+        t:SetWidth(1)
+        f.barTicks[i] = t
+    end
+    f.barSpark = f.bar:CreateTexture(nil, "OVERLAY", nil, 3)
     f.barSpark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
     f.barSpark:SetBlendMode("ADD")
+    f.barText = f.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    f.barText:SetPoint("CENTER", f.bar, "CENTER", 0, 0)
 
     f.pop = c:CreateAnimationGroup()
     local grow = f.pop:CreateAnimation("Scale")
@@ -166,20 +209,50 @@ end
 function KillAlert:Apply()
     local f = self.frame
     if not f then return end
-    local K, A = ns.db.killAlert, ns.db.appearance
+    local K = ns.db.killAlert
+    local B = K.bar
     f:SetScale(K.scale)
     f:ClearAllPoints()
     f:SetPoint("CENTER", UIParent, "CENTER", K.x, K.y)
-    f:SetSize(math.max(240, K.size * 8), K.size * 3.4)
-    ns.SetFont(f.amount, A.amountFont, K.size, "THICKOUTLINE")
-    ns.SetFont(f.name, A.nameFont, math.max(10, math.floor(K.size * 0.45)), "OUTLINE")
+
+    local numberFont, nameFont, outline, nameOutline = ns.AlertFonts(K)
+    ns.SetFont(f.amount, numberFont, K.size, outline)
+    ns.SetFont(f.name, nameFont, math.max(10, math.floor(K.size * 0.45)), nameOutline)
     f.name:SetTextColor(0.9, 0.9, 0.9)
-    ns.SetFont(f.banner, A.amountFont, math.max(11, math.floor(K.size * 0.5)), "THICKOUTLINE")
+    ns.SetFont(f.banner, numberFont, math.max(11, math.floor(K.size * 0.5)), outline)
     f.skull:SetSize(K.size, K.size)
-    f.bar:SetSize(K.size * 6, math.max(4, math.floor(K.size * 0.2)))
-    f.barSpark:SetSize(10, f.bar:GetHeight() * 3)
+
+    -- XP bar
+    local w = B.width > 0 and B.width or K.size * 6
+    local h = B.height > 0 and B.height or math.max(4, math.floor(K.size * 0.2))
+    self.barW = w
+    f:SetSize(math.max(240, K.size * 8, w + 20), K.size * 3.4)
+    f.bar:SetSize(w, h)
+    f.bar:SetStatusBarTexture(ns.BarTexture and ns.BarTexture(B.texture) or WHITE)
+    local bc = B.useTextColor and K.color or B.color
+    f.bar:SetStatusBarColor(bc[1], bc[2], bc[3], 0.95)
+    f.barBg:SetColorTexture(0, 0, 0, B.bgOpacity)
+    for _, e in ipairs(f.barEdges) do e:SetShown(B.border) end
+    f.barGloss:SetShown(B.gloss)
+    f.barRested:SetVertexColor(bc[1], bc[2], bc[3], 0.3)
+    f.barGain:SetVertexColor(1, 1, 1, 1)
+    f.barGlow:SetVertexColor(bc[1], bc[2], bc[3], 1)
+    f.barGlow:SetSize(w * 1.3, math.max(24, h * 6))
+    f.barSpark:SetSize(math.max(6, h * 1.5), h * 3)
+    local segments = math.min(B.segments, MAX_SEGMENTS)
+    for i, t in ipairs(f.barTicks) do
+        if segments >= 2 and i < segments then
+            t:ClearAllPoints()
+            t:SetPoint("TOP", f.bar, "TOPLEFT", w * i / segments, 0)
+            t:SetPoint("BOTTOM", f.bar, "BOTTOMLEFT", w * i / segments, 0)
+            t:Show()
+        else
+            t:Hide()
+        end
+    end
+    ns.SetFont(f.barText, numberFont, math.max(8, math.min(16, h + 2)), nameOutline ~= "" and nameOutline or "OUTLINE")
+
     local c = K.color
-    f.bar:SetStatusBarColor(c[1], c[2], c[3], 0.95)
     f.burst:SetVertexColor(c[1], c[2], c[3], 1)
     self.burstBase = K.size * 7
     if not K.enabled and not self.unlocked then f:Hide() end
@@ -222,12 +295,76 @@ function KillAlert:Render()
     if barOn then
         f.bar:ClearAllPoints()
         f.bar:SetPoint("TOP", f.name:IsShown() and f.name or f.amount, "BOTTOM", 0, -5)
-        f.bar:SetValue(k.shownBar)
-        f.barSpark:SetPoint("CENTER", f.bar, "LEFT", k.shownBar * f.bar:GetWidth(), 0)
+        self:RenderBar(k)
+    else
+        f.barGlow:Hide()
     end
     -- keep skull and text centered as a group
     f.amount:ClearAllPoints()
     f.amount:SetPoint("CENTER", f, "CENTER", (K.size + 8) / 2, K.size * 0.3)
+end
+
+-- Rested XP as a fraction of the current level, or nil.
+local function restedFraction()
+    local rested = GetXPExhaustion and Safe(GetXPExhaustion())
+    local max = Safe(UnitXPMax("player"))
+    if not rested or rested <= 0 or not max or max <= 0 then return nil end
+    return rested / max
+end
+
+-- 1 while the gained part is freshly lit, then down to 0.
+local function flashLevel(age)
+    if age <= FLASH_HOLD then return 1 end
+    return math.max(0, 1 - (age - FLASH_HOLD) / FLASH_FADE)
+end
+
+-- Fill, spark, rested stretch, percent text and the effects that follow the kill's age.
+function KillAlert:RenderBar(k)
+    local f, B = self.frame, ns.db.killAlert.bar
+    local w, value = self.barW or f.bar:GetWidth(), k.shownBar
+    f.bar:SetValue(value)
+
+    f.barSpark:SetShown(B.spark and value > 0 and value < 1)
+    f.barSpark:SetPoint("CENTER", f.bar, "LEFT", value * w, 0)
+
+    local rested = B.rested and value < 1 and restedFraction()
+    if rested then
+        f.barRested:ClearAllPoints()
+        f.barRested:SetPoint("TOPLEFT", f.bar, "TOPLEFT", value * w, 0)
+        f.barRested:SetPoint("BOTTOMLEFT", f.bar, "BOTTOMLEFT", value * w, 0)
+        f.barRested:SetWidth(math.max(1, (math.min(1, value + rested) - value) * w))
+    end
+    f.barRested:SetShown(rested and true or false)
+
+    f.barText:SetShown(B.percent)
+    if B.percent then f.barText:SetText(math.floor(value * 100) .. "%") end
+
+    self:RenderBarEffects(k)
+end
+
+function KillAlert:RenderBarEffects(k)
+    local f, B = self.frame, ns.db.killAlert.bar
+    local w, value = self.barW or f.bar:GetWidth(), k.shownBar
+    local flash = flashLevel(k.age or 0)
+    -- should the bar ever start past the fill, light it from the left edge
+    local from = (k.from and k.from <= value) and k.from or 0
+    local gainW = (value - from) * w
+    if B.gainFlash and flash > 0 and gainW >= 1 then
+        f.barGain:ClearAllPoints()
+        f.barGain:SetPoint("TOPLEFT", f.bar, "TOPLEFT", from * w, 0)
+        f.barGain:SetPoint("BOTTOMLEFT", f.bar, "BOTTOMLEFT", from * w, 0)
+        f.barGain:SetWidth(gainW)
+        f.barGain:SetAlpha(0.55 * flash)
+        f.barGain:Show()
+    else
+        f.barGain:Hide()
+    end
+    if B.glow then
+        f.barGlow:SetAlpha(0.25 + 0.55 * flash)
+        f.barGlow:Show()
+    else
+        f.barGlow:Hide()
+    end
 end
 
 function KillAlert:Show(k, fresh)
@@ -273,10 +410,15 @@ function KillAlert:Step(dt)
     end
     if k.to and k.shownBar ~= k.to then
         local d = k.to - k.shownBar
-        k.shownBar = math.abs(d) < 0.002 and k.to or k.shownBar + d * math.min(1, dt * 6)
+        local speed = ns.db.killAlert.bar.speed
+        k.shownBar = math.abs(d) < 0.002 and k.to or k.shownBar + d * math.min(1, dt * speed)
         changed = true
     end
-    if changed then self:Render() end
+    if changed then
+        self:Render()
+    elseif f.bar:IsShown() then
+        self:RenderBarEffects(k)
+    end
     if self.unlocked then return end
     local life = ns.db.killAlert.duration
     if k.age > life then

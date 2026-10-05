@@ -98,7 +98,7 @@ sub-tabs along the top.
   - *Window:* when the window shows (only in combat or always), how long it stays
     after combat, fade times, clearing the log when a new fight starts, drag to
     move, X/Y position, scale, window opacity and frame layer.
-- **Crit alerts:** *Visual* (the pop-up, its look and position), *Sound*, and
+- **Crit alerts:** *Visual* (the pop-up, its look, fonts, outline and position), *Sound*, and
   *Streaks & records* (see below).
 - **Proc alerts:** *General* (on/off, sound), *Buffs* (type a name or spell ID, or
   pick from the buffs you gained recently) and *Look* (size, color, position).
@@ -110,8 +110,10 @@ sub-tabs along the top.
   sharing a profile don't see each other's. and *Look* (icon size, scale, spacing,
   color, names, glow, animations, position).
 - **Kill alerts:** *General* (on/off, kills without XP, what to show, display time),
-  *Sound* (sound, channel, rising pitch for multi-kills) and *Look* (text size, scale,
-  XP color, position).
+  *Sound* (sound, channel, rising pitch for multi-kills), *Look* (text size, scale,
+  XP color, fonts, outline, position) and *XP bar* (length, thickness, texture,
+  background, segments, border, color, fill speed, and effects: spark, gloss, the
+  XP just gained lighting up, glow, rested XP, percent text).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),

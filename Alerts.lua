@@ -229,15 +229,16 @@ end
 
 function AlertFrame:Apply()
     local f = self.frame
-    local V, A = self.getCfg(), ns.db.appearance
+    local V = self.getCfg()
 
     f:SetScale(V.scale)
     f:SetSize(math.max(260, V.size * 6), V.size * 2.4)
     f:ClearAllPoints()
     f:SetPoint("CENTER", UIParent, "CENTER", V.x, V.y)
 
-    ns.SetFont(f.amount, A.amountFont, V.size, "THICKOUTLINE")
-    ns.SetFont(f.name, A.nameFont, math.max(10, math.floor(V.size * 0.36)), "OUTLINE")
+    local numberFont, nameFont, outline, nameOutline = ns.AlertFonts(V)
+    ns.SetFont(f.amount, numberFont, V.size, outline)
+    ns.SetFont(f.name, nameFont, math.max(10, math.floor(V.size * 0.36)), nameOutline)
     f.name:SetTextColor(0.9, 0.9, 0.9)
 
     local iconSize = math.floor(V.size * 1.1)
@@ -260,7 +261,7 @@ end
 -- d = { big, small, icon, color, banner, bannerColor, bannerScale, pulse }
 function AlertFrame:Render(d)
     local f = self.frame
-    local V, A = self.getCfg(), ns.db.appearance
+    local V = self.getCfg()
     local c = d.color
     self.lastData = d
     f.amount:SetText(d.big or "")
@@ -272,7 +273,8 @@ function AlertFrame:Render(d)
 
     if d.banner then
         local bc = d.bannerColor or c
-        ns.SetFont(f.banner, A.amountFont, math.floor(math.max(12, V.size * 0.42) * (d.bannerScale or 1)), "THICKOUTLINE")
+        local numberFont, _, outline = ns.AlertFonts(V)
+        ns.SetFont(f.banner, numberFont, math.floor(math.max(12, V.size * 0.42) * (d.bannerScale or 1)), outline)
         f.banner:SetText(d.banner)
         f.banner:SetTextColor(bc[1], bc[2], bc[3])
         f.banner:Show()

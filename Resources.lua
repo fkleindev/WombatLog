@@ -68,6 +68,7 @@ local function barTexture(key)
     end
     return TEXTURES[key] or WHITE
 end
+ns.BarTexture = barTexture -- also used by the kill alert's XP bar
 
 local function playerClass()
     local _, class = UnitClass("player")

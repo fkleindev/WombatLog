@@ -67,6 +67,17 @@ local function font(fs, file, size, flags)
 end
 ns.SetFont = font
 
+-- Fonts of a pop-up alert: its own, or the log window's when left empty. Small
+-- name text gets a plain outline where the big numbers have a thick one.
+function ns.AlertFonts(cfg)
+    local A = ns.db.appearance
+    local number = cfg.font ~= nil and cfg.font ~= "" and cfg.font or A.amountFont
+    local name = cfg.nameFont ~= nil and cfg.nameFont ~= "" and cfg.nameFont or A.nameFont
+    local outline = cfg.outline or "THICKOUTLINE"
+    local nameOutline = outline == "THICKOUTLINE" and "OUTLINE" or outline
+    return number, name, outline, nameOutline
+end
+
 ---------------------------------------------------------------------------
 -- Rows
 ---------------------------------------------------------------------------
