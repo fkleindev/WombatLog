@@ -478,6 +478,62 @@ function Page:ProcLists()
     return holder
 end
 
+-- A fixed set of entries the user can move up and down. getList returns the keys
+-- in order, setList saves a new order, labels maps keys to names.
+function Page:OrderList(label, getList, setList, labels)
+    local count = #getList()
+    local holder = CreateFrame("Frame", nil, self.child)
+    holder:SetSize(WIDGET_W + 60, 20 + count * 22)
+    local title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT")
+    title:SetText(label)
+
+    local function move(i, delta)
+        local list = getList()
+        local j = i + delta
+        if not list[j] then return end
+        list[i], list[j] = list[j], list[i]
+        setList(list)
+        ns.ApplyAll()
+        holder.Refresh()
+    end
+
+    local rows = {}
+    for i = 1, count do
+        local r = CreateFrame("Frame", nil, holder)
+        r:SetSize(WIDGET_W + 60, 20)
+        r:SetPoint("TOPLEFT", 0, -20 - (i - 1) * 22)
+        r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        r.text:SetPoint("LEFT", 4, 0)
+        r.up = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.up:SetSize(56, 18)
+        r.up:SetPoint("RIGHT", -60, 0)
+        r.up:SetText("Up")
+        r.up:SetScript("OnClick", function() move(i, -1) end)
+        r.down = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.down:SetSize(56, 18)
+        r.down:SetPoint("RIGHT")
+        r.down:SetText("Down")
+        r.down:SetScript("OnClick", function() move(i, 1) end)
+        local stripe = r:CreateTexture(nil, "BACKGROUND")
+        stripe:SetAllPoints()
+        stripe:SetColorTexture(1, 1, 1, i % 2 == 0 and 0.03 or 0.06)
+        rows[i] = r
+    end
+
+    holder.Refresh = function()
+        local list = getList()
+        for i, r in ipairs(rows) do
+            r.text:SetText(i .. ".  " .. (labels[list[i]] or list[i] or ""))
+            r.up:SetEnabled(i > 1)
+            r.down:SetEnabled(i < #list)
+        end
+    end
+    register(holder)
+    self:Add(holder, 26 + count * 22)
+    return holder
+end
+
 -- Two lists side by side: your reminders (type toggle, remove) and class suggestions (add).
 local MODE_TEXT = { usable = "Usable", buff = "Buff", debuff = "Debuff", interrupt = "Interrupt" }
 
@@ -965,6 +1021,17 @@ local function BuildResLook(p)
     p:Checkbox("Gloss", "resources.gloss")
     p:Checkbox("Thin border", "resources.border", 2)
     p:Checkbox("Smooth bar movement", "resources.smooth")
+
+    p:Header("Bar order")
+    p:Note("Top to bottom. The cast bar comes and goes: at the top it appears over the display, at the bottom under it, and in between it keeps its place free so nothing jumps.")
+    p:OrderList("Bars", ns.Resources.Order, function(list) ns.db.resources.order = list end, {
+        health = "Health", power = "Power", druidMana = "Druid mana",
+        combo = "Combo points", castbar = "Cast bar",
+    })
+    p:Button("Reset order", function()
+        ns.db.resources.order = ns.CopyTable(ns.defaults.resources.order)
+        ns.ApplyAll(true)
+    end)
 end
 
 local function BuildResHealth(p)
@@ -998,9 +1065,22 @@ local function BuildResCombo(p)
     p:Header("Combo points")
     p:Checkbox("Combo point bar", "resources.combo.enabled")
     p:Checkbox("Only when you have combo points", "resources.combo.onlyWhenActive", 2)
-    p:Slider("Height", "resources.combo.height", 2, 24, 1, px)
-    p:Color("Color", "resources.combo.color", 2)
-    p:Checkbox("Segment lines", "resources.combo.ticks")
+    p:Dropdown("Style", "resources.combo.style", {
+        { text = "Bar", value = "bar" },
+        { text = "Squares", value = "squares" },
+        { text = "Circles", value = "circles" },
+        { text = "Diamonds", value = "diamonds" },
+    })
+    p:Slider("Height / size", "resources.combo.height", 2, 32, 1, px, 2)
+    p:Slider("Gap", "resources.combo.gap", 0, 12, 1, px)
+    p:Checkbox("Segment lines", "resources.combo.ticks", 2)
+    p:Note("Squares share the display's width. Circles and diamonds are as wide as they are high and sit centered. Gap and segment lines: gap for squares, circles and diamonds, segment lines for the bar.")
+
+    p:Header("Color")
+    p:Color("Color", "resources.combo.color")
+    p:Checkbox("Color gradient", "resources.combo.gradient", 2)
+    p:Color("Last point color", "resources.combo.color2")
+    p:Note("With a gradient, the first point gets the first color, the last point the second and the points between blend from one to the other.")
 end
 
 local function BuildResCast(p)

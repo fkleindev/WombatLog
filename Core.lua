@@ -30,20 +30,20 @@ end
 
 ns.defaults = {
     appearance = {
-        width = 300, rowHeight = 22, rowGap = 2,
-        amountFont = "Fonts\\FRIZQT__.TTF", nameFont = "Fonts\\ARIALN.TTF",
-        amountSize = 14, nameSize = 13, critSize = 20,
-        outline = "OUTLINE",     -- "OUTLINE" | "THICKOUTLINE" | ""
-        rowBgOpacity = 0.42,     -- 0 = rows fully transparent
+        width = 270, rowHeight = 24, rowGap = 0,
+        amountFont = "Fonts\\ARIALN.TTF", nameFont = "Fonts\\ARIALN.TTF",
+        amountSize = 14, nameSize = 13, critSize = 25,
+        outline = "",            -- "OUTLINE" | "THICKOUTLINE" | ""
+        rowBgOpacity = 1,        -- 0 = rows fully transparent
         showIcons = true,
         mirrorIncoming = true,   -- incoming rows right-aligned
-        newestOnTop = false,
+        newestOnTop = true,
         ageDim = true,
-        numberFormat = "full",   -- "full" | "short"
-        header = { show = true, dps = true, hps = true, timer = true, totals = true, biggest = true },
+        numberFormat = "short",  -- "full" | "short"
+        header = { show = true, dps = true, hps = false, timer = true, totals = true, biggest = true },
     },
     crit = {
-        pop = true, popScale = 1.5, shine = true, flash = true,
+        pop = true, popScale = 2, shine = true, flash = true,
         glow = true, iconBorder = true, tag = true,
     },
     colors = {
@@ -64,11 +64,11 @@ ns.defaults = {
             [64] = { 1.00, 0.50, 1.00 },
         },
     },
-    position = { x = 320, y = -140, scale = 1, alpha = 1, strata = "MEDIUM" },
+    position = { x = -276, y = -266, scale = 1, alpha = 0.9, strata = "MEDIUM" },
     behaviour = {
         visibility = "combat",   -- "combat" | "always"
-        linger = 5, fadeIn = 0.25, fadeOut = 1.0,
-        lines = 10,
+        linger = 5, fadeIn = 0.25, fadeOut = 1.5,
+        lines = 7,
         clearOnNewFight = true,  -- start every fight with an empty feed
         pinDots = true,          -- one pinned row per running DoT that counts its ticks up
         strict = true,           -- in groups, drop target hits that can't be matched to your swing/cast
@@ -83,23 +83,23 @@ ns.defaults = {
 
 ns.defaults.alerts = {
     visual = {
-        enabled = true, heals = true, minAmount = 0, duration = 1.2, size = 44, scale = 1,
+        enabled = true, heals = false, minAmount = 0, duration = 2, size = 35, scale = 1,
         showIcon = true, showName = true, glow = true,
         useCritColor = true, color = { 1.00, 0.82, 0.18 },
-        font = "", nameFont = "", outline = "THICKOUTLINE", -- "" font = the log window's
-        x = 0, y = 180,
+        font = "", nameFont = "", outline = "OUTLINE", -- "" font = the log window's
+        x = -276, y = 1,
     },
     sound = {
         enabled = true, heals = false, minAmount = 0,
-        sound = "wl:chime", channel = "Master", throttle = 0.15,
+        sound = "wl:impact", channel = "Master", throttle = 0.05,
     },
 }
 
 ns.defaults.alerts.streak = { enabled = true, min = 2, escalatingSound = true }
-ns.defaults.alerts.record = { banner = true, sound = true }
+ns.defaults.alerts.record = { banner = false, sound = false }
 
 ns.defaults.stats = {
-    summary = { enabled = true, duration = 8, scale = 1, x = 320, y = -330 },
+    summary = { enabled = true, duration = 5, scale = 1, x = 289, y = -268 },
     history = { enabled = true, keep = 30, minDuration = 3 },
     records = { enabled = true, minDpsDuration = 10 },
 }
@@ -113,61 +113,65 @@ ns.defaults.procs = {
 
 -- shown as a lane inside the log window, under the header
 ns.defaults.swing = {
-    enabled = true, height = 8, offhand = true, ranged = true, showTime = false,
+    enabled = true, height = 7, offhand = true, ranged = true, showTime = true,
     color = { 0.95, 0.80, 0.30 }, offColor = { 0.60, 0.75, 1.00 }, rangedColor = { 0.50, 1.00, 0.50 },
 }
 
 -- personal resource display, under your character by default
 ns.defaults.resources = {
     styleVersion = 2,
-    enabled = true, visibility = "combatOrNotFull", fadeIn = 0.3, fadeOut = 0.6, alpha = 1,
-    x = 0, y = -150, scale = 1, width = 200, spacing = 3,
-    -- borderless with the log rows' dark fade behind each bar
-    texture = "flat", gloss = false, bgStyle = "fade", bgOpacity = 0.42, border = false, smooth = true,
-    health = { enabled = true, height = 10, classColor = true, color = { 0.20, 0.85, 0.30 },
-               textLeft = "none", textRight = "percent", textSize = 10 },
-    power = { enabled = true, height = 5, typeColor = true, color = { 0.20, 0.50, 1.00 },
-              textLeft = "none", textRight = "none", textSize = 8, countForVisibility = true },
+    enabled = true, visibility = "combatOrNotFull", fadeIn = 0.25, fadeOut = 0.5, alpha = 1,
+    x = 0, y = -227, scale = 1, width = 200, spacing = 3,
+    order = { "combo", "health", "power", "druidMana", "castbar" }, -- top to bottom
+    -- thin border and gloss, with the log rows' dark fade behind each bar
+    texture = "flat", gloss = true, bgStyle = "fade", bgOpacity = 0.3, border = true, smooth = true,
+    health = { enabled = true, height = 20, classColor = false, color = { 0.00, 0.54, 0.11 },
+               textLeft = "valuemax", textRight = "percent", textSize = 14 },
+    power = { enabled = true, height = 18, typeColor = true, color = { 0.20, 0.50, 1.00 },
+              textLeft = "valuemax", textRight = "percent", textSize = 12, countForVisibility = true },
     druidMana = { enabled = true, height = 3, color = { 0.00, 0.55, 1.00 } },
-    combo = { enabled = true, height = 6, onlyWhenActive = false, ticks = true, color = { 1.00, 0.82, 0.18 } },
-    castbar = { enabled = true, height = 10, icon = true, name = true, time = true, textSize = 9,
-                color = { 1.00, 0.75, 0.25 }, uninterruptibleColor = { 0.60, 0.60, 0.60 } },
+    combo = { enabled = true, height = 6, onlyWhenActive = false, ticks = true, color = { 1.00, 0.82, 0.18 },
+              style = "squares",        -- "bar" | "squares" | "circles" | "diamonds"
+              gap = 12,                 -- space between points (not for "bar")
+              gradient = true, color2 = { 0.76, 0.24, 0.15 } }, -- last point's color with gradient
+    castbar = { enabled = true, height = 18, icon = true, name = true, time = true, textSize = 12,
+                color = { 0.94, 0.79, 0.15 }, uninterruptibleColor = { 0.60, 0.60, 0.60 } },
 }
 
 -- pop-up when a mob you fought dies: XP counting up, XP bar, multi-kills, sound
 ns.defaults.killAlert = {
     enabled = true, noXpKills = true,  -- also kills without XP (grey mobs, max level)
-    showXP = true, showBar = true, showName = true, multiKill = true, duration = 2.5,
-    sound = true, soundChoice = "wl:kill", channel = "Master", risingPitch = true,
-    size = 30, scale = 1, color = { 0.72, 0.52, 1.00 }, x = 0, y = 260,
-    font = "", nameFont = "", outline = "THICKOUTLINE", -- "" font = the log window's
+    showXP = true, showBar = true, showName = true, multiKill = true, duration = 4,
+    sound = false, soundChoice = "wl:kill", channel = "Master", risingPitch = true,
+    size = 35, scale = 1, color = { 0.72, 0.52, 1.00 }, x = -5, y = 333,
+    font = "", nameFont = "", outline = "OUTLINE", -- "" font = the log window's
     bar = {
-        width = 0, height = 0,          -- 0 = follows the text size
-        texture = "flat", bgOpacity = 0.55, border = false,
-        segments = 0,                   -- dividers like the game's XP bar (0 = none)
+        width = 0, height = 8,          -- 0 = follows the text size
+        texture = "blizzard", bgOpacity = 0.4, border = false,
+        segments = 20,                  -- dividers like the game's XP bar (0 = none)
         useTextColor = true, color = { 0.72, 0.52, 1.00 },
-        speed = 6,                      -- how fast the bar fills
+        speed = 2,                      -- how fast the bar fills
         spark = true, gloss = false,
-        gainFlash = true,               -- the part just gained lights up and fades
-        glow = false,                   -- soft glow behind the bar while it fills
+        gainFlash = false,              -- the part just gained lights up and fades
+        glow = true,                    -- soft glow behind the bar while it fills
         rested = true,                  -- rested XP as a pale stretch after the fill
-        percent = false,                -- percent text on the bar
+        percent = true,                 -- percent text on the bar
     },
 }
 
-ns.defaults.session = { enabled = true, headerLine = false }
+ns.defaults.session = { enabled = true, headerLine = true }
 ns.defaults.minimap = { enabled = true, angle = 200 }
 
 -- icons for spells that want attention: usable now (Riposte) or a buff to refresh
 ns.defaults.reminders = {
-    enabled = true, combatOnly = false,
-    refreshAt = 10,             -- buff reminders also show when less than this is left (0 = only when missing)
-    debuffRefreshAt = 3,        -- the same for debuffs on your target
+    enabled = true, combatOnly = true,
+    refreshAt = 1,              -- buff reminders also show when less than this is left (0 = only when missing)
+    debuffRefreshAt = 1,        -- the same for debuffs on your target
     list = {},                  -- { spell = "Riposte" or "14251", mode = "usable" | "buff" | "debuff" }
-    sound = false, soundChoice = "wl:bell", channel = "Master", -- each reminder can pick its own, too
-    size = 40, scale = 1, spacing = 6, showName = true, glow = true,
+    sound = false, soundChoice = "wl:woodblock", channel = "Master", -- each reminder can pick its own, too
+    size = 40, scale = 1, spacing = 12, showName = false, glow = true,
     animate = true,             -- pop in with flash, sweep and burst; shrink away; glide into place
-    color = { 1.00, 0.82, 0.18 }, x = 0, y = 60,
+    color = { 1.00, 0.82, 0.18 }, x = -3, y = -159,
 }
 
 ns.fight = { active = false, start = 0, stop = nil, damage = 0, healing = 0, taken = 0 }
@@ -583,8 +587,32 @@ end
 -- Init, combat state, slash commands
 ---------------------------------------------------------------------------
 
+-- The default positions (x, y from the screen center) were set on a screen this big,
+-- in UIParent units. Elsewhere they're scaled, so everything starts at the same spot
+-- relative to the screen whatever its resolution, aspect ratio or UI scale.
+local DEFAULT_SCREEN = { w = 1950.5, h = 1097.1 } -- 3840x2160 (16:9) at UI scale 0.7
+
+local function scaleDefaultPositions()
+    local w, h = UIParent:GetWidth(), UIParent:GetHeight()
+    if DEFAULT_SCREEN.w <= 0 or not w or w <= 0 or not h or h <= 0 then return end
+    local sx, sy = w / DEFAULT_SCREEN.w, h / DEFAULT_SCREEN.h
+    local function walk(t)
+        for _, v in pairs(t) do
+            if type(v) == "table" then
+                if type(v.x) == "number" and type(v.y) == "number" then
+                    v.x = math.floor(v.x * sx + 0.5)
+                    v.y = math.floor(v.y * sy + 0.5)
+                end
+                walk(v)
+            end
+        end
+    end
+    walk(ns.defaults)
+end
+
 ns.Listen("ADDON_LOADED", function(name)
     if name ~= ADDON then return end
+    scaleDefaultPositions()
     if not WombatLogDB then
         WombatLogDB = { profiles = {}, chars = {} }
     elseif not WombatLogDB.profiles then

@@ -10,6 +10,12 @@ local Safe = ns.Safe
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local GRADIENT = "Interface\\AddOns\\WombatLog\\Media\\Gradient"
+-- shapes for combo points; squares use a plain white mask (no effect)
+local PIP_MASKS = {
+    circles = "Interface\\CharacterFrame\\TempPortraitAlphaMask",
+    diamonds = "Interface\\AddOns\\WombatLog\\Media\\Diamond",
+}
+local MAX_PIPS = 7
 local MANA, RAGE, ENERGY, COMBO = 0, 1, 3, 4
 
 -- Classic clients may keep combo points on the target instead of the player.
@@ -22,6 +28,23 @@ local function comboPoints()
     return cp
 end
 local ORDER = { "health", "power", "druidMana", "combo", "castbar" }
+
+-- The saved bar order, top to bottom, with unknown or doubled keys dropped and
+-- missing ones added in the default order.
+function Resources.Order()
+    local list, seen, known = {}, {}, {}
+    for _, key in ipairs(ORDER) do known[key] = true end
+    for _, key in ipairs(ns.db.resources.order or {}) do
+        if known[key] and not seen[key] then
+            seen[key] = true
+            list[#list + 1] = key
+        end
+    end
+    for _, key in ipairs(ORDER) do
+        if not seen[key] then list[#list + 1] = key end
+    end
+    return list
+end
 
 local TEXTURES = {
     flat = WHITE,
@@ -137,6 +160,21 @@ end
 -- Bars
 ---------------------------------------------------------------------------
 
+-- A 1 px black frame around b, just outside it.
+local function makeEdges(b)
+    local edges = {}
+    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT", 0, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", 0, -1 },
+                            { "TOPLEFT", "BOTTOMLEFT", -1, 0 }, { "TOPRIGHT", "BOTTOMRIGHT", 1, 0 } }) do
+        local t = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+        t:SetColorTexture(0, 0, 0, 1)
+        t:SetPoint(side[1], b, side[1], side[3], side[4])
+        t:SetPoint(side[2], b, side[2], side[3], side[4])
+        if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
+        edges[i] = t
+    end
+    return edges
+end
+
 local function CreateBar(parent)
     local b = CreateFrame("StatusBar", nil, parent)
     b:SetMinMaxValues(0, 1)
@@ -149,16 +187,7 @@ local function CreateBar(parent)
     b.gloss:SetTexture(GRADIENT)
     b.gloss:SetTexCoord(0, 0, 1, 0, 0, 1, 1, 1)
     b.gloss:SetVertexColor(1, 1, 1, 0.22)
-    b.edges = {}
-    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT", 0, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", 0, -1 },
-                            { "TOPLEFT", "BOTTOMLEFT", -1, 0 }, { "TOPRIGHT", "BOTTOMRIGHT", 1, 0 } }) do
-        local t = b:CreateTexture(nil, "BACKGROUND", nil, -1)
-        t:SetColorTexture(0, 0, 0, 1)
-        t:SetPoint(side[1], b, side[1], side[3], side[4])
-        t:SetPoint(side[2], b, side[2], side[3], side[4])
-        if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
-        b.edges[i] = t
-    end
+    b.edges = makeEdges(b)
     b.left = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     b.left:SetPoint("LEFT", 4, 0)
     b.right = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -167,14 +196,30 @@ local function CreateBar(parent)
     return b
 end
 
--- Plain values may glide (smooth); secret values always go straight to the widget.
+-- Newer clients can glide a bar to a value themselves, secret values included.
+local EASE = Enum and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
+local easeWorks = EASE ~= nil
+
+local function setSecretValue(b, cur)
+    if easeWorks and ns.db.resources.smooth then
+        if pcall(b.SetValue, b, cur, EASE) then return end
+        easeWorks = false -- the client doesn't take it after all
+    end
+    b:SetValue(cur)
+end
+
+-- Plain values glide here (smooth); secret ones go to the widget, which glides
+-- them itself where the client can.
 local function setBar(b, cur, max)
     b:SetMinMaxValues(0, max or 1)
-    if ns.db.resources.smooth and not isSecret(cur) and not isSecret(max) and b.shownValue then
+    if isSecret(cur) or isSecret(max) then
+        b.target, b.shownValue = nil, nil
+        setSecretValue(b, cur)
+    elseif ns.db.resources.smooth and b.shownValue then
         b.target = cur or 0
     else
         b.target = nil
-        b.shownValue = not isSecret(cur) and (cur or 0) or nil
+        b.shownValue = cur or 0
         b:SetValue(cur or 0)
     end
 end
@@ -231,19 +276,46 @@ local function applies(key)
     return true
 end
 
+-- The cast bar comes and goes. With nothing shown below it, it hangs under the
+-- display; with nothing above it, over the display; in between it keeps its slot
+-- even while you don't cast, so the bars around it never jump.
 local function Layout()
     local f, R = Resources.frame, ns.db.resources
+    local order = Resources.Order()
+    local castAt, before, after = 0, false, false
+    for i, key in ipairs(order) do
+        if key == "castbar" then castAt = i end
+    end
+    for i, key in ipairs(order) do
+        if key ~= "castbar" and applies(key) then
+            if i < castAt then before = true else after = true end
+        end
+    end
+
     local y = 0
-    for _, key in ipairs(ORDER) do
+    for _, key in ipairs(order) do
         local b = Resources.bars[key]
-        if applies(key) then
+        local h = R[key].height
+        if key == "castbar" then
+            b:ClearAllPoints()
+            if not after then
+                b:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -y)
+            elseif not before then
+                b:SetPoint("BOTTOMLEFT", f, "TOPLEFT", 0, R.spacing)
+            else
+                b:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -y)
+                if R.castbar.enabled then y = y + h + R.spacing end
+            end
+            b:SetPoint("RIGHT", f, "RIGHT", 0, 0)
+            b:SetHeight(h)
+            b:SetShown(applies(key))
+        elseif applies(key) then
             b:ClearAllPoints()
             b:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -y)
             b:SetPoint("RIGHT", f, "RIGHT", 0, 0)
-            b:SetHeight(R[key].height)
+            b:SetHeight(h)
             b:Show()
-            -- the cast bar comes and goes, so it never counts toward the frame size
-            if key ~= "castbar" then y = y + R[key].height + R.spacing end
+            y = y + h + R.spacing
         else
             b:Hide()
         end
@@ -255,15 +327,36 @@ end
 -- Values
 ---------------------------------------------------------------------------
 
-local function comboTicks(b, max)
+-- How many combo points there can be (5 when the game keeps it secret).
+local function comboMax()
+    local max = UnitPowerMax("player", COMBO)
+    if isSecret(max) or not max or max <= 0 then return 5 end
+    return math.min(max, MAX_PIPS)
+end
+
+-- A layer over the combo points for the bar style's gloss and segment lines
+-- (the points are frames of their own and would cover the lane's textures).
+local function comboLayer(b)
+    if b.layer then return b.layer end
+    local l = CreateFrame("Frame", nil, b)
+    l:SetAllPoints()
+    l:SetFrameLevel(b:GetFrameLevel() + 5)
+    l.gloss = l:CreateTexture(nil, "OVERLAY")
+    l.gloss:SetAllPoints()
+    l.gloss:SetTexture(GRADIENT)
+    l.gloss:SetTexCoord(0, 0, 1, 0, 0, 1, 1, 1)
+    l.gloss:SetVertexColor(1, 1, 1, 0.22)
+    b.layer = l
+    return l
+end
+
+local function comboTicks(b, n, show)
     b.ticks = b.ticks or {}
-    local n = isSecret(max) and 5 or (max or 5)
-    local show = ns.db.resources.combo.ticks
-    local w = b:GetWidth()
+    local w = ns.db.resources.width
     for i = 1, math.max(n - 1, #b.ticks) do
         local t = b.ticks[i]
         if not t then
-            t = b:CreateTexture(nil, "OVERLAY", nil, 1)
+            t = comboLayer(b):CreateTexture(nil, "OVERLAY", nil, 1)
             t:SetColorTexture(0, 0, 0, 0.9)
             t:SetWidth(1)
             b.ticks[i] = t
@@ -276,6 +369,113 @@ local function comboTicks(b, max)
         else
             t:Hide()
         end
+    end
+end
+
+-- One combo point: a bar from i-1 to i, so handing it the count fills it fully or
+-- not at all. That works with secret counts, which can't be compared.
+local function getPip(b, i)
+    b.pips = b.pips or {}
+    local p = b.pips[i]
+    if p then return p end
+    p = CreateFrame("StatusBar", nil, b)
+    p:SetMinMaxValues(i - 1, i)
+    p:SetValue(0)
+    p.bg = p:CreateTexture(nil, "BACKGROUND")
+    p.bg:SetAllPoints()
+    p.edges = makeEdges(p)
+    -- the backing of round and diamond points: their border
+    p.backing = p:CreateTexture(nil, "BACKGROUND", nil, -2)
+    p.backing:SetPoint("TOPLEFT", -1, 1)
+    p.backing:SetPoint("BOTTOMRIGHT", 1, -1)
+    p.backing:SetColorTexture(0, 0, 0, 1)
+    p.mask = p:CreateMaskTexture()
+    p.mask:SetAllPoints()
+    p.bg:AddMaskTexture(p.mask)
+    p.backingMask = p:CreateMaskTexture()
+    p.backingMask:SetAllPoints(p.backing)
+    p.backing:AddMaskTexture(p.backingMask)
+    b.pips[i] = p
+    return p
+end
+
+local function lerp(a, b, t) return a + (b - a) * t end
+
+-- Places, shapes and colors the combo points. Cheap to call often: it only redoes
+-- the work when the count or a setting changed.
+local function styleCombo(b, n)
+    local R = ns.db.resources
+    local C = R.combo
+    local key = n .. C.style .. C.height .. C.gap .. R.width .. tostring(C.gradient)
+    if b.comboKey == key then return end
+    b.comboKey = key
+
+    local style = C.style
+    local isBar = style == "bar" or not (style == "squares" or PIP_MASKS[style])
+    local shaped = PIP_MASKS[style] ~= nil
+    local gap = isBar and 0 or C.gap
+    local w = shaped and C.height or (R.width - gap * (n - 1)) / n
+    local x0 = (R.width - (w * n + gap * (n - 1))) / 2
+    local tex = barTexture(R.texture)
+    local mask = PIP_MASKS[style] or WHITE
+
+    for i = 1, math.max(n, b.pips and #b.pips or 0) do
+        local p = getPip(b, i)
+        if i <= n then
+            p:ClearAllPoints()
+            p:SetPoint("TOPLEFT", b, "TOPLEFT", x0 + (i - 1) * (w + gap), 0)
+            p:SetSize(w, C.height)
+            p:SetStatusBarTexture(tex)
+            local fill = p:GetStatusBarTexture()
+            if p.maskedFill ~= fill then
+                fill:AddMaskTexture(p.mask)
+                p.maskedFill = fill
+            end
+            p.mask:SetTexture(mask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            p.backingMask:SetTexture(mask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            local c = C.color
+            if C.gradient and n > 1 then
+                local t, c2 = (i - 1) / (n - 1), C.color2
+                c = { lerp(c[1], c2[1], t), lerp(c[2], c2[2], t), lerp(c[3], c2[3], t) }
+            end
+            p:SetStatusBarColor(c[1], c[2], c[3], 1)
+            -- in the bar style the whole lane has one background and border
+            p.bg:SetColorTexture(0, 0, 0, R.bgOpacity)
+            p.bg:SetShown(not isBar)
+            for _, e in ipairs(p.edges) do e:SetShown(R.border and not isBar and not shaped) end
+            p.backing:SetShown(R.border and shaped)
+            p:Show()
+        else
+            p:Hide()
+        end
+    end
+
+    b:SetValue(0) -- the points do the filling
+    b.bg:SetShown(isBar)
+    b.gloss:Hide()
+    comboLayer(b).gloss:SetShown(isBar and R.gloss)
+    for _, e in ipairs(b.edges) do e:SetShown(isBar and R.border) end
+    comboTicks(b, n, isBar and C.ticks)
+end
+
+-- cp may be secret: it only goes to the points' SetValue
+local function setCombo(b, n, cp)
+    styleCombo(b, n)
+    if cp == nil then cp = 0 end
+    for i = 1, n do b.pips[i]:SetValue(cp) end
+end
+
+-- Power and druid mana. Forever and Retail let them regenerate continuously, but
+-- the power event only fires every so often, so this also runs every frame.
+function Resources:UpdatePower()
+    local R, bars = ns.db.resources, self.bars
+    local pt = powerType()
+    local p, pMax = UnitPower("player", pt), UnitPowerMax("player", pt)
+    setBar(bars.power, p, pMax)
+    setText(bars.power.left, R.power.textLeft, p, pMax)
+    setText(bars.power.right, R.power.textRight, p, pMax)
+    if bars.druidMana:IsShown() then
+        setBar(bars.druidMana, UnitPower("player", MANA), UnitPowerMax("player", MANA))
     end
 end
 
@@ -292,8 +492,7 @@ function Resources:Update()
         setText(bars.power.left, R.power.textLeft, 1350, 3000)
         setText(bars.power.right, R.power.textRight, 1350, 3000)
         setBar(bars.druidMana, PREVIEW.druidMana, 1)
-        setBar(bars.combo, PREVIEW.combo, 5)
-        comboTicks(bars.combo, 5)
+        setCombo(bars.combo, 5, PREVIEW.combo)
         return
     end
 
@@ -302,20 +501,9 @@ function Resources:Update()
     setText(bars.health.left, R.health.textLeft, hp, hpMax, true)
     setText(bars.health.right, R.health.textRight, hp, hpMax, true)
 
-    local pt = powerType()
-    local p, pMax = UnitPower("player", pt), UnitPowerMax("player", pt)
-    setBar(bars.power, p, pMax)
-    setText(bars.power.left, R.power.textLeft, p, pMax)
-    setText(bars.power.right, R.power.textRight, p, pMax)
-
-    if bars.druidMana:IsShown() then
-        setBar(bars.druidMana, UnitPower("player", MANA), UnitPowerMax("player", MANA))
-    end
+    self:UpdatePower()
     if bars.combo:IsShown() then
-        local cpMax = UnitPowerMax("player", COMBO)
-        if not isSecret(cpMax) and (not cpMax or cpMax <= 0) then cpMax = 5 end
-        setBar(bars.combo, comboPoints() or UnitPower("player", COMBO), cpMax)
-        comboTicks(bars.combo, cpMax)
+        setCombo(bars.combo, comboMax(), comboPoints() or UnitPower("player", COMBO))
     end
 end
 
@@ -339,6 +527,8 @@ function Resources:Colorize()
     styleBar(bars.power, R.power, pc)
     styleBar(bars.druidMana, R.druidMana, R.druidMana.color)
     styleBar(bars.combo, R.combo, R.combo.color)
+    bars.combo.comboKey = nil -- restyle the points too
+    styleCombo(bars.combo, self.preview and 5 or comboMax())
     styleBar(bars.castbar, R.castbar, nil)
 end
 
@@ -533,6 +723,11 @@ local function OnUpdate(self, dt)
             self:Hide()
             return
         end
+    end
+    -- follow regeneration frame by frame (the preview keeps its fixed values)
+    local bars = Resources.bars
+    if not Resources.preview and (bars.power:IsShown() or bars.druidMana:IsShown()) then
+        Resources:UpdatePower()
     end
     -- smooth plain values
     for _, b in pairs(Resources.bars) do

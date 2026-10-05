@@ -117,7 +117,7 @@ sub-tabs along the top.
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),
-  *Look* (position, size, bar texture, gloss, border, background), and one sub-tab
+  *Look* (position, size, bar texture, gloss, border, background, bar order), and one sub-tab
   each for *Health*, *Power* (with druid mana), *Combo points* and *Cast bar*.
 - **Fight summary:** *Summary* (display time, scale, position) and *History &
   records* (how many fights to keep, minimum fight length, personal records).
@@ -176,14 +176,15 @@ A compact stack of bars under your character, styled like the rest of WombatLog:
 - **Power:** mana, rage, energy or focus, colored by type, with the same text
   options.
 - **Druid mana:** a thin mana bar while you're in bear or cat form.
-- **Combo points:** a segmented bar for rogues and druids in cat form.
+- **Combo points:** for rogues and druids in cat form, as a segmented bar, squares,
+  circles or diamonds, in one color or a gradient from the first to the last point.
 - **Cast bar:** spell icon, name and time left. It turns grey for uninterruptible
   casts and shows "Interrupted" in red when a cast is cut off.
 
 By default it shows while you're in combat or while your health or power isn't full
 (rage counts while it's above 0), and it fades out otherwise. You can also show it
-only in combat, or always. Every bar can be turned off on its own, and the whole
-display has its own switch.
+only in combat, or always. Every bar can be turned off on its own, the bars can be
+put in any order, and the whole display has its own switch.
 
 In combat the game keeps your own health and power secret from addons. The bars
 still fill correctly because the game draws them directly, but the numbers in the
@@ -309,6 +310,7 @@ As a result:
 | `Config.lua` | The settings panel |
 | `Media/Gradient.tga` | White-to-transparent texture used for the row backgrounds |
 | `Media/Glow.tga` | Radial glow used by the crit alert |
+| `Media/Diamond.tga` | Diamond mask for diamond-shaped combo points |
 | `Media/Sounds/*.ogg` | Alert sounds (crit, streak, record, proc) |
 | `tools/gen_spelldata.py` | Regenerates the `SpellData_*.lua` files from each client's game data via wago.tools (`--all`, or `--flavor forever\|vanilla\|tbc\|mists\|retail [--build x.y.z.n]`) |
 | `tools/gen_media.py` | Regenerates everything in `Media` (`pip install numpy soundfile`) |
