@@ -13,6 +13,43 @@ local IDLE_HIDE = 3 -- seconds a finished bar stays before it clears
 local RANGED_SPELLS = { [75] = true, [5019] = true } -- Auto Shot, Shoot (wands)
 local ORDER = { "main", "off", "ranged" }
 local SAMPLE = { main = 0.6, off = 0.35 }
+local FALLBACK = 2
+
+---------------------------------------------------------------------------
+-- Weapon speeds
+---------------------------------------------------------------------------
+
+-- Forever and Retail keep your attack speed secret in combat. So the last readable
+-- speeds are kept, and in combat they follow the time between your actual swings
+-- (haste buffs like Slice and Dice change it mid-fight).
+local speeds = {}       -- main, off, ranged; off is nil without an off-hand
+local lastSwing = {}    -- key -> time of that weapon's last swing
+
+-- Reads the speeds when the game allows it; true when they were readable.
+local function readSpeeds()
+    local main, off = UnitAttackSpeed("player")
+    main, off = Safe(main), Safe(off)
+    if not main or main <= 0 then return false end
+    speeds.main = main
+    speeds.off = off and off > 0 and off or nil
+    local ranged = UnitRangedDamage and Safe((UnitRangedDamage("player")))
+    if ranged and ranged > 0 then speeds.ranged = ranged end
+    return true
+end
+
+-- A swing of `key` while the speeds are secret: learn from the time since the last one.
+local function learn(key, now)
+    local last, est = lastSwing[key], speeds[key] or FALLBACK
+    if not last then return end
+    local gap = now - last
+    -- far shorter: an extra attack; far longer: a pause (out of range, stunned, ...)
+    if gap < est * 0.5 or gap > est * 1.4 then return end
+    if gap < est then
+        speeds[key] = gap                   -- it can't swing early: faster now
+    else
+        speeds[key] = est + (gap - est) * 0.5 -- slower, or just lag: ease toward it
+    end
+end
 
 local function CreateBar(lane)
     local b = CreateFrame("StatusBar", nil, lane)
@@ -104,7 +141,7 @@ function Swing:Start(key, dur)
     if key == "off" and not cfg.offhand then return end
     if key == "ranged" and not cfg.ranged then return end
     local b = self.bars[key]
-    b.start, b.dur, b.active = GetTime(), math.max(dur or 2, 0.1), true
+    b.start, b.dur, b.active = GetTime(), math.max(dur or FALLBACK, 0.1), true
     Layout()
 end
 
@@ -130,7 +167,8 @@ end
 
 -- Settings button: a few simulated main-hand swings in the preview.
 function Swing:Test()
-    local speed = Safe(UnitAttackSpeed("player")) or 2
+    readSpeeds()
+    local speed = speeds.main or FALLBACK
     self:Start("main", speed)
     if self.testTicker then self.testTicker:Cancel() end
     self.testTicker = C_Timer.NewTicker(speed, function() self:Start("main", speed) end, 3)
@@ -143,19 +181,25 @@ end
 -- A melee swing of yours; isOff nil when the client doesn't say which hand.
 function Swing:OnSwing(isOff)
     if not (ns.db and ns.db.swing.enabled and self.lane) then return end
-    local main, off = UnitAttackSpeed("player")
-    main, off = Safe(main) or 2, Safe(off)
-    if isOff == nil and off then
+    local now = GetTime()
+    local readable = readSpeeds()
+    if isOff == nil and speeds.off then
         -- no hint: a swing early in the main-hand cycle has to be the off-hand
         local m = self.bars.main
-        isOff = m.active and (GetTime() - m.start) < m.dur * 0.5
+        isOff = m.active and (now - m.start) < m.dur * 0.5
     end
-    if isOff then
-        self:Start("off", off or main)
-    else
-        self:Start("main", main)
-    end
+    local key = isOff and speeds.off and "off" or "main"
+    if not readable then learn(key, now) end
+    lastSwing[key] = now
+    self:Start(key, speeds[key])
 end
+
+-- Keep the speeds fresh whenever the game lets us read them.
+ns.Listen("PLAYER_ENTERING_WORLD", readSpeeds)
+ns.Listen("PLAYER_EQUIPMENT_CHANGED", readSpeeds)
+ns.Listen("UNIT_ATTACK_SPEED", readSpeeds, "player")
+ns.Listen("UNIT_RANGEDDAMAGE", readSpeeds, "player")
+ns.Listen("PLAYER_REGEN_DISABLED", readSpeeds)
 
 -- Forever: PLAYER_SWING (clients with the combat log call OnSwing from CombatLog.lua)
 ns.Listen("PLAYER_SWING", function(...)
@@ -176,11 +220,20 @@ end)
 ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, _, spellID)
     spellID = Safe(spellID)
     if not (spellID and RANGED_SPELLS[spellID] and ns.db and ns.db.swing.enabled and Swing.lane) then return end
-    local speed = Safe(UnitRangedDamage("player"))
-    if speed and speed > 0 then Swing:Start("ranged", speed) end
+    local now = GetTime()
+    local speed = Safe((UnitRangedDamage("player")))
+    if speed and speed > 0 then
+        speeds.ranged = speed
+    else
+        learn("ranged", now)
+    end
+    lastSwing.ranged = now
+    if speeds.ranged then Swing:Start("ranged", speeds.ranged) end
 end, "player")
 
 ns.Listen("PLAYER_REGEN_ENABLED", function()
+    wipe(lastSwing) -- the gap to the next fight's first swing means nothing
+    readSpeeds()
     if not Swing.lane then return end
     C_Timer.After(0.5, function()
         if not Safe(UnitAffectingCombat("player")) then Swing:StopAll() end
