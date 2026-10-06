@@ -1,0 +1,8 @@
+package-as: WombatLog
+
+enable-nolib-creation: no
+
+ignore:
+  - CURSEFORGE.md
+  - tools
+  - .gitattributes
