@@ -1,6 +1,7 @@
 local ADDON, ns = ...
 local Alerts = {}
 ns.Alerts = Alerts
+local L = ns.L
 
 local MEDIA = "Interface\\AddOns\\WombatLog\\Media\\"
 local GLOW = MEDIA .. "Glow"
@@ -18,22 +19,22 @@ local PROC_SAMPLE = { name = "Clearcasting", icon = "Interface\\Icons\\Spell_Sha
 -- streak: file name prefix of the copies raised for crit streaks of 2, 3 and 4+
 -- (<streak>2.ogg ... <streak>4.ogg); the game can't change a sound's pitch itself.
 local CUSTOM_SOUNDS = {
-    { value = "wl:chime", text = "WombatLog: Chime", file = MEDIA .. "Sounds\\CritChime.ogg", streak = "CritStreak" },
-    { value = "wl:coin", text = "WombatLog: Coin", file = MEDIA .. "Sounds\\CritCoin.ogg", streak = "CritCoinStreak" },
-    { value = "wl:impact", text = "WombatLog: Impact", file = MEDIA .. "Sounds\\CritImpact.ogg", streak = "CritImpactStreak" },
-    { value = "wl:record", text = "WombatLog: Record fanfare", file = MEDIA .. "Sounds\\Record.ogg", streak = "RecordStreak" },
-    { value = "wl:proc", text = "WombatLog: Proc ping", file = MEDIA .. "Sounds\\Proc.ogg", streak = "ProcStreak" },
+    { value = "wl:chime", text = "Chime", file = MEDIA .. "Sounds\\CritChime.ogg", streak = "CritStreak" },
+    { value = "wl:coin", text = "Coin", file = MEDIA .. "Sounds\\CritCoin.ogg", streak = "CritCoinStreak" },
+    { value = "wl:impact", text = "Impact", file = MEDIA .. "Sounds\\CritImpact.ogg", streak = "CritImpactStreak" },
+    { value = "wl:record", text = "Record fanfare", file = MEDIA .. "Sounds\\Record.ogg", streak = "RecordStreak" },
+    { value = "wl:proc", text = "Proc ping", file = MEDIA .. "Sounds\\Proc.ogg", streak = "ProcStreak" },
     -- soft ones made for spell reminders (they work for everything else, too)
-    { value = "wl:bell", text = "WombatLog: Soft bell", file = MEDIA .. "Sounds\\ReminderBell.ogg", streak = "ReminderBellStreak" },
-    { value = "wl:doubleping", text = "WombatLog: Double ping", file = MEDIA .. "Sounds\\ReminderDoublePing.ogg", streak = "ReminderDoublePingStreak" },
-    { value = "wl:pluck", text = "WombatLog: Pluck", file = MEDIA .. "Sounds\\ReminderPluck.ogg", streak = "ReminderPluckStreak" },
-    { value = "wl:marimba", text = "WombatLog: Marimba", file = MEDIA .. "Sounds\\ReminderMarimba.ogg", streak = "ReminderMarimbaStreak" },
-    { value = "wl:glass", text = "WombatLog: Glass", file = MEDIA .. "Sounds\\ReminderGlass.ogg", streak = "ReminderGlassStreak" },
-    { value = "wl:ready", text = "WombatLog: Ready", file = MEDIA .. "Sounds\\ReminderReady.ogg", streak = "ReminderReadyStreak" },
-    { value = "wl:woodblock", text = "WombatLog: Wood block", file = MEDIA .. "Sounds\\ReminderWoodblock.ogg", streak = "ReminderWoodblockStreak" },
+    { value = "wl:bell", text = "Soft bell", file = MEDIA .. "Sounds\\ReminderBell.ogg", streak = "ReminderBellStreak" },
+    { value = "wl:doubleping", text = "Double ping", file = MEDIA .. "Sounds\\ReminderDoublePing.ogg", streak = "ReminderDoublePingStreak" },
+    { value = "wl:pluck", text = "Pluck", file = MEDIA .. "Sounds\\ReminderPluck.ogg", streak = "ReminderPluckStreak" },
+    { value = "wl:marimba", text = "Marimba", file = MEDIA .. "Sounds\\ReminderMarimba.ogg", streak = "ReminderMarimbaStreak" },
+    { value = "wl:glass", text = "Glass", file = MEDIA .. "Sounds\\ReminderGlass.ogg", streak = "ReminderGlassStreak" },
+    { value = "wl:ready", text = "Ready", file = MEDIA .. "Sounds\\ReminderReady.ogg", streak = "ReminderReadyStreak" },
+    { value = "wl:woodblock", text = "Wood block", file = MEDIA .. "Sounds\\ReminderWoodblock.ogg", streak = "ReminderWoodblockStreak" },
     -- for kill alerts
-    { value = "wl:kill", text = "WombatLog: Kill", file = MEDIA .. "Sounds\\Kill.ogg", streak = "KillStreak" },
-    { value = "wl:xp", text = "WombatLog: XP sparkle", file = MEDIA .. "Sounds\\XPSparkle.ogg", streak = "XPSparkleStreak" },
+    { value = "wl:kill", text = "Kill", file = MEDIA .. "Sounds\\Kill.ogg", streak = "KillStreak" },
+    { value = "wl:xp", text = "XP sparkle", file = MEDIA .. "Sounds\\XPSparkle.ogg", streak = "XPSparkleStreak" },
 }
 
 -- Only offered when the client's SOUNDKIT table actually has the key.
@@ -52,11 +53,13 @@ end
 
 function Alerts.SoundOptions()
     local list = {}
-    for _, s in ipairs(CUSTOM_SOUNDS) do list[#list + 1] = s end
+    for _, s in ipairs(CUSTOM_SOUNDS) do
+        list[#list + 1] = { value = s.value, text = "WombatLog: " .. L[s.text], raw = true }
+    end
     if SOUNDKIT then
         for _, s in ipairs(BUILTIN_SOUNDS) do
             if SOUNDKIT[s[1]] then
-                list[#list + 1] = { value = "kit:" .. s[1], text = "WoW: " .. s[2] }
+                list[#list + 1] = { value = "kit:" .. s[1], text = "WoW: " .. L[s[2]], raw = true }
             end
         end
     end
@@ -64,7 +67,7 @@ function Alerts.SoundOptions()
     if LSM then
         for _, name in ipairs(LSM:List("sound")) do
             if name ~= "None" then
-                list[#list + 1] = { value = "lsm:" .. name, text = "SharedMedia: " .. name }
+                list[#list + 1] = { value = "lsm:" .. name, text = "SharedMedia: " .. name, raw = true }
             end
         end
     end
@@ -186,7 +189,7 @@ local function CreateAlertFrame(globalName, label, getCfg, sample)
     f.overlay:SetColorTexture(0.2, 0.6, 1, 0.15)
     f.overlayText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.overlayText:SetPoint("BOTTOM", f, "TOP", 0, 2)
-    f.overlayText:SetText("WombatLog " .. label .. " - drag to move")
+    f.overlayText:SetText(L[label])
     f.overlay:Hide()
     f.overlayText:Hide()
 
@@ -330,15 +333,15 @@ end
 local function critData(e, streak, record)
     local d = {
         big = (e.kind == "heal" and "+" or "") .. ns.Full(e.amount or 0),
-        small = e.name, icon = e.icon, color = critColor(),
+        small = ns.EventName(e.name), icon = e.icon, color = critColor(),
     }
     if record then
-        d.banner, d.bannerColor = "NEW RECORD!", ns.db.colors.crit
+        d.banner, d.bannerColor = L["NEW RECORD!"], ns.db.colors.crit
     elseif streak then
         for _, s in ipairs(STREAK_COLORS) do
             if streak >= s.min then d.bannerColor = s.color; break end
         end
-        d.banner = "x" .. streak .. " CRIT STREAK"
+        d.banner = L["x%d CRIT STREAK"]:format(streak)
         d.bannerScale = 1 + 0.12 * (math.min(streak, 6) - 2)
         d.pulse = streak >= 5
     end
@@ -350,10 +353,10 @@ end
 ---------------------------------------------------------------------------
 
 function Alerts:Init()
-    self.crit = CreateAlertFrame("WombatLogCritAlert", "crit alert",
+    self.crit = CreateAlertFrame("WombatLogCritAlert", "WombatLog crit alert - drag to move",
         function() return ns.db.alerts.visual end,
         function() return critData(CRIT_SAMPLE, nil, false) end)
-    self.proc = CreateAlertFrame("WombatLogProcAlert", "proc alert",
+    self.proc = CreateAlertFrame("WombatLogProcAlert", "WombatLog proc alert - drag to move",
         function() return ns.db.procs end,
         function() return self:ProcData(PROC_SAMPLE.name, PROC_SAMPLE.icon) end)
     self.recentAuras = {}
@@ -431,7 +434,7 @@ end
 
 function Alerts:ProcData(name, icon)
     local P = ns.db.procs
-    return { big = P.showName and name or "", icon = icon, color = P.color }
+    return { big = P.showName and ns.EventName(name) or "", icon = icon, color = P.color }
 end
 
 function Alerts:ShowProc(name, icon)

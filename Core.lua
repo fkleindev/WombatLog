@@ -1,5 +1,6 @@
 local ADDON, ns = ...
 _G.WombatLog = ns
+local L = ns.L
 
 -- Which game client this is, from its interface number. Picks the matching
 -- SpellData_<Flavor>.lua and the combat data source.
@@ -540,7 +541,7 @@ end
 
 function ns.RunTest()
     if ns.Safe(UnitAffectingCombat("player")) then
-        ns.Print("can't run the test while in combat.")
+        ns.Print(L["can't run the test while in combat."])
         return
     end
     ns.StopTest()
@@ -620,6 +621,8 @@ ns.Listen("ADDON_LOADED", function(name)
     end
     WombatLogDB.chars = WombatLogDB.chars or {}
     WombatLogDB.charData = WombatLogDB.charData or {}
+    WombatLogDB.locale = WombatLogDB.locale or "auto"
+    ns.SetLocale(WombatLogDB.locale)
     WombatLogDB.spellProfiles = WombatLogDB.spellProfiles or {} -- learned per-spell hit patterns
     if (WombatLogDB.spellProfilesVersion or 1) < 2 then
         -- tick schools learned by earlier versions could be wrong (a mark "ticking" nature)
@@ -667,15 +670,18 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.Config:Open()
     elseif cmd == "unlock" then
         ns.Display:SetLocked(false)
-        ns.Print("unlocked - drag the window, then /wl lock.")
+        ns.Print(L["unlocked - drag the window, then /wl lock."])
     elseif cmd == "lock" then
         ns.Display:SetLocked(true)
-        ns.Print("locked.")
+        ns.Print(L["locked."])
     elseif cmd == "test" then
         ns.RunTest()
     elseif cmd == "debug" then
         ns.Print("client: " .. ns.FLAVOR .. " (" .. INTERFACE .. "), hits from "
             .. (ns.useCombatLog and "the combat log (exact)" or "UNIT_COMBAT (estimated)"))
+        local missing, count = ns.MissingTranslations()
+        ns.Print("language: " .. ns.localeCode .. ", " .. count .. " untranslated texts looked up"
+            .. (count > 0 and (": " .. table.concat(missing, " | ", 1, math.min(count, 5))) or ""))
         ns.Resources:Debug()
         ns.Reminders:Debug()
     elseif cmd == "trace" then
@@ -686,15 +692,14 @@ SlashCmdList.WOMBATLOG = function(msg)
     elseif cmd == "session" then
         if (msg or ""):lower():find("reset") then
             ns.Stats:ResetSession()
-            ns.Print("session reset.")
+            ns.Print(L["session reset."])
         else
             ns.Report:ToggleJournal("session")
         end
     elseif cmd == "reset" then
         ns.Profiles.Reset()
-        ns.Print("profile '" .. ns.Profiles.Current() .. "' reset to defaults.")
+        ns.Print(L["profile '%s' reset to defaults."]:format(ns.Profiles.Current()))
     else
-        ns.Print("/wl - settings, /wl test - preview fight, /wl journal - fights & records, "
-            .. "/wl session [reset], /wl unlock | lock - move, /wl reset - reset profile")
+        ns.Print(L["/wl - settings, /wl test - preview fight, /wl journal - fights & records, /wl session [reset], /wl unlock | lock - move, /wl reset - reset profile"])
     end
 end

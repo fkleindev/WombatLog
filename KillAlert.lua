@@ -2,6 +2,7 @@ local ADDON, ns = ...
 local KillAlert = {}
 ns.KillAlert = KillAlert
 local Safe = ns.Safe
+local L = ns.L
 
 -- A rewarding pop-up when a mob you fought dies: "+342 XP" counting up, the mob's
 -- name, your XP bar filling, a multi-kill counter and a sound.
@@ -193,7 +194,7 @@ local function CreateFrames()
     f.overlay:SetColorTexture(0.2, 0.6, 1, 0.15)
     f.overlayText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.overlayText:SetPoint("BOTTOM", f, "TOP", 0, 2)
-    f.overlayText:SetText("WombatLog kill alert - drag to move")
+    f.overlayText:SetText(L["WombatLog kill alert - drag to move"])
     f.overlay:Hide()
     f.overlayText:Hide()
     return f
@@ -268,23 +269,23 @@ function KillAlert:Render()
     local k, K, f = self.kill, ns.db.killAlert, self.frame
     local c = K.color
     if K.showXP and k.xp then
-        f.amount:SetText("+" .. ns.Full(math.floor(k.shownXP + 0.5)) .. " XP")
+        f.amount:SetText(L["+%s XP"]:format(ns.Full(math.floor(k.shownXP + 0.5))))
     else
-        f.amount:SetText("KILL")
+        f.amount:SetText(L["KILL"])
     end
     f.amount:SetTextColor(c[1], c[2], c[3])
-    local name = K.showName and k.name or ""
+    local name = K.showName and ns.EventName(k.name) or ""
     if K.showXP and k.rested and k.rested > 0 then
-        name = name .. (name ~= "" and "  " or "") .. "|cff9999ff(+" .. ns.Full(k.rested) .. " rested)|r"
+        name = name .. (name ~= "" and "  " or "") .. "|cff9999ff(" .. L["+%s rested"]:format(ns.Full(k.rested)) .. ")|r"
     end
     f.name:SetText(name)
     f.name:SetShown(name ~= "")
 
     local banner
     if k.leveled then
-        banner = "LEVEL UP!"
+        banner = L["LEVEL UP!"]
     elseif K.multiKill and k.multi >= 2 then
-        banner = "x" .. k.multi .. " KILLS"
+        banner = L["x%d KILLS"]:format(k.multi)
     end
     f.banner:SetText(banner or "")
     f.banner:SetTextColor(1, 0.82, 0.18)

@@ -1,6 +1,7 @@
 local ADDON, ns = ...
 local Config = {}
 ns.Config = Config
+local L = ns.L
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local PAGE_WIDTH = 500
@@ -56,10 +57,10 @@ local function wholeSecs(v) return v .. "s" end
 local function times(v) return string.format("%.2fx", v) end
 
 local BUILTIN_FONTS = {
-    { text = "Friz Quadrata", value = "Fonts\\FRIZQT__.TTF" },
-    { text = "Arial Narrow", value = "Fonts\\ARIALN.TTF" },
-    { text = "Morpheus", value = "Fonts\\MORPHEUS.TTF" },
-    { text = "Skurri", value = "Fonts\\SKURRI.TTF" },
+    { text = "Friz Quadrata", value = "Fonts\\FRIZQT__.TTF", raw = true },
+    { text = "Arial Narrow", value = "Fonts\\ARIALN.TTF", raw = true },
+    { text = "Morpheus", value = "Fonts\\MORPHEUS.TTF", raw = true },
+    { text = "Skurri", value = "Fonts\\SKURRI.TTF", raw = true },
 }
 
 -- Built-in fonts plus any registered with LibSharedMedia by other addons.
@@ -75,7 +76,7 @@ local function fontOptions()
             local path = LSM:Fetch("font", name)
             if path and not seen[path] then
                 seen[path] = true
-                list[#list + 1] = { text = name, value = path }
+                list[#list + 1] = { text = name, value = path, raw = true }
             end
         end
     end
@@ -96,7 +97,7 @@ local OUTLINE_OPTIONS = {
     { text = "Monochrome", value = "OUTLINE, MONOCHROME" },
 }
 
-local function autoPx(v) return v == 0 and "Auto" or v .. " px" end
+local function autoPx(v) return v == 0 and L["Auto"] or v .. " px" end
 
 local KINDS = {
     { "damage", "Your damage" }, { "heal", "Your heals" }, { "avoid", "Misses & avoids" },
@@ -159,7 +160,7 @@ end
 function Page:Header(text)
     self.y = self.y - 10
     local fs = self.child:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    fs:SetText(text)
+    fs:SetText(L[text])
     local line = self.child:CreateTexture(nil, "ARTWORK")
     line:SetColorTexture(1, 0.82, 0, 0.25)
     line:SetHeight(1)
@@ -172,7 +173,7 @@ function Page:Note(text)
     local fs = self.child:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     fs:SetWidth(PAGE_WIDTH - 40)
     fs:SetJustifyH("LEFT")
-    fs:SetText(text)
+    fs:SetText(L[text])
     self:Add(fs, math.max(fs:GetStringHeight(), 12) + 8)
 end
 
@@ -183,7 +184,7 @@ function Page:Checkbox(label, bind, col)
     if cb.Text then cb.Text:SetText("") end
     local text = cb:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     text:SetPoint("LEFT", cb, "RIGHT", 2, 1)
-    text:SetText(label)
+    text:SetText(L[label])
     cb:SetHitRectInsets(0, -(text:GetStringWidth() + 6), 0, 0) -- label is clickable too
     cb:SetScript("OnClick", function(self)
         if not refreshing then bind.set(self:GetChecked() and true or false) end
@@ -201,7 +202,7 @@ function Page:Slider(label, bind, minV, maxV, step, fmt, col)
 
     local title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT")
-    title:SetText(label)
+    title:SetText(L[label])
     local valueText = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     valueText:SetPoint("TOPRIGHT")
 
@@ -254,7 +255,12 @@ function Page:Slider(label, bind, minV, maxV, step, fmt, col)
     return holder
 end
 
--- options: list of { text, value } or a function returning one
+local function optionText(o)
+    return o.raw and o.text or L[o.text]
+end
+
+-- options: list of { text, value } or a function returning one; text is translated
+-- unless the option has raw = true (font, profile and spell names)
 function Page:Dropdown(label, bind, options, col)
     bind = asBind(bind)
     local function opts()
@@ -264,16 +270,16 @@ function Page:Dropdown(label, bind, options, col)
     holder:SetSize(WIDGET_W, 48)
     local title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT")
-    title:SetText(label)
+    title:SetText(L[label])
 
     local ok, dd = pcall(CreateFrame, "DropdownButton", nil, holder, "WowStyle1DropdownTemplate")
     if ok and dd and dd.SetupMenu then
         dd:SetPoint("TOPLEFT", 0, -18)
         dd:SetWidth(WIDGET_W - 20)
-        if dd.SetDefaultText then dd:SetDefaultText("Choose...") end
+        if dd.SetDefaultText then dd:SetDefaultText(L["Choose..."]) end
         dd:SetupMenu(function(_, root)
             for _, o in ipairs(opts()) do
-                root:CreateRadio(o.text,
+                root:CreateRadio(optionText(o),
                     function() return bind.get() == o.value end,
                     function()
                         bind.set(o.value)
@@ -289,9 +295,9 @@ function Page:Dropdown(label, bind, options, col)
         b:SetPoint("TOPLEFT", 0, -18)
         local function current()
             for _, o in ipairs(opts()) do
-                if o.value == bind.get() then return o.text end
+                if o.value == bind.get() then return optionText(o) end
             end
-            return "Choose..."
+            return L["Choose..."]
         end
         b:SetScript("OnClick", function()
             local list, index = opts(), 0
@@ -323,7 +329,7 @@ function Page:Color(label, path, col)
     swatch:SetPoint("CENTER", border)
     local text = b:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     text:SetPoint("LEFT", border, "RIGHT", 8, 0)
-    text:SetText(label)
+    text:SetText(L[label])
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints()
     hl:SetColorTexture(1, 1, 1, 0.06)
@@ -366,7 +372,7 @@ end
 function Page:Button(text, onClick, col, dy, width)
     local b = CreateFrame("Button", nil, self.child, "UIPanelButtonTemplate")
     b:SetSize(width or 170, 24)
-    b:SetText(text)
+    b:SetText(L[text])
     b:SetScript("OnClick", onClick)
     self:Add(b, 32, col, dy)
     return b
@@ -377,7 +383,7 @@ function Page:EditBox(label, col)
     holder:SetSize(WIDGET_W, 48)
     local title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT")
-    title:SetText(label)
+    title:SetText(L[label])
     local e = CreateFrame("EditBox", nil, holder, "InputBoxTemplate")
     e:SetSize(WIDGET_W - 30, 22)
     e:SetPoint("TOPLEFT", 6, -18)
@@ -397,10 +403,10 @@ function Page:ProcLists()
     holder:SetSize(PAGE_WIDTH - 32, 24 + LIST_ROWS * 22)
     local left = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     left:SetPoint("TOPLEFT")
-    left:SetText("Your proc list")
+    left:SetText(L["Your proc list"])
     local right = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     right:SetPoint("TOPLEFT", COL2_X - 16, 0)
-    right:SetText("Recently gained buffs")
+    right:SetText(L["Recently gained buffs"])
 
     local function makeRow(x, i)
         local r = CreateFrame("Frame", nil, holder)
@@ -429,12 +435,12 @@ function Page:ProcLists()
     emptyMine:SetPoint("TOPLEFT", 0, -22)
     emptyMine:SetWidth(WIDGET_W)
     emptyMine:SetJustifyH("LEFT")
-    emptyMine:SetText("Empty. Add a buff by name or spell ID above, or pick one on the right.")
+    emptyMine:SetText(L["Empty. Add a buff by name or spell ID above, or pick one on the right."])
     local emptyRecent = holder:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     emptyRecent:SetPoint("TOPLEFT", COL2_X - 16, -22)
     emptyRecent:SetWidth(WIDGET_W)
     emptyRecent:SetJustifyH("LEFT")
-    emptyRecent:SetText("Buffs you gain while proc alerts are on show up here.")
+    emptyRecent:SetText(L["Buffs you gain while proc alerts are on show up here."])
 
     holder.Refresh = function()
         local list = ns.db.procs.list
@@ -443,7 +449,7 @@ function Page:ProcLists()
             if entry then
                 r.icon:SetTexture(nil)
                 r.text:SetText(entry)
-                r.btn:SetText("Remove")
+                r.btn:SetText(L["Remove"])
                 r.btn:SetScript("OnClick", function()
                     ns.Alerts:RemoveProc(i)
                     holder.Refresh()
@@ -460,7 +466,7 @@ function Page:ProcLists()
             if a then
                 r.icon:SetTexture(a.icon or 134400)
                 r.text:SetText(a.name)
-                r.btn:SetText("Add")
+                r.btn:SetText(L["Add"])
                 r.btn:SetEnabled(not ns.Alerts:HasProc(a.name))
                 r.btn:SetScript("OnClick", function()
                     ns.Alerts:AddProc(a.name)
@@ -486,7 +492,7 @@ function Page:OrderList(label, getList, setList, labels)
     holder:SetSize(WIDGET_W + 60, 20 + count * 22)
     local title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT")
-    title:SetText(label)
+    title:SetText(L[label])
 
     local function move(i, delta)
         local list = getList()
@@ -508,12 +514,12 @@ function Page:OrderList(label, getList, setList, labels)
         r.up = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
         r.up:SetSize(56, 18)
         r.up:SetPoint("RIGHT", -60, 0)
-        r.up:SetText("Up")
+        r.up:SetText(L["Up"])
         r.up:SetScript("OnClick", function() move(i, -1) end)
         r.down = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
         r.down:SetSize(56, 18)
         r.down:SetPoint("RIGHT")
-        r.down:SetText("Down")
+        r.down:SetText(L["Down"])
         r.down:SetScript("OnClick", function() move(i, 1) end)
         local stripe = r:CreateTexture(nil, "BACKGROUND")
         stripe:SetAllPoints()
@@ -524,7 +530,7 @@ function Page:OrderList(label, getList, setList, labels)
     holder.Refresh = function()
         local list = getList()
         for i, r in ipairs(rows) do
-            r.text:SetText(i .. ".  " .. (labels[list[i]] or list[i] or ""))
+            r.text:SetText(i .. ".  " .. (labels[list[i]] and L[labels[list[i]]] or list[i] or ""))
             r.up:SetEnabled(i > 1)
             r.down:SetEnabled(i < #list)
         end
@@ -542,10 +548,10 @@ function Page:ReminderLists()
     holder:SetSize(PAGE_WIDTH - 32, 24 + LIST_ROWS * 22)
     local left = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     left:SetPoint("TOPLEFT")
-    left:SetText("Your reminders")
+    left:SetText(L["Your reminders"])
     local right = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     right:SetPoint("TOPLEFT", COL2_X - 16, 0)
-    right:SetText("Suggestions for your class")
+    right:SetText(L["Suggestions for your class"])
 
     local function makeRow(x, i, twoButtons)
         local r = CreateFrame("Frame", nil, holder)
@@ -581,7 +587,7 @@ function Page:ReminderLists()
             end)
         else
             r.btn:SetSize(60, 18)
-            r.btn:SetText("Add")
+            r.btn:SetText(L["Add"])
         end
         return r
     end
@@ -594,12 +600,12 @@ function Page:ReminderLists()
     emptyMine:SetPoint("TOPLEFT", 0, -22)
     emptyMine:SetWidth(WIDGET_W)
     emptyMine:SetJustifyH("LEFT")
-    emptyMine:SetText("Empty. Add a spell by name or spell ID above, or pick a suggestion on the right.")
+    emptyMine:SetText(L["Empty. Add a spell by name or spell ID above, or pick a suggestion on the right."])
     local emptySuggested = holder:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     emptySuggested:SetPoint("TOPLEFT", COL2_X - 16, -22)
     emptySuggested:SetWidth(WIDGET_W)
     emptySuggested:SetJustifyH("LEFT")
-    emptySuggested:SetText("No more suggestions for your class and level.")
+    emptySuggested:SetText(L["No more suggestions for your class and level."])
 
     holder.Refresh = function()
         -- only this class's reminders; i is the index into the whole list
@@ -611,7 +617,7 @@ function Page:ReminderLists()
                 local name, icon = ns.Reminders.Describe(entry.spell)
                 r.icon:SetTexture(icon)
                 r.text:SetText(name)
-                r.mode:SetText(MODE_TEXT[entry.mode] or entry.mode)
+                r.mode:SetText(MODE_TEXT[entry.mode] and L[MODE_TEXT[entry.mode]] or entry.mode)
                 r.index = i
                 if not r.keyBox:HasFocus() then r.keyBox:SetText(entry.key or "") end
                 r.mode:SetScript("OnClick", function()
@@ -634,7 +640,7 @@ function Page:ReminderLists()
             local sg = sugg[i]
             if sg then
                 r.icon:SetTexture(sg.icon or 134400)
-                r.text:SetText(sg.name .. " |cff999999(" .. MODE_TEXT[sg.mode] .. ")|r")
+                r.text:SetText(sg.name .. " |cff999999(" .. L[MODE_TEXT[sg.mode]] .. ")|r")
                 r.btn:SetScript("OnClick", function()
                     ns.Reminders:Add(sg.text, sg.mode)
                     holder.Refresh()
@@ -725,7 +731,7 @@ local function BuildLogColors(p)
 
     p.y = p.y - 8
     p:Button("Reset all colors", function()
-        Confirm("Reset all colors to their defaults?", function()
+        Confirm(L["Reset all colors to their defaults?"], function()
             ns.db.colors = ns.CopyTable(ns.defaults.colors)
             ns.ApplyAll(true)
         end)
@@ -1105,11 +1111,11 @@ local function BuildRemGeneral(p)
     p:Checkbox("Enable spell reminders", "reminders.enabled")
     p:Checkbox("Only in combat (default for each reminder)", "reminders.combatOnly", 2)
     p:Slider("Refresh buffs with less than", "reminders.refreshAt", 0, 60, 1, function(v)
-        return v == 0 and "only when missing" or (v .. "s left")
+        return v == 0 and L["only when missing"] or L["%ss left"]:format(v)
     end)
     p:Button("Test", function() ns.Reminders:Test() end, 2, -12, 100)
     p:Slider("Refresh debuffs with less than", "reminders.debuffRefreshAt", 0, 15, 0.5, function(v)
-        return v == 0 and "only when missing" or (v .. "s left")
+        return v == 0 and L["only when missing"] or L["%ss left"]:format(v)
     end)
     p:Note("Buff and debuff reminders are dimmed while you can't cast the spell (no mana, on cooldown, target out of range).")
     p:Note("On Forever and Retail the game hides auras from addons during combat. Reminders then go on from what they last saw and from your own casts: a debuff you cast counts as on the target for its normal duration, even if it was resisted or dispelled. Classic clients always see the real auras.")
@@ -1182,7 +1188,7 @@ local function BuildRemSpells(p)
         local list = {}
         for _, i in ipairs(ns.Reminders:Visible()) do
             local entry = ns.db.reminders.list[i]
-            list[#list + 1] = { text = (ns.Reminders.Describe(entry.spell)), value = entry.spell }
+            list[#list + 1] = { text = (ns.Reminders.Describe(entry.spell)), value = entry.spell, raw = true }
         end
         return list
     end)
@@ -1304,7 +1310,7 @@ local function BuildKillBar(p)
     p:Slider("Thickness", "killAlert.bar.height", 0, 30, 1, autoPx, 2)
     p:Dropdown("Bar texture", "killAlert.bar.texture", ns.Resources.TextureOptions)
     p:Slider("Background opacity", "killAlert.bar.bgOpacity", 0, 1, 0.05, pct, 2)
-    p:Slider("Segments", "killAlert.bar.segments", 0, 20, 1, function(v) return v < 2 and "None" or tostring(v) end)
+    p:Slider("Segments", "killAlert.bar.segments", 0, 20, 1, function(v) return v < 2 and L["None"] or tostring(v) end)
     p:Checkbox("Thin border", "killAlert.bar.border", 2)
     p:Checkbox("Same color as the XP text", "killAlert.bar.useTextColor")
     p:Color("Custom bar color", "killAlert.bar.color", 2)
@@ -1329,7 +1335,7 @@ local function BuildStatsSummary(p)
     p:Note("A card after each fight: DPS, HPS, crit rate, biggest hit, longest streak, top spells and new records. Click it to open the journal, right-click to close, drag to move.")
     p:Checkbox("Show summary after combat", "stats.summary.enabled")
     p:Slider("Display time", "stats.summary.duration", 0, 30, 1, function(v)
-        return v == 0 and "until clicked" or (v .. "s")
+        return v == 0 and L["until clicked"] or (v .. "s")
     end, 2)
     p:Slider("Scale", "stats.summary.scale", 0.5, 2, 0.05, times)
     p:Button("Show last fight", function() ns.Report:TestSummary() end, 2, -12)
@@ -1363,7 +1369,7 @@ local function BuildSession(p)
     p:Button("Open session", function() ns.Report:OpenJournal("session") end)
     p:Button("Reset session", function()
         ns.Stats:ResetSession()
-        ns.Print("session reset.")
+        ns.Print(L["session reset."])
     end, 2)
 end
 
@@ -1371,6 +1377,24 @@ local function BuildMinimap(p)
     p:Header("Minimap button")
     p:Checkbox("Show minimap button", "minimap.enabled")
     p:Note("Click: journal. Right-click: settings. Shift-click: test fight. Drag it along the minimap edge. WombatLog is also listed in the addon compartment.")
+end
+
+---------------------------------------------------------------------------
+-- Language
+---------------------------------------------------------------------------
+
+local function BuildLanguage(p)
+    p:Header("Language")
+    p:Dropdown("Language", {
+        get = function() return WombatLogDB.locale or "auto" end,
+        set = function(v)
+            if v == (WombatLogDB.locale or "auto") then return end
+            WombatLogDB.locale = v
+            Confirm(L["The new language is used after reloading the interface. Reload now?"], ReloadUI)
+        end,
+    }, ns.LocaleOptions)
+    p:Note("Applies to all characters. \"Automatic\" follows the language of your game client and falls back to English.")
+    p:Note("Missing your language? Copy Locales/deDE.lua in the addon folder, translate it and add it to WombatLog.toc. It then shows up here by itself. Translations are welcome on GitHub.")
 end
 
 ---------------------------------------------------------------------------
@@ -1382,7 +1406,7 @@ local function BuildProfiles(p)
     local function profileOptions(exclude)
         local list = {}
         for _, name in ipairs(Profiles.List()) do
-            if name ~= exclude then list[#list + 1] = { text = name, value = name } end
+            if name ~= exclude then list[#list + 1] = { text = name, value = name, raw = true } end
         end
         return list
     end
@@ -1401,9 +1425,9 @@ local function BuildProfiles(p)
         if Profiles.New(name, copy and Profiles.Current() or nil) then
             nameBox:SetText("")
             nameBox:ClearFocus()
-            ns.Print("now using profile '" .. name .. "'.")
+            ns.Print(L["now using profile '%s'."]:format(name))
         else
-            ns.Print("enter a profile name that isn't taken yet.")
+            ns.Print(L["enter a profile name that isn't taken yet."])
         end
     end
     p:Button("Create with defaults", function() create(false) end)
@@ -1418,14 +1442,14 @@ local function BuildProfiles(p)
     p:Button("Delete", function()
         local target = deleteTarget
         if not target then return end
-        Confirm("Delete profile '" .. target .. "'?", function()
+        Confirm(L["Delete profile '%s'?"]:format(target), function()
             Profiles.Delete(target)
             deleteTarget = nil
             Config:RefreshAll()
         end)
     end, 2, -18, 120)
     p:Button("Reset current profile", function()
-        Confirm("Reset profile '" .. Profiles.Current() .. "' to defaults?", Profiles.Reset)
+        Confirm(L["Reset profile '%s' to defaults?"]:format(Profiles.Current()), Profiles.Reset)
     end)
 end
 
@@ -1476,6 +1500,7 @@ local TABS = {
     } },
     { "Session", BuildSession },
     { "Minimap button", BuildMinimap },
+    { "Language", BuildLanguage },
     { "Profiles", BuildProfiles },
 }
 
@@ -1495,7 +1520,7 @@ local function TabButton(parent, label, mark)
     b.underline = b:CreateTexture(nil, "ARTWORK")
     b.underline:SetColorTexture(1, 0.82, 0, 0.9)
     b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    b.text:SetText(label)
+    b.text:SetText(L[label])
     if mark == "bottom" then
         b.underline:SetHeight(2)
         b.underline:SetPoint("BOTTOMLEFT")
@@ -1537,7 +1562,7 @@ function Config:RefreshAll()
     refreshing = true
     for _, w in ipairs(widgets) do w.Refresh() end
     refreshing = false
-    self.profileText:SetText("Profile: |cffffffff" .. (ns.Profiles.Current() or "") .. "|r")
+    self.profileText:SetText(L["Profile:"] .. " |cffffffff" .. (ns.Profiles.Current() or "") .. "|r")
 end
 
 function Config:Init()

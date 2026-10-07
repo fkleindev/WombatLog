@@ -1,6 +1,7 @@
 local ADDON, ns = ...
 local Report = {}
 ns.Report = Report
+local L = ns.L
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local GRADIENT = "Interface\\AddOns\\WombatLog\\Media\\Gradient"
@@ -36,8 +37,8 @@ local function when(t, withDate)
 end
 
 local function fightTitle(snap)
-    if snap.test then return "Test fight" end
-    local title = snap.zone ~= "" and snap.zone or "Unknown zone"
+    if snap.test then return L["Test fight"] end
+    local title = snap.zone ~= "" and snap.zone or L["Unknown zone"]
     if snap.target then title = title .. "  -  " .. snap.target end
     return title
 end
@@ -74,7 +75,7 @@ local function CreateSummary()
     -- no background: like the log window, only the rows get a soft fade
     f.title = text(f, 13, true)
     f.title:SetPoint("TOPLEFT", 10, -8)
-    f.title:SetText("Fight summary")
+    f.title:SetText(L["Fight summary"])
     f.duration = text(f, 13, true)
     f.duration:SetPoint("TOPRIGHT", -10, -8)
     f.sub = text(f, 10, false, GREY)
@@ -100,7 +101,7 @@ local function CreateSummary()
         b.value:SetPoint("TOPLEFT", 10 + (i - 1) * bw, -42)
         b.label = text(f, 8, false, GREY)
         b.label:SetPoint("TOPLEFT", b.value, "BOTTOMLEFT", 0, -1)
-        b.label:SetText(label)
+        b.label:SetText(L[label])
         f.blocks[i] = b
     end
 
@@ -168,8 +169,8 @@ local function CreateSummary()
     end)
     f:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_TOP")
-        GameTooltip:AddLine("Fight summary")
-        GameTooltip:AddLine("Click: open in journal  -  Right-click: close  -  Drag: move", 1, 1, 1)
+        GameTooltip:AddLine(L["Fight summary"])
+        GameTooltip:AddLine(L["Click: open in journal  -  Right-click: close  -  Drag: move"], 1, 1, 1)
         GameTooltip:Show()
     end)
     f:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -226,8 +227,8 @@ local function FillSummary(f, snap)
             r.bar:SetVertexColor(c[1], c[2], c[3], 0.3)
             r.bar:SetWidth(math.max(1, (CARD_W - 20) * s.total / topTotal))
             r.icon:SetTexture(s.icon or 134400)
-            r.name:SetText(s.name)
-            r.value:SetText(ns.Short(s.total) .. "  " .. pct(s.total, kindTotal) .. "  |cffaaaaaa" .. pct(s.crits, s.hits) .. " crit|r")
+            r.name:SetText(ns.EventName(s.name))
+            r.value:SetText(ns.Short(s.total) .. "  " .. pct(s.total, kindTotal) .. "  |cffaaaaaa" .. L["%s crit"]:format(pct(s.crits, s.hits)) .. "|r")
             r:Show()
         else
             r:Hide()
@@ -237,9 +238,10 @@ local function FillSummary(f, snap)
     local y = -78 - shown * 18 - 4
     local lines = {}
     for _, rec in ipairs(snap.records or {}) do
-        lines[#lines + 1] = "NEW RECORD  " .. rec.name .. "  " .. ns.Full(rec.amount) .. (rec.crit and " (crit)" or "")
+        lines[#lines + 1] = L["NEW RECORD"] .. "  " .. ns.EventName(rec.name) .. "  " .. ns.Full(rec.amount)
+            .. (rec.crit and (" (" .. L["crit"] .. ")") or "")
     end
-    if snap.newBestDps then lines[#lines + 1] = "NEW BEST DPS  " .. ns.Short(snap.dps) end
+    if snap.newBestDps then lines[#lines + 1] = L["NEW BEST DPS"] .. "  " .. ns.Short(snap.dps) end
     for i, line in ipairs(f.records) do
         if lines[i] then
             line:ClearAllPoints()
@@ -347,9 +349,9 @@ local function BuildFightsPage(j, page)
     local clear = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
     clear:SetSize(140, 22)
     clear:SetPoint("BOTTOMLEFT", 0, 4)
-    clear:SetText("Clear history")
+    clear:SetText(L["Clear history"])
     clear:SetScript("OnClick", function()
-        Confirm("Delete all recorded fights?", function()
+        Confirm(L["Delete all recorded fights?"], function()
             ns.Stats:ClearHistory()
             Report.selected = nil
             Report:RefreshJournal()
@@ -383,7 +385,7 @@ local function BuildFightsPage(j, page)
         h:SetPoint("TOPLEFT", col[2], top)
         h:SetWidth(col[3])
         h:SetJustifyH(col[4])
-        h:SetText(col[1])
+        h:SetText(L[col[1]])
     end
     d.rows = {}
     for i = 1, TABLE_ROWS do
@@ -446,10 +448,11 @@ local function RenderDetail(d, snap)
     local C = ns.db.colors
     d.title:SetText(fightTitle(snap))
     d.when:SetText(when(snap.time, true) .. "   -   " .. ns.Stats.FormatDuration(snap.duration))
-    d.line1:SetText(string.format("Damage |cffffffff%s|r (%s DPS)    Healing |cffffffff%s|r (%s HPS)    Taken |cffffffff%s|r",
+    d.line1:SetText(string.format(L["Damage |cffffffff%s|r (%s DPS)    Healing |cffffffff%s|r (%s HPS)    Taken |cffffffff%s|r"],
         ns.Short(snap.damage), ns.Short(snap.dps), ns.Short(snap.healing), ns.Short(snap.hps), ns.Short(snap.taken)))
-    local biggest = snap.top and (snap.top.name .. " " .. ns.Full(snap.top.amount) .. (snap.top.crit and " crit" or "")) or "-"
-    d.line2:SetText(string.format("Crit rate |cffffffff%s|r (%d/%d)    Misses %d    Longest streak |cffffffff%s|r    Biggest %s",
+    local biggest = snap.top and (ns.EventName(snap.top.name) .. " " .. ns.Full(snap.top.amount)
+        .. (snap.top.crit and (" " .. L["crit"]) or "")) or "-"
+    d.line2:SetText(string.format(L["Crit rate |cffffffff%s|r (%d/%d)    Misses %d    Longest streak |cffffffff%s|r    Biggest %s"],
         pct(snap.crits, snap.hits), snap.crits, snap.hits, snap.misses or 0,
         snap.longestStreak > 0 and ("x" .. snap.longestStreak) or "-", biggest))
 
@@ -463,7 +466,7 @@ local function RenderDetail(d, snap)
             row.bar:SetWidth(math.max(1, 390 * s.total / topTotal))
             row.icon:SetTexture(s.icon or 134400)
             local values = {
-                s.name, ns.Short(s.total), pct(s.total, kindTotal), s.hits,
+                ns.EventName(s.name), ns.Short(s.total), pct(s.total, kindTotal), s.hits,
                 pct(s.crits, s.hits), ns.Short(s.hits > 0 and s.total / s.hits or 0), ns.Short(s.max),
             }
             for c2, cell in ipairs(row.cells) do cell:SetText(values[c2]) end
@@ -491,7 +494,7 @@ local function RefreshFights(j)
         r.snap = snap
         r.top:SetText(when(snap.time) .. "  " .. fightTitle(snap))
         r.bottom:SetText(ns.Stats.FormatDuration(snap.duration) .. "   " .. ns.Short(snap.dps) .. " DPS   "
-            .. pct(snap.crits, snap.hits) .. " crit")
+            .. L["%s crit"]:format(pct(snap.crits, snap.hits)))
         if snap == Report.selected then
             r.bg:SetColorTexture(1, 0.82, 0, 0.14)
         else
@@ -503,8 +506,8 @@ local function RefreshFights(j)
     j.listChild:SetHeight(math.max(10, #list * LIST_ROW_H))
 
     if #list == 0 then
-        j.empty:SetText(ns.db.stats.history.enabled and "No fights recorded yet."
-            or "Fight history is turned off in the settings.")
+        j.empty:SetText(ns.db.stats.history.enabled and L["No fights recorded yet."]
+            or L["Fight history is turned off in the settings."])
         j.empty:Show()
     else
         j.empty:Hide()
@@ -522,7 +525,7 @@ local function BuildRecordsPage(j, page)
     for _, h in ipairs(headers) do
         local fs = text(page, 10, false, GREY)
         fs:SetPoint("TOPLEFT", h[2], -40)
-        fs:SetText(h[1])
+        fs:SetText(L[h[1]])
     end
 
     local scroll, child = NewScroll(page)
@@ -534,9 +537,9 @@ local function BuildRecordsPage(j, page)
     local reset = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
     reset:SetSize(140, 22)
     reset:SetPoint("BOTTOMLEFT", 0, 4)
-    reset:SetText("Reset records")
+    reset:SetText(L["Reset records"])
     reset:SetScript("OnClick", function()
-        Confirm("Reset all personal records for this character?", function()
+        Confirm(L["Reset all personal records for this character?"], function()
             ns.Stats:ResetRecords()
             Report:RefreshJournal()
         end)
@@ -571,14 +574,14 @@ local function RefreshRecords(j)
     local C = ns.db.colors
     local parts = {}
     if rec.bestDps then
-        parts[#parts + 1] = string.format("Best DPS |cffffffff%s|r (%s, %s)", ns.Short(rec.bestDps.dps),
+        parts[#parts + 1] = string.format(L["Best DPS |cffffffff%s|r (%s, %s)"], ns.Short(rec.bestDps.dps),
             ns.Stats.FormatDuration(rec.bestDps.duration), when(rec.bestDps.date, true))
     end
     if rec.longestStreak and rec.longestStreak > 0 then
-        parts[#parts + 1] = "Longest crit streak |cffffffffx" .. rec.longestStreak .. "|r"
+        parts[#parts + 1] = L["Longest crit streak"] .. " |cffffffffx" .. rec.longestStreak .. "|r"
     end
-    if not ns.db.stats.records.enabled then parts[#parts + 1] = "|cffaaaaaa(records are turned off in the settings)|r" end
-    j.recTop:SetText(#parts > 0 and table.concat(parts, "     ") or "No records yet.")
+    if not ns.db.stats.records.enabled then parts[#parts + 1] = "|cffaaaaaa(" .. L["records are turned off in the settings"] .. ")|r" end
+    j.recTop:SetText(#parts > 0 and table.concat(parts, "     ") or L["No records yet."])
 
     local list = {}
     for _, r in pairs(rec.spells) do list[#list + 1] = r end
@@ -588,7 +591,7 @@ local function RefreshRecords(j)
     for i, r in ipairs(list) do
         local row = RecordRow(j, i)
         row.icon:SetTexture(r.icon or 134400)
-        row.name:SetText(r.name or "?")
+        row.name:SetText(ns.EventName(r.name) or "?")
         if r.kind == "heal" then
             row.name:SetTextColor(C.heal[1], C.heal[2], C.heal[3])
         else
@@ -617,7 +620,7 @@ local function BuildSessionPage(j, page)
     local reset = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
     reset:SetSize(140, 22)
     reset:SetPoint("BOTTOMLEFT", 0, 4)
-    reset:SetText("Reset session")
+    reset:SetText(L["Reset session"])
     reset:SetScript("OnClick", function()
         ns.Stats:ResetSession()
         Report:RefreshJournal()
@@ -649,18 +652,18 @@ local function RefreshSession(j)
         lines[#lines + 1] = { "Time in combat", F(i.combatTime) .. "  (" .. pct(i.combatTime, i.elapsed) .. ")" }
         lines[#lines + 1] = { "Fights / kills / deaths", i.fights .. " / " .. i.kills .. " / " .. i.deaths }
         if not i.atMax then
-            lines[#lines + 1] = { "XP gained", ns.Full(i.xp) .. (i.levels > 0 and ("  (" .. i.levels .. " level-ups)") or "") }
+            lines[#lines + 1] = { "XP gained", ns.Full(i.xp) .. (i.levels > 0 and ("  (" .. L["%d level-ups"]:format(i.levels) .. ")") or "") }
             lines[#lines + 1] = { "XP per hour", i.xpPerHour and ns.Full(i.xpPerHour) or "-" }
             lines[#lines + 1] = { "Time to level", i.timeToLevel and F(i.timeToLevel) or "-" }
             lines[#lines + 1] = { "XP per kill", i.avgKillXp and ns.Full(i.avgKillXp) or "-" }
             lines[#lines + 1] = { "Kills to level", i.killsToLevel and tostring(i.killsToLevel) or "-" }
-            lines[#lines + 1] = { "Rested XP", i.rested and ns.Full(i.rested) or "none" }
+            lines[#lines + 1] = { "Rested XP", i.rested and ns.Full(i.rested) or L["none"] }
         end
         lines[#lines + 1] = { "Money looted / spent", money(i.moneyIn) .. "  /  " .. money(i.moneyOut) }
     end
     for n = 1, SESSION_LINES do
         local line = lines[n]
-        j.sessLabels[n]:SetText(line and line[1] or "")
+        j.sessLabels[n]:SetText(line and L[line[1]] or "")
         j.sessValues[n]:SetText(line and line[2] or "")
     end
 end
@@ -692,7 +695,7 @@ local function CreateJournal()
 
     local title = text(j, 15, true)
     title:SetPoint("TOPLEFT", 14, -12)
-    title:SetText("WombatLog Journal")
+    title:SetText(L["WombatLog Journal"])
     local close = CreateFrame("Button", nil, j, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -2, -2)
 
@@ -714,7 +717,7 @@ local function CreateJournal()
         tab.underline:SetPoint("BOTTOMRIGHT")
         tab.label = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         tab.label:SetPoint("CENTER")
-        tab.label:SetText(def[2])
+        tab.label:SetText(L[def[2]])
         tab:SetScript("OnClick", function() Report:SelectTab(def[1]) end)
         j.tabs[def[1]] = tab
 

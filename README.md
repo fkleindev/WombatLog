@@ -50,6 +50,8 @@ combat starts and fades out a few seconds after it ends.
 - The header shows live DPS and HPS, a fight timer, damage dealt and taken, and the
   biggest hit of the fight.
 - A full settings panel with live preview, color pickers, filters and profiles.
+- Available in English, German, French, Spanish and Italian. It follows your game
+  language by default and can be switched in the settings.
 
 Every extra feature can be turned off on its own in the settings.
 
@@ -72,7 +74,7 @@ Every extra feature can be turned off on its own in the settings.
 | `/wl unlock` / `/wl lock` | Lets you drag the window to a new place |
 | `/wl reset` | Resets the current profile to defaults |
 | `/wl trace` | Prints the raw hits, casts and swings to chat with timestamps (toggle) |
-| `/wl debug` | Shows whether your health and power are readable right now |
+| `/wl debug` | Shows whether your health and power are readable right now, and any texts missing from the current translation |
 
 While the settings panel is open, the window shows a sample feed that updates as you
 change settings.
@@ -123,6 +125,9 @@ sub-tabs along the top.
   records* (how many fights to keep, minimum fight length, personal records).
 - **Session:** session tracker and an optional session line above the log window.
 - **Minimap button:** show or hide it.
+- **Language:** "Automatic" (your game language, English if there is no translation
+  for it) or any installed language. It applies to all characters and takes effect
+  after a reload.
 - **Profiles:** all your characters share the same list of profiles, and each
   character remembers which one it uses. You can create, copy, delete and reset
   profiles.
@@ -294,6 +299,8 @@ As a result:
 
 | File | Purpose |
 | --- | --- |
+| `Locales/Locales.lua` | Translation lookup, language choice and the names WombatLog translates itself |
+| `Locales/<code>.lua` | One file per language (`enUS`, `deDE`, `frFR`, `esES`, `itIT`) |
 | `Core.lua` | Settings defaults, profiles, the fight start/end cycle, filters, slash commands |
 | `SpellData_*.lua` | Generated facts for every class spell, one file per client (school, DoT ticks and duration, channels, …) |
 | `Sources.lua` | Forever and Retail: turns game events into feed entries and decides which hits are yours |
@@ -314,6 +321,21 @@ As a result:
 | `Media/Sounds/*.ogg` | Alert sounds (crit, streak, record, proc) |
 | `tools/gen_spelldata.py` | Regenerates the `SpellData_*.lua` files from each client's game data via wago.tools (`--all`, or `--flavor forever\|vanilla\|tbc\|mists\|retail [--build x.y.z.n]`) |
 | `tools/gen_media.py` | Regenerates everything in `Media` (`pip install numpy soundfile`) |
+| `tools/check_locales.py` | Checks every language file for missing texts and mismatched `%s`/`%d` placeholders (`--template` prints all texts for a new language) |
+
+## Translations
+
+Every text's key is its English wording, so anything not yet translated shows in
+English. To add a language:
+
+1. Copy `Locales/deDE.lua` to `Locales/<code>.lua` with the game's locale code
+   (`ptBR`, `ruRU`, ...) and change its `RegisterLocale` line to that code and the
+   language's own name.
+2. Translate the values on the right, keeping every `%s`, `%d` and `|cff...|r` as they are.
+3. Add the file to `WombatLog.toc` under the other `Locales` lines.
+4. Run `python3 tools/check_locales.py`.
+
+The language then shows up in the language picker by itself.
 
 ## Reporting problems
 

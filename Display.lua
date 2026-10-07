@@ -1,6 +1,7 @@
 local ADDON, ns = ...
 local Display = {}
 ns.Display = Display
+local L = ns.L
 
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local GRADIENT = "Interface\\AddOns\\WombatLog\\Media\\Gradient" -- white, alpha 1 -> 0 left to right
@@ -15,8 +16,8 @@ local TAGS = { cast = "CAST", buff = "BUFF", debuffIn = "DEBUFF", debuffOut = "A
 local PREFIX = { heal = "+", healIn = "+", taken = "-" }
 
 local FLAG_SUFFIX = {
-    GLANCING = " (glancing)", CRUSHING = " (crushing)", ABSORB = " (absorbed)",
-    BLOCK_REDUCED = " (blocked)", RESIST_REDUCED = " (resisted)",
+    GLANCING = "glancing", CRUSHING = "crushing", ABSORB = "absorbed",
+    BLOCK_REDUCED = "blocked", RESIST_REDUCED = "resisted",
 }
 
 local PREVIEW_STATS = {
@@ -125,7 +126,7 @@ local function CreateRow()
 
     r.amount = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     r.critTag = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    r.critTag:SetText("CRIT")
+    r.critTag:SetText(L["CRIT"])
     r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     r.name:SetWordWrap(false)
     r.name:SetTextColor(0.86, 0.86, 0.86)
@@ -269,8 +270,8 @@ local function TickText(e)
     local text = "  |cffa0a0a0" .. e.ticks .. "\195\151|r"
     if e.critTicks > 0 then
         local cc = ns.db.colors.crit
-        text = text .. string.format("  |cff%02x%02x%02x%d crit|r",
-            math.floor(cc[1] * 255), math.floor(cc[2] * 255), math.floor(cc[3] * 255), e.critTicks)
+        text = text .. string.format("  |cff%02x%02x%02x%s|r",
+            math.floor(cc[1] * 255), math.floor(cc[2] * 255), math.floor(cc[3] * 255), L["%d crit"]:format(e.critTicks))
     end
     return text
 end
@@ -290,7 +291,7 @@ local function Fill(r, e)
 
     if tag then
         font(r.amount, A.amountFont, math.max(8, A.amountSize - 4), A.outline)
-        r.amount:SetText(tag)
+        r.amount:SetText(L[tag])
         r.amount:SetTextColor(color[1], color[2], color[3])
     elseif crit then
         local c = e.kind == "damage" and cc or brighten(color)
@@ -331,7 +332,8 @@ local function Fill(r, e)
     else
         r.name:SetPoint("LEFT", inner, "RIGHT", 7, 0)
     end
-    r.name:SetText((e.name or "") .. (FLAG_SUFFIX[e.flag] or "") .. TickText(e))
+    local flag = FLAG_SUFFIX[e.flag]
+    r.name:SetText((ns.EventName(e.name) or "") .. (flag and (" (" .. L[flag] .. ")") or "") .. TickText(e))
 
     local near = r.side == "right" and "RIGHT" or "LEFT"
     local far = r.side == "right" and "LEFT" or "RIGHT"
@@ -560,10 +562,10 @@ function Display:UpdateHeader()
     header.dps:SetText(ns.Short(f.damage / div))
     header.hps:SetText(ns.Short(f.healing / div))
     header.timer:SetText(string.format("%d:%02d", math.floor(elapsed / 60), math.floor(elapsed % 60)))
-    header.totals:SetText(ns.Short(f.damage) .. " dmg    " .. ns.Short(f.taken) .. " taken")
+    header.totals:SetText(L["%s dmg    %s taken"]:format(ns.Short(f.damage), ns.Short(f.taken)))
     if f.top then
-        header.top:SetText("Biggest hit  " .. f.top.name .. "  " .. ns.Full(f.top.amount)
-            .. (f.top.crit and "  CRIT" or ""))
+        header.top:SetText(L["Biggest hit"] .. "  " .. ns.EventName(f.top.name) .. "  " .. ns.Full(f.top.amount)
+            .. (f.top.crit and ("  " .. L["CRIT"]) or ""))
     else
         header.top:SetText("")
     end
@@ -653,7 +655,7 @@ function Display:Init()
     root.overlayText = root:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     font(root.overlayText, "Fonts\\ARIALN.TTF", 12, "OUTLINE")
     root.overlayText:SetPoint("CENTER")
-    root.overlayText:SetText("WombatLog - drag to move")
+    root.overlayText:SetText(L["WombatLog - drag to move"])
     root.overlay:Hide()
     root.overlayText:Hide()
 

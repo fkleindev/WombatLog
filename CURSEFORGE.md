@@ -25,6 +25,8 @@ Your combat events show up in a transparent, borderless window that fades in whe
 
 Every feature can be turned off on its own, and the full settings panel shows a live preview as you change things. Profiles are included.
 
+Available in **English, German, French, Spanish and Italian**. WombatLog follows your game language and can be switched in the settings.
+
 ## Supported clients
 
 | Client | Combat data |

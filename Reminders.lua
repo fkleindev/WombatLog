@@ -463,7 +463,7 @@ function Reminders:Init()
     f.overlay:SetColorTexture(0.2, 0.6, 1, 0.15)
     f.overlayText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.overlayText:SetPoint("BOTTOM", f, "TOP", 0, 2)
-    f.overlayText:SetText("WombatLog spell reminders - drag to move")
+    f.overlayText:SetText(ns.L["WombatLog spell reminders - drag to move"])
     f.overlay:Hide()
     f.overlayText:Hide()
 
@@ -739,7 +739,7 @@ function Reminders:Update()
     local list
     if self.unlocked or (self.testUntil and GetTime() < self.testUntil) then
         list = {}
-        for i, s in ipairs(SAMPLE) do list[i] = { key = "sample" .. i, name = s.name, icon = s.icon, castable = s.castable, hotkey = s.hotkey } end
+        for i, s in ipairs(SAMPLE) do list[i] = { key = "sample" .. i, name = ns.EventName(s.name), icon = s.icon, castable = s.castable, hotkey = s.hotkey } end
     else
         self.testUntil = nil
         list = self:Collect()

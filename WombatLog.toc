@@ -2,12 +2,23 @@
 ## Title: WombatLog
 ## Notes: Borderless, transparent in-combat feed of your combat events with live DPS/HPS, crit alerts, fight journal and session stats.
 ## Version: @project-version@
+## Notes-deDE: Randloser, transparenter Kampf-Feed deiner Kampfereignisse mit Live-DPS/HPS, Krit-Alarmen, Kampftagebuch und Sitzungsstatistik.
+## Notes-frFR: Flux de combat transparent et sans bordure de vos événements de combat, avec DPS/HPS en direct, alertes de critiques, journal des combats et statistiques de session.
+## Notes-esES: Registro de combate transparente y sin bordes de tus eventos de combate, con DPS/HPS en vivo, alertas de críticos, diario de combates y estadísticas de sesión.
+## Notes-esMX: Registro de combate transparente y sin bordes de tus eventos de combate, con DPS/HPS en vivo, alertas de críticos, diario de combates y estadísticas de sesión.
+## Notes-itIT: Registro di combattimento trasparente e senza bordi dei tuoi eventi di combattimento, con DPS/HPS in tempo reale, avvisi di critico, diario dei combattimenti e statistiche di sessione.
 ## SavedVariables: WombatLogDB
 ## IconTexture: Interface\Icons\inv_pet_beaver
 ## AddonCompartmentFunc: WombatLog_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: WombatLog_OnAddonCompartmentEnter
 ## AddonCompartmentFuncOnLeave: WombatLog_OnAddonCompartmentLeave
 
+Locales\Locales.lua
+Locales\enUS.lua
+Locales\deDE.lua
+Locales\frFR.lua
+Locales\esES.lua
+Locales\itIT.lua
 Core.lua
 SpellData_Forever.lua
 SpellData_Vanilla.lua

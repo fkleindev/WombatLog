@@ -362,8 +362,8 @@ function Stats:SessionLine()
     local i = self:SessionInfo()
     if not i then return "" end
     if i.atMax or not i.xpPerHour then
-        return string.format("Session %s  ·  %d kills", Stats.FormatDuration(i.elapsed), i.kills)
+        return string.format(ns.L["Session %s  ·  %d kills"], Stats.FormatDuration(i.elapsed), i.kills)
     end
     local ttl = i.timeToLevel and Stats.FormatDuration(i.timeToLevel) or "?"
-    return string.format("%s XP/h  ·  level in %s  ·  %d kills", ns.Short(i.xpPerHour), ttl, i.kills)
+    return string.format(ns.L["%s XP/h  ·  level in %s  ·  %d kills"], ns.Short(i.xpPerHour), ttl, i.kills)
 end

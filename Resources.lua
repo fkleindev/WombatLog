@@ -70,13 +70,13 @@ end
 function Resources.TextureOptions()
     local list = {
         { text = "Flat", value = "flat" },
-        { text = "Blizzard", value = "blizzard" },
+        { text = "Blizzard", value = "blizzard", raw = true },
         { text = "Raid", value = "raid" },
     }
     local LSM = sharedMedia()
     if LSM then
         for _, name in ipairs(LSM:List("statusbar")) do
-            list[#list + 1] = { text = "SharedMedia: " .. name, value = "lsm:" .. name }
+            list[#list + 1] = { text = "SharedMedia: " .. name, value = "lsm:" .. name, raw = true }
         end
     end
     return list
@@ -633,7 +633,7 @@ function Resources:StartCast(channel, test)
     local c = self.cast
     local name, icon, startMS, endMS, locked
     if test then
-        name, icon = "Frostbolt", "Interface\\Icons\\Spell_Frost_FrostBolt02"
+        name, icon = ns.EventName("Frostbolt"), "Interface\\Icons\\Spell_Frost_FrostBolt02"
         startMS, endMS = GetTime() * 1000, (GetTime() + 2.5) * 1000
     else
         name, icon, startMS, endMS, locked = castInfo(channel)
@@ -669,7 +669,7 @@ function Resources:InterruptCast()
     b:SetMinMaxValues(0, 1)
     b:SetValue(1)
     b:SetStatusBarColor(0.85, 0.15, 0.15, 1)
-    b.left:SetText("Interrupted")
+    b.left:SetText(ns.L["Interrupted"])
     b.right:SetText("")
     c.holdUntil = GetTime() + 0.6
     c.interrupted = true

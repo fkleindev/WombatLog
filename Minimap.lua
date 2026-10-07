@@ -1,6 +1,7 @@
 local ADDON, ns = ...
 local MinimapButton = {}
 ns.Minimap = MinimapButton
+local L = ns.L
 
 local ICON = "Interface\\Icons\\inv_pet_beaver"
 
@@ -26,20 +27,20 @@ local function fillTooltip(tt)
     tt:AddLine("WombatLog")
     local last = ns.Stats.last
     if last and not last.test then
-        tt:AddDoubleLine("Last fight", ns.Short(last.dps) .. " DPS, " .. ns.Stats.FormatDuration(last.duration), 0.8, 0.8, 0.8, 1, 1, 1)
+        tt:AddDoubleLine(L["Last fight"], ns.Short(last.dps) .. " DPS, " .. ns.Stats.FormatDuration(last.duration), 0.8, 0.8, 0.8, 1, 1, 1)
     end
     if ns.db.session.enabled then
         local i = ns.Stats:SessionInfo()
         if i then
-            tt:AddDoubleLine("Session", ns.Stats.FormatDuration(i.elapsed) .. ", " .. i.kills .. " kills", 0.8, 0.8, 0.8, 1, 1, 1)
+            tt:AddDoubleLine(L["Session"], ns.Stats.FormatDuration(i.elapsed) .. ", " .. L["%d kills"]:format(i.kills), 0.8, 0.8, 0.8, 1, 1, 1)
             if not i.atMax and i.xpPerHour and i.xpPerHour > 0 then
-                tt:AddDoubleLine("XP per hour", ns.Full(i.xpPerHour), 0.8, 0.8, 0.8, 1, 1, 1)
-                tt:AddDoubleLine("Time to level", i.timeToLevel and ns.Stats.FormatDuration(i.timeToLevel) or "-", 0.8, 0.8, 0.8, 1, 1, 1)
+                tt:AddDoubleLine(L["XP per hour"], ns.Full(i.xpPerHour), 0.8, 0.8, 0.8, 1, 1, 1)
+                tt:AddDoubleLine(L["Time to level"], i.timeToLevel and ns.Stats.FormatDuration(i.timeToLevel) or "-", 0.8, 0.8, 0.8, 1, 1, 1)
             end
         end
     end
     tt:AddLine(" ")
-    tt:AddLine("Click: journal   Right-click: settings   Shift-click: test", 0.6, 0.8, 1)
+    tt:AddLine(L["Click: journal   Right-click: settings   Shift-click: test"], 0.6, 0.8, 1)
 end
 
 function MinimapButton:Init()
