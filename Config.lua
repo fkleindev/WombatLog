@@ -1252,7 +1252,7 @@ end
 
 local function BuildKillGeneral(p)
     p:Header("Kill alert")
-    p:Note("A pop-up when a mob you fought dies: the XP you got counting up, the mob's name, your XP bar filling and, for kills in quick succession, a multi-kill counter.")
+    p:Note("A pop-up when a mob you fought dies: the XP you got counting up, the mob's name and, for kills in quick succession, a multi-kill counter. Your XP bar can fill under it, too (the XP tracker shows it all the time).")
     p:Checkbox("Show kill alerts", "killAlert.enabled")
     p:Button("Test", function() ns.KillAlert:Test() end, 2, -2, 100)
     p:Checkbox("Also kills without XP (grey mobs, max level)", "killAlert.noXpKills")
@@ -1303,27 +1303,104 @@ local function BuildKillLook(p)
     end, 2)
 end
 
+-- The XP bar's look and effects, shared by the kill alert and the XP tracker.
+local function BuildXPBarLook(p, path)
+    p:Dropdown("Bar texture", path .. ".texture", ns.Resources.TextureOptions)
+    p:Slider("Background opacity", path .. ".bgOpacity", 0, 1, 0.05, pct, 2)
+    p:Slider("Segments", path .. ".segments", 0, 20, 1, function(v) return v < 2 and L["None"] or tostring(v) end)
+    p:Checkbox("Thin border", path .. ".border", 2)
+    p:Slider("Fill speed", path .. ".speed", 1, 20, 1)
+end
+
+local function BuildXPBarEffects(p, path, test)
+    p:Header("Effects")
+    p:Checkbox("Spark at the fill's edge", path .. ".spark")
+    p:Checkbox("Gloss", path .. ".gloss", 2)
+    p:Checkbox("Light up the XP just gained", path .. ".gainFlash")
+    p:Checkbox("Glow behind the bar", path .. ".glow", 2)
+    p:Checkbox("Show rested XP", path .. ".rested")
+    p:Checkbox("Percent text", path .. ".percent", 2)
+    p:Button("Test", test)
+end
+
 local function BuildKillBar(p)
     p:Header("XP bar")
     p:Note("Your XP bar under the kill alert. Turn it on or off under General. Unlock the alert under Look to see changes live.")
     p:Slider("Length", "killAlert.bar.width", 0, 500, 10, autoPx)
     p:Slider("Thickness", "killAlert.bar.height", 0, 30, 1, autoPx, 2)
-    p:Dropdown("Bar texture", "killAlert.bar.texture", ns.Resources.TextureOptions)
-    p:Slider("Background opacity", "killAlert.bar.bgOpacity", 0, 1, 0.05, pct, 2)
-    p:Slider("Segments", "killAlert.bar.segments", 0, 20, 1, function(v) return v < 2 and L["None"] or tostring(v) end)
-    p:Checkbox("Thin border", "killAlert.bar.border", 2)
+    BuildXPBarLook(p, "killAlert.bar")
     p:Checkbox("Same color as the XP text", "killAlert.bar.useTextColor")
     p:Color("Custom bar color", "killAlert.bar.color", 2)
-    p:Slider("Fill speed", "killAlert.bar.speed", 1, 20, 1)
+    BuildXPBarEffects(p, "killAlert.bar", function() ns.KillAlert:Test() end)
+end
 
-    p:Header("Effects")
-    p:Checkbox("Spark at the fill's edge", "killAlert.bar.spark")
-    p:Checkbox("Gloss", "killAlert.bar.gloss", 2)
-    p:Checkbox("Light up the XP just gained", "killAlert.bar.gainFlash")
-    p:Checkbox("Glow behind the bar", "killAlert.bar.glow", 2)
-    p:Checkbox("Show rested XP", "killAlert.bar.rested")
-    p:Checkbox("Percent text", "killAlert.bar.percent", 2)
-    p:Button("Test", function() ns.KillAlert:Test() end)
+local function BuildKillQuest(p)
+    p:Header("Quest alert")
+    p:Note("The same pop-up when you turn in a quest: the XP counting up and the quest's name. Size, fonts, position and display time are the kill alert's.")
+    p:Checkbox("Show quest alerts", "questAlert.enabled")
+    p:Button("Test", function() ns.KillAlert:TestQuest() end, 2, -2, 100)
+    p:Checkbox("Quest name", "questAlert.showName")
+    p:Color("XP color", "questAlert.color", 2)
+
+    p:Header("Sound")
+    p:Checkbox("Play a sound", "questAlert.sound")
+    p:Dropdown("Sound", {
+        get = function() return ns.db.questAlert.soundChoice end,
+        set = function(v)
+            local Q = ns.db.questAlert
+            Q.soundChoice = v
+            ns.Alerts.PlaySound(v, Q.channel)
+        end,
+    }, ns.Alerts.SoundOptions)
+    p:Dropdown("Sound channel", "questAlert.channel", SOUND_CHANNELS, 2)
+end
+
+---------------------------------------------------------------------------
+-- XP tracker
+---------------------------------------------------------------------------
+
+local function BuildTrackerGeneral(p)
+    p:Header("XP tracker")
+    p:Note("A small XP bar that is always on screen. When you get XP it springs up bigger, fills with a glow and shows the XP you got, then settles back.")
+    p:Checkbox("Show the XP tracker", "xpTracker.enabled")
+    p:Button("Test", function() ns.XPTracker:Test() end, 2, -2, 100)
+    p:Checkbox("Hide at max level", "xpTracker.hideAtMax")
+    p:Checkbox("Level", "xpTracker.showLevel", 2)
+    p:Checkbox("XP gained under the bar", "xpTracker.popText")
+
+    p:Header("Growing")
+    p:Slider("Size when XP comes in", "xpTracker.popScale", 1, 2.5, 0.05, times)
+    p:Slider("Stays big for", "xpTracker.popHold", 0.5, 5, 0.5, secs, 2)
+end
+
+local function BuildTrackerLook(p)
+    p:Header("Look")
+    p:Slider("Length", "xpTracker.width", 80, 500, 10, px)
+    p:Slider("Thickness", "xpTracker.height", 4, 30, 1, px, 2)
+    p:Slider("Scale", "xpTracker.scale", 0.5, 2, 0.05, times)
+    p:Color("Bar color", "xpTracker.color", 2)
+
+    p:Header("Text")
+    p:Slider("Text size", "xpTracker.textSize", 8, 30, 1)
+    p:Dropdown("Font", "xpTracker.font", alertFontOptions, 2)
+    p:Dropdown("Outline", "xpTracker.outline", OUTLINE_OPTIONS)
+
+    p:Header("Position")
+    p:Checkbox("Unlock (drag the tracker to move it)", {
+        get = function() return ns.XPTracker.unlocked end,
+        set = function(v) ns.XPTracker:SetLocked(not v) end,
+    })
+    p:Button("Reset position", function()
+        local T, D = ns.db.xpTracker, ns.defaults.xpTracker
+        T.x, T.y = D.x, D.y
+        ns.ApplyAll(true)
+    end, 2)
+end
+
+local function BuildTrackerBar(p)
+    p:Header("XP bar")
+    BuildXPBarLook(p, "xpTracker.bar")
+    BuildXPBarEffects(p, "xpTracker.bar", function() ns.XPTracker:Test() end)
 end
 
 ---------------------------------------------------------------------------
@@ -1484,6 +1561,12 @@ local TABS = {
         { "Sound", BuildKillSound },
         { "Look", BuildKillLook },
         { "XP bar", BuildKillBar },
+        { "Quest alert", BuildKillQuest },
+    } },
+    { "XP tracker", {
+        { "General", BuildTrackerGeneral },
+        { "Look", BuildTrackerLook },
+        { "XP bar", BuildTrackerBar },
     } },
     { "Swing timer", BuildSwing },
     { "Resource display", {
@@ -1622,6 +1705,7 @@ function Config:Init()
         if ns.Alerts.proc.unlocked then ns.Alerts.proc:SetLocked(true) end
         if ns.Reminders.unlocked then ns.Reminders:SetLocked(true) end
         if ns.KillAlert.unlocked then ns.KillAlert:SetLocked(true) end
+        if ns.XPTracker.unlocked then ns.XPTracker:SetLocked(true) end
     end)
 
     if Settings and Settings.RegisterCanvasLayoutCategory then

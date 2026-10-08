@@ -141,8 +141,9 @@ ns.defaults.resources = {
 
 -- pop-up when a mob you fought dies: XP counting up, XP bar, multi-kills, sound
 ns.defaults.killAlert = {
+    barVersion = 2,                    -- 2: the XP bar moved to the XP tracker, off here
     enabled = true, noXpKills = true,  -- also kills without XP (grey mobs, max level)
-    showXP = true, showBar = true, showName = true, multiKill = true, duration = 4,
+    showXP = true, showBar = false, showName = true, multiKill = true, duration = 4,
     sound = false, soundChoice = "wl:kill", channel = "Master", risingPitch = true,
     size = 35, scale = 1, color = { 0.72, 0.52, 1.00 }, x = -5, y = 333,
     font = "", nameFont = "", outline = "OUTLINE", -- "" font = the log window's
@@ -157,6 +158,28 @@ ns.defaults.killAlert = {
         glow = true,                    -- soft glow behind the bar while it fills
         rested = true,                  -- rested XP as a pale stretch after the fill
         percent = true,                 -- percent text on the bar
+    },
+}
+
+-- the same pop-up for quests you turn in (size, fonts, position and time from killAlert)
+ns.defaults.questAlert = {
+    enabled = true, showName = true, color = { 1.00, 0.82, 0.18 },
+    sound = false, soundChoice = "wl:xp", channel = "Master",
+}
+
+-- small XP bar that is always shown and springs up bigger when XP comes in
+ns.defaults.xpTracker = {
+    enabled = true, hideAtMax = true, showLevel = true,
+    popScale = 1.6,                 -- size while XP comes in
+    popHold = 2,                    -- seconds it stays big after the latest XP
+    popText = true,                 -- "+342 XP" under the bar while big
+    scale = 1, width = 220, height = 10, textSize = 14,
+    color = { 0.72, 0.52, 1.00 }, x = 0, y = 285,
+    font = "", outline = "OUTLINE", -- "" font = the log window's
+    bar = {
+        texture = "blizzard", bgOpacity = 0.5, border = true,
+        segments = 20, speed = 3,
+        spark = true, gloss = false, gainFlash = true, glow = true, rested = true, percent = true,
     },
 }
 
@@ -319,6 +342,7 @@ function ns.ApplyAll(refreshPanel)
     ns.Minimap:Apply()
     ns.Reminders:Apply()
     ns.KillAlert:Apply()
+    ns.XPTracker:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
 
@@ -333,6 +357,11 @@ local function activate()
     -- profiles saved with the first resource display look get the new default look once
     local r = ns.db.resources
     local oldLook = r and r.styleVersion == nil
+    -- profiles from before the XP tracker: the kill alert's bar goes off once
+    local k = ns.db.killAlert
+    if k and k.barVersion == nil then
+        k.showBar, k.barVersion = false, 2
+    end
     fillDefaults(ns.db, ns.defaults)
     if oldLook then
         local D = ns.defaults.resources
@@ -642,6 +671,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.Minimap:Init()
     ns.Reminders:Init()
     ns.KillAlert:Init()
+    ns.XPTracker:Init()
     if ns.Config then ns.Config:Init() end
 end)
 

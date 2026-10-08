@@ -38,8 +38,12 @@ combat starts and fades out a few seconds after it ends.
 - **Personal resource display** under your character: health, power, druid mana,
   combo points and a cast bar.
 - **Kill alerts:** a rewarding pop-up when a mob you fought dies, with the XP you got
-  counting up, your XP bar filling, "LEVEL UP!", a multi-kill counter and a sound
-  that rises with each kill in a row.
+  counting up, "LEVEL UP!", a multi-kill counter and a sound that rises with each
+  kill in a row (your XP bar can fill under it, too). Quests you turn in get the same
+  pop-up with the quest's name.
+- **XP tracker:** a small XP bar that is always on screen. When XP comes in it springs
+  up bigger, fills with a glow, lights up the XP just gained and shows "+342 XP"
+  counting up, then settles back. More XP while it is big keeps it big and adds up.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
@@ -115,7 +119,11 @@ sub-tabs along the top.
   *Sound* (sound, channel, rising pitch for multi-kills), *Look* (text size, scale,
   XP color, fonts, outline, position) and *XP bar* (length, thickness, texture,
   background, segments, border, color, fill speed, and effects: spark, gloss, the
-  XP just gained lighting up, glow, rested XP, percent text).
+  XP just gained lighting up, glow, rested XP, percent text; off by default) and
+  *Quest alert* (on/off, quest name, color, sound).
+- **XP tracker:** *General* (on/off, hide at max level, level, XP gained text, how big
+  and how long it grows), *Look* (length, thickness, scale, color, text size, font,
+  outline, position) and *XP bar* (the same options as the kill alert's bar).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),
@@ -232,7 +240,8 @@ effort: whatever the client keeps secret is left out.
 | `PLAYER_SWING`, `UNIT_SPELLCAST_SUCCEEDED` | Working out which of the hits on your target are yours, and naming them |
 | `UNIT_AURA` | Buffs and debuffs gained, applied and faded; proc alerts |
 | `PLAYER_SWING`, `UnitAttackSpeed` | Swing timer |
-| `CHAT_MSG_COMBAT_XP_GAIN`, `PLAYER_XP_UPDATE` | Kills, XP per kill and per hour |
+| `CHAT_MSG_COMBAT_XP_GAIN`, `PLAYER_XP_UPDATE` | Kills, XP per kill and per hour, XP tracker |
+| `QUEST_COMPLETE`, `QUEST_FINISHED`, `QUEST_TURNED_IN` | Quest alerts |
 | `PLAYER_MONEY`, `PLAYER_DEAD` | Session money and deaths |
 | `PLAYER_REGEN_DISABLED` / `_ENABLED` | Showing and hiding the window |
 
@@ -309,7 +318,9 @@ As a result:
 | `Stats.lua` | Fight statistics, history, records, crit streaks and the session tracker |
 | `Alerts.lua` | Crit, streak, record and proc alerts (visual and sound) |
 | `Reminders.lua` | Spell reminders (usable spells, buffs to refresh) |
-| `KillAlert.lua` | Kill alert (XP, XP bar, multi-kills) |
+| `XPBar.lua` | The XP bar widget shared by the kill alert and the XP tracker |
+| `KillAlert.lua` | Kill and quest alerts (XP, XP bar, multi-kills) |
+| `XPTracker.lua` | XP tracker that is always shown and grows when XP comes in |
 | `Report.lua` | Fight summary card and the journal window |
 | `Swing.lua` | Swing timer lane inside the log window |
 | `Resources.lua` | Personal resource display |

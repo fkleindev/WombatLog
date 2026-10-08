@@ -3,9 +3,11 @@ local KillAlert = {}
 ns.KillAlert = KillAlert
 local Safe = ns.Safe
 local L = ns.L
+local XPBar = ns.XPBar
 
 -- A rewarding pop-up when a mob you fought dies: "+342 XP" counting up, the mob's
--- name, your XP bar filling, a multi-kill counter and a sound.
+-- name, your XP bar filling (optional), a multi-kill counter and a sound. Quests
+-- you turn in get the same pop-up with the quest's name.
 --
 -- Where kills come from:
 --   all clients     the XP message ("X dies, you gain N experience."); when it can't
@@ -13,11 +15,9 @@ local L = ns.L
 --   Classic         the combat log's PARTY_KILL (also kills without XP)
 --   Forever/Retail  no kill event without XP: your target dying after you hit it
 
-local MEDIA = "Interface\\AddOns\\WombatLog\\Media\\"
-local GLOW = MEDIA .. "Glow"
-local GRADIENT = MEDIA .. "Gradient"
-local WHITE = "Interface\\Buttons\\WHITE8X8"
+local GLOW = "Interface\\AddOns\\WombatLog\\Media\\Glow"
 local SKULL = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
+local QUEST_ICON = "Interface\\GossipFrame\\ActiveQuestIcon"
 local MERGE = 1.2        -- signals this close belong to one kill (death, XP message, XP bar)
 local MULTI_WINDOW = 4   -- kills this close count as a multi-kill
 local COUNT_UP = 0.5     -- seconds the XP number counts up
@@ -25,11 +25,10 @@ local POP = 0.25
 local BURST_TIME = 0.6
 local FADE_OUT = 0.5
 local HIT_MEMORY = 30    -- a target you hit this recently counts as yours when it dies
-local MAX_SEGMENTS = 20
-local FLASH_HOLD = 0.4   -- the gained part stays lit this long, then fades
-local FLASH_FADE = 1.0
+local QUEST_WINDOW = 3   -- an XP message this long after the quest window closed is the quest's
 
 local SAMPLE = { name = "Defias Thug", xp = 342, rested = 171 }
+local SAMPLE_QUEST = { name = "The Defias Brotherhood", xp = 1250 }
 
 ---------------------------------------------------------------------------
 -- XP message parsing (in the client's language)
@@ -65,15 +64,23 @@ local function parseKill(msg)
     return name, xp, rested
 end
 
+local questPattern
+
+-- XP from a message without a kill ("You gain 1250 experience."), or nil.
+local function parseQuestXP(msg)
+    if not questPattern then
+        questPattern = toPattern(COMBATLOG_XPGAIN_QUEST or "You gain %d experience.")
+    end
+    local xp = msg:match(questPattern)
+    if not xp then xp = msg:match("^You gain (%d+) experience") end
+    return tonumber(xp)
+end
+
 ---------------------------------------------------------------------------
 -- XP bar
 ---------------------------------------------------------------------------
 
-local function xpFraction()
-    local xp, max = Safe(UnitXP("player")), Safe(UnitXPMax("player"))
-    if not xp or not max or max <= 0 then return nil end
-    return xp / max
-end
+local xpFraction = XPBar.Fraction
 
 local lastXP, lastMax
 local lastUpdate -- { t, from, to, leveled, delta } of the latest XP bar change
@@ -134,55 +141,8 @@ local function CreateFrames()
     f.banner = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     f.banner:SetPoint("BOTTOM", f.amount, "TOP", 0, 4)
 
-    f.bar = CreateFrame("StatusBar", nil, c)
-    f.bar:SetStatusBarTexture(WHITE)
-    f.bar:SetMinMaxValues(0, 1)
+    f.bar = XPBar.Create(c)
     f.bar:SetPoint("TOP", f.name, "BOTTOM", 0, -5)
-    f.barBg = f.bar:CreateTexture(nil, "BACKGROUND")
-    f.barBg:SetAllPoints()
-    f.barBg:SetColorTexture(0, 0, 0, 0.55)
-    -- soft glow behind the bar
-    f.barGlow = c:CreateTexture(nil, "BACKGROUND")
-    f.barGlow:SetTexture(GLOW)
-    f.barGlow:SetBlendMode("ADD")
-    f.barGlow:SetPoint("CENTER", f.bar, "CENTER")
-    f.barGlow:Hide()
-    -- thin border
-    f.barEdges = {}
-    for i, side in ipairs({ { "TOPLEFT", "TOPRIGHT", 0, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", 0, -1 },
-                            { "TOPLEFT", "BOTTOMLEFT", -1, 0 }, { "TOPRIGHT", "BOTTOMRIGHT", 1, 0 } }) do
-        local t = f.bar:CreateTexture(nil, "BACKGROUND", nil, -1)
-        t:SetColorTexture(0, 0, 0, 1)
-        t:SetPoint(side[1], f.bar, side[1], side[3], side[4])
-        t:SetPoint(side[2], f.bar, side[2], side[3], side[4])
-        if i <= 2 then t:SetHeight(1) else t:SetWidth(1) end
-        f.barEdges[i] = t
-    end
-    -- rested XP: a pale stretch after the fill (behind it)
-    f.barRested = f.bar:CreateTexture(nil, "BORDER")
-    f.barRested:SetTexture(WHITE)
-    -- the part just gained, lit up
-    f.barGain = f.bar:CreateTexture(nil, "OVERLAY")
-    f.barGain:SetTexture(WHITE)
-    f.barGain:SetBlendMode("ADD")
-    -- gloss: the gradient turned to fade from the top edge down
-    f.barGloss = f.bar:CreateTexture(nil, "OVERLAY", nil, 1)
-    f.barGloss:SetAllPoints()
-    f.barGloss:SetTexture(GRADIENT)
-    f.barGloss:SetTexCoord(0, 0, 1, 0, 0, 1, 1, 1)
-    f.barGloss:SetVertexColor(1, 1, 1, 0.22)
-    f.barTicks = {}
-    for i = 1, MAX_SEGMENTS - 1 do
-        local t = f.bar:CreateTexture(nil, "OVERLAY", nil, 2)
-        t:SetColorTexture(0, 0, 0, 0.6)
-        t:SetWidth(1)
-        f.barTicks[i] = t
-    end
-    f.barSpark = f.bar:CreateTexture(nil, "OVERLAY", nil, 3)
-    f.barSpark:SetTexture("Interface\\CastingBar\\UI-CastingBar-Spark")
-    f.barSpark:SetBlendMode("ADD")
-    f.barText = f.bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    f.barText:SetPoint("CENTER", f.bar, "CENTER", 0, 0)
 
     f.pop = c:CreateAnimationGroup()
     local grow = f.pop:CreateAnimation("Scale")
@@ -226,37 +186,13 @@ function KillAlert:Apply()
     -- XP bar
     local w = B.width > 0 and B.width or K.size * 6
     local h = B.height > 0 and B.height or math.max(4, math.floor(K.size * 0.2))
-    self.barW = w
     f:SetSize(math.max(240, K.size * 8, w + 20), K.size * 3.4)
-    f.bar:SetSize(w, h)
-    f.bar:SetStatusBarTexture(ns.BarTexture and ns.BarTexture(B.texture) or WHITE)
-    local bc = B.useTextColor and K.color or B.color
-    f.bar:SetStatusBarColor(bc[1], bc[2], bc[3], 0.95)
-    f.barBg:SetColorTexture(0, 0, 0, B.bgOpacity)
-    for _, e in ipairs(f.barEdges) do e:SetShown(B.border) end
-    f.barGloss:SetShown(B.gloss)
-    f.barRested:SetVertexColor(bc[1], bc[2], bc[3], 0.3)
-    f.barGain:SetVertexColor(1, 1, 1, 1)
-    f.barGlow:SetVertexColor(bc[1], bc[2], bc[3], 1)
-    f.barGlow:SetSize(w * 1.3, math.max(24, h * 6))
-    f.barSpark:SetSize(math.max(6, h * 1.5), h * 3)
-    local segments = math.min(B.segments, MAX_SEGMENTS)
-    for i, t in ipairs(f.barTicks) do
-        if segments >= 2 and i < segments then
-            t:ClearAllPoints()
-            t:SetPoint("TOP", f.bar, "TOPLEFT", w * i / segments, 0)
-            t:SetPoint("BOTTOM", f.bar, "BOTTOMLEFT", w * i / segments, 0)
-            t:Show()
-        else
-            t:Hide()
-        end
-    end
-    ns.SetFont(f.barText, numberFont, math.max(8, math.min(16, h + 2)), nameOutline ~= "" and nameOutline or "OUTLINE")
+    XPBar.Apply(f.bar, B, w, h, B.useTextColor and K.color or B.color, numberFont, nameOutline)
 
     local c = K.color
     f.burst:SetVertexColor(c[1], c[2], c[3], 1)
     self.burstBase = K.size * 7
-    if not K.enabled and not self.unlocked then f:Hide() end
+    if not K.enabled and not ns.db.questAlert.enabled and not self.unlocked then f:Hide() end
     if self.unlocked then self:ShowSample(true) end
 end
 
@@ -264,19 +200,27 @@ end
 -- Showing a kill
 ---------------------------------------------------------------------------
 
--- k = { name, xp, rested, multi, leveled, from, to }
+-- k = { kind, name, xp, rested, multi, leveled, from, to }; kind "kill" or "quest"
 function KillAlert:Render()
     local k, K, f = self.kill, ns.db.killAlert, self.frame
-    local c = K.color
-    if K.showXP and k.xp then
+    local quest = k.kind == "quest"
+    local Q = ns.db.questAlert
+    local c = quest and Q.color or K.color
+    if quest or (K.showXP and k.xp) then
         f.amount:SetText(L["+%s XP"]:format(ns.Full(math.floor(k.shownXP + 0.5))))
     else
         f.amount:SetText(L["KILL"])
     end
     f.amount:SetTextColor(c[1], c[2], c[3])
-    local name = K.showName and ns.EventName(k.name) or ""
-    if K.showXP and k.rested and k.rested > 0 then
-        name = name .. (name ~= "" and "  " or "") .. "|cff9999ff(" .. L["+%s rested"]:format(ns.Full(k.rested)) .. ")|r"
+    f.skull:SetTexture(quest and QUEST_ICON or SKULL)
+    local name
+    if quest then
+        name = Q.showName and k.name or ""
+    else
+        name = K.showName and ns.EventName(k.name) or ""
+        if K.showXP and k.rested and k.rested > 0 then
+            name = name .. (name ~= "" and "  " or "") .. "|cff9999ff(" .. L["+%s rested"]:format(ns.Full(k.rested)) .. ")|r"
+        end
     end
     f.name:SetText(name)
     f.name:SetShown(name ~= "")
@@ -284,88 +228,25 @@ function KillAlert:Render()
     local banner
     if k.leveled then
         banner = L["LEVEL UP!"]
-    elseif K.multiKill and k.multi >= 2 then
+    elseif not quest and K.multiKill and k.multi >= 2 then
         banner = L["x%d KILLS"]:format(k.multi)
     end
     f.banner:SetText(banner or "")
     f.banner:SetTextColor(1, 0.82, 0.18)
     f.banner:SetShown(banner ~= nil)
 
-    local barOn = K.showBar and k.from ~= nil
+    local barOn = not quest and K.showBar and k.from ~= nil
     f.bar:SetShown(barOn)
     if barOn then
         f.bar:ClearAllPoints()
         f.bar:SetPoint("TOP", f.name:IsShown() and f.name or f.amount, "BOTTOM", 0, -5)
-        self:RenderBar(k)
+        XPBar.Render(f.bar, K.bar, k.shownBar, k.from, k.age)
     else
-        f.barGlow:Hide()
+        f.bar.glow:Hide()
     end
     -- keep skull and text centered as a group
     f.amount:ClearAllPoints()
     f.amount:SetPoint("CENTER", f, "CENTER", (K.size + 8) / 2, K.size * 0.3)
-end
-
--- Rested XP as a fraction of the current level, or nil.
-local function restedFraction()
-    local rested = GetXPExhaustion and Safe(GetXPExhaustion())
-    local max = Safe(UnitXPMax("player"))
-    if not rested or rested <= 0 or not max or max <= 0 then return nil end
-    return rested / max
-end
-
--- 1 while the gained part is freshly lit, then down to 0.
-local function flashLevel(age)
-    if age <= FLASH_HOLD then return 1 end
-    return math.max(0, 1 - (age - FLASH_HOLD) / FLASH_FADE)
-end
-
--- Fill, spark, rested stretch, percent text and the effects that follow the kill's age.
-function KillAlert:RenderBar(k)
-    local f, B = self.frame, ns.db.killAlert.bar
-    local w, value = self.barW or f.bar:GetWidth(), k.shownBar
-    f.bar:SetValue(value)
-
-    f.barSpark:SetShown(B.spark and value > 0 and value < 1)
-    f.barSpark:SetPoint("CENTER", f.bar, "LEFT", value * w, 0)
-
-    local rested = B.rested and value < 1 and restedFraction()
-    if rested then
-        f.barRested:ClearAllPoints()
-        f.barRested:SetPoint("TOPLEFT", f.bar, "TOPLEFT", value * w, 0)
-        f.barRested:SetPoint("BOTTOMLEFT", f.bar, "BOTTOMLEFT", value * w, 0)
-        f.barRested:SetWidth(math.max(1, (math.min(1, value + rested) - value) * w))
-    end
-    f.barRested:SetShown(rested and true or false)
-
-    f.barText:SetShown(B.percent)
-    if B.percent then f.barText:SetText(math.floor(value * 100) .. "%") end
-
-    self:RenderBarEffects(k)
-end
-
-function KillAlert:RenderBarEffects(k)
-    local f, B = self.frame, ns.db.killAlert.bar
-    local w, value = self.barW or f.bar:GetWidth(), k.shownBar
-    local flash = flashLevel(k.age or 0)
-    -- should the bar ever start past the fill, light it from the left edge
-    local from = (k.from and k.from <= value) and k.from or 0
-    local gainW = (value - from) * w
-    if B.gainFlash and flash > 0 and gainW >= 1 then
-        f.barGain:ClearAllPoints()
-        f.barGain:SetPoint("TOPLEFT", f.bar, "TOPLEFT", from * w, 0)
-        f.barGain:SetPoint("BOTTOMLEFT", f.bar, "BOTTOMLEFT", from * w, 0)
-        f.barGain:SetWidth(gainW)
-        f.barGain:SetAlpha(0.55 * flash)
-        f.barGain:Show()
-    else
-        f.barGain:Hide()
-    end
-    if B.glow then
-        f.barGlow:SetAlpha(0.25 + 0.55 * flash)
-        f.barGlow:Show()
-    else
-        f.barGlow:Hide()
-    end
 end
 
 function KillAlert:Show(k, fresh)
@@ -374,6 +255,8 @@ function KillAlert:Show(k, fresh)
     k.age = 0
     k.shownXP = k.shownXP or 0
     k.shownBar = k.from or 0
+    local c = k.kind == "quest" and ns.db.questAlert.color or K.color
+    f.burst:SetVertexColor(c[1], c[2], c[3], 1)
     f:SetAlpha(1)
     f:Show()
     self:Render()
@@ -418,7 +301,7 @@ function KillAlert:Step(dt)
     if changed then
         self:Render()
     elseif f.bar:IsShown() then
-        self:RenderBarEffects(k)
+        XPBar.RenderEffects(f.bar, ns.db.killAlert.bar, k.shownBar, k.from, k.age)
     end
     if self.unlocked then return end
     local life = ns.db.killAlert.duration
@@ -456,7 +339,7 @@ function KillAlert:OnKill(name, guid, xp, rested)
     if not K or not K.enabled or not self.frame or self.unlocked then return end
     local now = GetTime()
     local k = self.pending or self.kill
-    local same = k and now - k.t <= MERGE
+    local same = k and k.kind ~= "quest" and now - k.t <= MERGE
         and (not guid or not k.guid or guid == k.guid)
         and not (xp and k.xp and k.fromMessage) -- two XP messages are two kills
     if same then
@@ -478,7 +361,7 @@ function KillAlert:OnKill(name, guid, xp, rested)
     local multi = 1
     if self.lastKill and now - self.lastKill <= MULTI_WINDOW then multi = (self.lastMulti or 1) + 1 end
     self.lastKill, self.lastMulti = now, multi
-    k = { t = now, name = name, guid = guid, xp = xp, rested = rested, fromMessage = xp ~= nil, multi = multi }
+    k = { kind = "kill", t = now, name = name, guid = guid, xp = xp, rested = rested, fromMessage = xp ~= nil, multi = multi }
     local frac = xpFraction()
     k.from, k.to = frac, frac
     applyXPUpdate(k, now)
@@ -501,16 +384,37 @@ function KillAlert:Release(k)
     playSound(k.multi)
 end
 
+-- A quest turned in. The XP message and QUEST_TURNED_IN both report it: whichever
+-- comes second fills in what the first lacked.
+function KillAlert:OnQuest(title, xp)
+    local Q = ns.db and ns.db.questAlert
+    if not Q or not Q.enabled or not self.frame or self.unlocked then return end
+    local now = GetTime()
+    local k = self.kill
+    if k and k.kind == "quest" and now - k.t <= MERGE and (not title or not k.name or title == k.name) then
+        k.name = k.name or title
+        if not k.xp or k.xp <= 0 then k.xp = xp end
+        self:Render()
+        return
+    end
+    if not xp or xp <= 0 then return end
+    self:Show({ kind = "quest", t = now, name = title, xp = xp, multi = 1 }, true)
+    if Q.sound then ns.Alerts.PlaySound(Q.soundChoice, Q.channel) end
+end
+
 ---------------------------------------------------------------------------
 -- Test and positioning
 ---------------------------------------------------------------------------
 
-function KillAlert:ShowSample(steady)
+function KillAlert:ShowSample(steady, kind)
     local frac = xpFraction() or 0.4
     local k = {
-        t = GetTime(), name = SAMPLE.name, xp = SAMPLE.xp, rested = SAMPLE.rested, multi = 1,
+        kind = "kill", t = GetTime(), name = SAMPLE.name, xp = SAMPLE.xp, rested = SAMPLE.rested, multi = 1,
         from = math.max(0, frac - 0.08), to = frac,
     }
+    if kind == "quest" then
+        k = { kind = "quest", t = GetTime(), name = SAMPLE_QUEST.name, xp = SAMPLE_QUEST.xp, multi = 1 }
+    end
     if steady then k.shownXP, k.shownBar = k.xp, k.to end
     self:Show(k, not steady)
     if steady then k.shownBar = k.to; self:Render() end
@@ -521,6 +425,14 @@ function KillAlert:Test()
     if self.unlocked then self:SetLocked(true) end
     self:ShowSample(false)
     playSound(1)
+end
+
+-- Settings button: a sample quest with its sound.
+function KillAlert:TestQuest()
+    if self.unlocked then self:SetLocked(true) end
+    self:ShowSample(false, "quest")
+    local Q = ns.db.questAlert
+    if Q.sound then ns.Alerts.PlaySound(Q.soundChoice, Q.channel) end
 end
 
 function KillAlert:SetLocked(locked)
@@ -542,15 +454,42 @@ end
 -- Signals
 ---------------------------------------------------------------------------
 
+-- The quest window: its title, and whether XP right now is a quest's.
+local questTitle, questOpen, questClosed
+
+local function questRecent()
+    return questTitle and (questOpen or (questClosed and GetTime() - questClosed <= QUEST_WINDOW))
+end
+
+ns.Listen("QUEST_COMPLETE", function()
+    questTitle = GetTitleText and Safe(GetTitleText())
+    questOpen, questClosed = true, nil
+end)
+
+ns.Listen("QUEST_FINISHED", function()
+    if questOpen then questOpen, questClosed = false, GetTime() end
+end)
+
+ns.Listen("QUEST_TURNED_IN", function(questID, xp)
+    questID, xp = Safe(questID), Safe(xp)
+    local title = questID and C_QuestLog and C_QuestLog.GetTitleForQuestID
+        and Safe(C_QuestLog.GetTitleForQuestID(questID))
+    KillAlert:OnQuest(title or (questRecent() and questTitle) or nil, xp)
+end)
+
 ns.Listen("CHAT_MSG_COMBAT_XP_GAIN", function(msg)
     msg = Safe(msg)
     if not msg then
-        -- hidden message: still a kill, its XP comes from the XP bar
-        KillAlert:OnKill(nil, nil, nil, nil)
+        -- hidden message: a quest's XP or a kill whose XP comes from the XP bar
+        if not questRecent() then KillAlert:OnKill(nil, nil, nil, nil) end
         return
     end
     local name, xp, rested = parseKill(msg)
-    if name then KillAlert:OnKill(name, nil, xp, rested) end
+    if name then
+        KillAlert:OnKill(name, nil, xp, rested)
+    elseif questRecent() then
+        KillAlert:OnQuest(questTitle, parseQuestXP(msg))
+    end
 end)
 
 ns.Listen("PLAYER_XP_UPDATE", function()

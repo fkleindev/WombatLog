@@ -31,7 +31,9 @@ Stats.lua
 Display.lua
 Alerts.lua
 Reminders.lua
+XPBar.lua
 KillAlert.lua
+XPTracker.lua
 Report.lua
 Swing.lua
 Resources.lua
