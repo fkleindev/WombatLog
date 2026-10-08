@@ -145,7 +145,7 @@ ns.defaults.killAlert = {
     enabled = true, noXpKills = true,  -- also kills without XP (grey mobs, max level)
     showXP = true, showBar = false, showName = true, multiKill = true, duration = 4,
     sound = false, soundChoice = "wl:kill", channel = "Master", risingPitch = true,
-    size = 35, scale = 1, color = { 0.72, 0.52, 1.00 }, x = -5, y = 333,
+    size = 35, scale = 1, color = { 0.72, 0.52, 1.00 }, x = -5, y = 220,
     font = "", nameFont = "", outline = "OUTLINE", -- "" font = the log window's
     bar = {
         width = 0, height = 8,          -- 0 = follows the text size
@@ -167,14 +167,16 @@ ns.defaults.questAlert = {
     sound = false, soundChoice = "wl:xp", channel = "Master",
 }
 
--- small XP bar that is always shown and springs up bigger when XP comes in
+-- small XP bar hanging from the top edge, always shown; grows down when XP comes in
 ns.defaults.xpTracker = {
     enabled = true, hideAtMax = true, showLevel = true,
-    popScale = 1.6,                 -- size while XP comes in
+    popScale = 1.5,                 -- size while XP comes in
     popHold = 2,                    -- seconds it stays big after the latest XP
     popText = true,                 -- "+342 XP" under the bar while big
-    scale = 1, width = 220, height = 10, textSize = 14,
-    color = { 0.72, 0.52, 1.00 }, x = 0, y = 285,
+    scale = 1, width = 220, height = 8, textSize = 14,
+    bgOpacity = 0.6,                -- the dark panel behind it
+    color = { 0.72, 0.52, 1.00 },
+    x = 0, offset = 0,              -- offset: distance from the top edge
     font = "", outline = "OUTLINE", -- "" font = the log window's
     bar = {
         texture = "blizzard", bgOpacity = 0.5, border = true,

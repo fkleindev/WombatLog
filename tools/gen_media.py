@@ -40,6 +40,19 @@ def gen_textures():
     glow = np.clip(1 - r, 0, 1) ** 2.2 * 255
     write_tga(os.path.join(MEDIA, "Glow.tga"), n, n, glow)
 
+    # Corner: a quarter disc rounding off a bottom-left corner (XP tracker's panel;
+    # mirrored for the bottom-right one). The disc's center is the top-right corner.
+    write_tga(os.path.join(MEDIA, "Corner.tga"), 32, 32, corner(32))
+
+
+def corner(n):
+    """Antialiased alpha of a quarter disc of radius n centered on the top-right corner."""
+    row, col = np.mgrid[0:n, 0:n]  # rows bottom-up, as write_tga stores them
+    from_top = n - 1 - row + 0.5
+    from_right = n - 1 - col + 0.5
+    d = np.hypot(from_right, from_top)
+    return np.clip(n - d + 0.5, 0, 1) * 255
+
 
 # --- sounds -----------------------------------------------------------------
 
@@ -308,7 +321,7 @@ def main():
     for path in (gen_chime(), gen_coin(), gen_impact(), gen_record(), gen_proc(), *gen_extras(), *gen_streaks()):
         data, rate = sf.read(path)
         print(f"{os.path.basename(path)}: {len(data) / rate:.2f}s, {rate} Hz, peak {np.max(np.abs(data)):.2f}")
-    print("textures: Gradient.tga, Glow.tga")
+    print("textures: Gradient.tga, Glow.tga, Corner.tga")
 
 
 if __name__ == "__main__":

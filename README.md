@@ -41,9 +41,10 @@ combat starts and fades out a few seconds after it ends.
   counting up, "LEVEL UP!", a multi-kill counter and a sound that rises with each
   kill in a row (your XP bar can fill under it, too). Quests you turn in get the same
   pop-up with the quest's name.
-- **XP tracker:** a small XP bar that is always on screen. When XP comes in it springs
-  up bigger, fills with a glow, lights up the XP just gained and shows "+342 XP"
-  counting up, then settles back. More XP while it is big keeps it big and adds up.
+- **XP tracker:** a small XP bar on a dark panel with rounded corners, hanging from
+  the top edge of the screen. When XP comes in it grows downward, fills with a glow,
+  lights up the XP just gained and opens up to show "+342 XP" counting up, then
+  settles back. More XP while it is big keeps it big and adds up.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
@@ -122,8 +123,8 @@ sub-tabs along the top.
   XP just gained lighting up, glow, rested XP, percent text; off by default) and
   *Quest alert* (on/off, quest name, color, sound).
 - **XP tracker:** *General* (on/off, hide at max level, level, XP gained text, how big
-  and how long it grows), *Look* (length, thickness, scale, color, text size, font,
-  outline, position) and *XP bar* (the same options as the kill alert's bar).
+  and how long it grows), *Look* (length, thickness, scale, color, background
+  opacity, text size, font, outline, position along and distance from the top edge) and *XP bar* (the same options as the kill alert's bar).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),
@@ -328,6 +329,7 @@ As a result:
 | `Config.lua` | The settings panel |
 | `Media/Gradient.tga` | White-to-transparent texture used for the row backgrounds |
 | `Media/Glow.tga` | Radial glow used by the crit alert |
+| `Media/Corner.tga` | Quarter disc for the XP tracker's rounded corners |
 | `Media/Diamond.tga` | Diamond mask for diamond-shaped combo points |
 | `Media/Sounds/*.ogg` | Alert sounds (crit, streak, record, proc) |
 | `tools/gen_spelldata.py` | Regenerates the `SpellData_*.lua` files from each client's game data via wago.tools (`--all`, or `--flavor forever\|vanilla\|tbc\|mists\|retail [--build x.y.z.n]`) |

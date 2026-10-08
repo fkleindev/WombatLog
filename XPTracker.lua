@@ -5,15 +5,21 @@ local Safe = ns.Safe
 local L = ns.L
 local XPBar = ns.XPBar
 
--- A small XP bar that is always on screen. When XP comes in it springs up to a
--- bigger size, fills with a glow and the gained part lit, shows "+342 XP" counting
--- up, then settles back. More XP while it is big keeps it big and adds up.
+-- A small XP bar that is always on screen, on a dark panel hanging from the top edge
+-- of the screen. When XP comes in it springs down to a bigger size, fills with a
+-- glow and the gained part lit, opens up to show "+342 XP" counting up, then settles
+-- back. More XP while it is big keeps it big and adds up.
 
 local GROW_STIFFNESS = 180   -- spring toward the target size
 local GROW_DAMPING = 14      -- low: overshoots a little on the way up
 local SHRINK_DAMPING = 26    -- settles back without wobbling
 local TEXT_FADE = 0.4        -- the "+XP" text fades this long after the hold
 local COUNT_UP = 0.5         -- seconds the gained XP counts up
+local OPEN_SPEED = 10        -- how fast the panel opens for the "+XP" text
+local PAD = 6                -- panel padding
+local RADIUS = 8             -- the panel's rounded bottom corners
+local CORNER = "Interface\\AddOns\\WombatLog\\Media\\Corner"
+local WHITE = "Interface\\Buttons\\WHITE8X8"
 
 local SAMPLE_XP = 342
 
@@ -29,36 +35,55 @@ local function CreateFrames()
     f:EnableMouse(false)
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", f.StartMoving)
+    -- only sideways: it stays on the top edge
     f:SetScript("OnDragStop", function()
         f:StopMovingOrSizing()
         local cfg = ns.db.xpTracker
         local s = UIParent:GetEffectiveScale() / f:GetEffectiveScale()
-        local cx, cy = f:GetCenter()
+        local cx = f:GetCenter()
         cfg.x = math.floor(cx - UIParent:GetWidth() * s / 2 + 0.5)
-        cfg.y = math.floor(cy - UIParent:GetHeight() * s / 2 + 0.5)
         f:ClearAllPoints()
-        f:SetPoint("CENTER", UIParent, "CENTER", cfg.x, cfg.y)
+        f:SetPoint("TOP", UIParent, "TOP", cfg.x, -cfg.offset)
     end)
     f:Hide()
 
-    -- everything grows from the center as one piece
+    -- everything grows down from the top edge as one piece
     local c = CreateFrame("Frame", nil, f)
-    c:SetPoint("CENTER")
+    c:SetPoint("TOP", f, "TOP")
     f.content = c
 
+    -- the panel: a body, a strip between the two rounded corners, the corners
+    local function piece()
+        local t = c:CreateTexture(nil, "BACKGROUND", nil, -8)
+        t:SetTexture(WHITE)
+        t:SetVertexColor(0, 0, 0, 1)
+        return t
+    end
+    f.bg = { piece(), piece(), piece(), piece() }
+    local body, strip, left, right = f.bg[1], f.bg[2], f.bg[3], f.bg[4]
+    body:SetPoint("TOPLEFT", c, "TOPLEFT")
+    body:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", 0, RADIUS)
+    strip:SetPoint("TOPLEFT", c, "BOTTOMLEFT", RADIUS, RADIUS)
+    strip:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -RADIUS, 0)
+    left:SetTexture(CORNER)
+    left:SetSize(RADIUS, RADIUS)
+    left:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT")
+    right:SetTexture(CORNER)
+    right:SetTexCoord(1, 0, 0, 1) -- mirrored
+    right:SetSize(RADIUS, RADIUS)
+    right:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT")
+
     f.bar = XPBar.Create(c)
-    f.bar:SetPoint("CENTER", c, "CENTER")
     f.level = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     f.level:SetPoint("RIGHT", f.bar, "LEFT", -6, 0)
     f.gain = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    f.gain:SetPoint("TOP", f.bar, "BOTTOM", 0, -3)
     f.gain:SetAlpha(0)
 
     f.overlay = f:CreateTexture(nil, "BACKGROUND", nil, -2)
     f.overlay:SetAllPoints()
     f.overlay:SetColorTexture(0.2, 0.6, 1, 0.15)
     f.overlayText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    f.overlayText:SetPoint("BOTTOM", f, "TOP", 0, 2)
+    f.overlayText:SetPoint("TOP", f, "BOTTOM", 0, -2)
     f.overlayText:SetText(L["WombatLog XP tracker - drag to move"])
     f.overlay:Hide()
     f.overlayText:Hide()
@@ -77,6 +102,8 @@ local shown, from, target, wrapTo
 local gainAge            -- seconds since the latest gain, nil when there is none
 local gained, shownGain = 0, 0
 local scale, velocity = 1, 0
+local open = 0           -- 0..1: how far the panel is opened for the "+XP" text
+local restH, openH = 0, 0
 local level, nextLevel   -- nextLevel shows once the bar wraps
 
 local function atMaxLevel()
@@ -102,7 +129,7 @@ function XPTracker:Apply()
     local T = ns.db.xpTracker
     f:SetScale(T.scale)
     f:ClearAllPoints()
-    f:SetPoint("CENTER", UIParent, "CENTER", T.x, T.y)
+    f:SetPoint("TOP", UIParent, "TOP", T.x, -T.offset)
 
     local font, _, outline, smallOutline = ns.AlertFonts(T)
     ns.SetFont(f.level, font, T.textSize, smallOutline)
@@ -111,13 +138,28 @@ function XPTracker:Apply()
     local c = T.color
     f.gain:SetTextColor(c[1], c[2], c[3])
     XPBar.Apply(f.bar, T.bar, T.width, T.height, c, font, smallOutline)
+    for _, t in ipairs(f.bg) do t:SetAlpha(T.bgOpacity) end
 
-    -- room for the level text on the left, the "+XP" text below
-    local sideW = T.textSize * 4
-    f.content:SetSize(T.width + sideW * 2, T.height + T.textSize * 2 + 8)
-    f:SetSize(T.width + sideW * 2, T.height + T.textSize * 2 + 8)
+    -- one row with the level and the bar; the "+XP" text opens a second one below
+    local rowH = math.max(T.height, T.textSize)
+    restH = PAD * 2 + rowH
+    openH = restH + T.textSize + 4
+    f.bar:ClearAllPoints()
+    f.bar:SetPoint("TOPRIGHT", f.content, "TOPRIGHT", -PAD, -(PAD + (rowH - T.height) / 2))
+    f.gain:ClearAllPoints()
+    f.gain:SetPoint("TOP", f.content, "TOP", 0, -(PAD + rowH + 2))
+    self.levelText = nil -- Render sizes the panel to the level text
     self:UpdateVisibility()
     self:Render()
+end
+
+-- The panel's width follows the level text, its height how far it is open.
+function XPTracker:Layout()
+    local f, T = self.frame, ns.db.xpTracker
+    local levelW = T.showLevel and (math.ceil(f.level:GetStringWidth()) + 6) or 0
+    local w = PAD * 2 + levelW + T.width
+    f.content:SetSize(w, restH + (openH - restH) * open)
+    f:SetSize(w, restH)
 end
 
 function XPTracker:UpdateVisibility()
@@ -134,7 +176,12 @@ end
 function XPTracker:Render()
     local f, T = self.frame, ns.db.xpTracker
     f.level:SetShown(T.showLevel)
-    if T.showLevel then f.level:SetText(L["Lvl %d"]:format(level or 0)) end
+    local text = T.showLevel and L["Lvl %d"]:format(level or 0) or ""
+    f.level:SetText(text)
+    if text ~= self.levelText then
+        self.levelText = text
+        self:Layout()
+    end
     f.gain:SetText(L["+%s XP"]:format(ns.Full(shownGain)))
     -- no glow at rest: it only lights up with a gain
     XPBar.Render(f.bar, T.bar, shown, from, gainAge or math.huge, 0)
@@ -144,7 +191,7 @@ end
 function XPTracker:Step(dt)
     local f, T = self.frame, ns.db.xpTracker
     if not f:IsShown() then return end
-    if not gainAge and scale == 1 and shown == target and not wrapTo then return end -- at rest
+    if not gainAge and scale == 1 and open == 0 and shown == target and not wrapTo then return end -- at rest
     if dt > 0.1 then dt = 0.1 end -- a hitch must not throw the spring off
     local hold = 0.25 + T.popHold
     local big = gainAge and gainAge < hold
@@ -158,6 +205,12 @@ function XPTracker:Step(dt)
         scale, velocity = 1, 0
     end
     f.content:SetScale(math.max(0.2, scale))
+
+    -- the panel opens downward for the "+XP" text while big
+    local openGoal = (big and T.popText) and 1 or 0
+    open = open + (openGoal - open) * math.min(1, dt * OPEN_SPEED)
+    if math.abs(openGoal - open) < 0.005 then open = openGoal end
+    self:Layout()
 
     -- fill: head for the target, wrap to 0 after a level up
     if shown ~= target then
@@ -179,7 +232,7 @@ function XPTracker:Step(dt)
         local textAlpha = 1
         if gainAge > hold then textAlpha = math.max(0, 1 - (gainAge - hold) / TEXT_FADE) end
         f.gain:SetAlpha(T.popText and textAlpha or 0)
-        if not big and scale == 1 and shown == target and textAlpha <= 0 then
+        if not big and scale == 1 and open == 0 and shown == target and textAlpha <= 0 then
             -- settled: the gain is over
             gainAge, gained, shownGain = nil, 0, 0
             if self.testing then

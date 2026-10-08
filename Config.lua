@@ -1361,7 +1361,7 @@ end
 
 local function BuildTrackerGeneral(p)
     p:Header("XP tracker")
-    p:Note("A small XP bar that is always on screen. When you get XP it springs up bigger, fills with a glow and shows the XP you got, then settles back.")
+    p:Note("A small XP bar hanging from the top edge of the screen. When you get XP it grows downward, fills with a glow and shows the XP you got, then settles back.")
     p:Checkbox("Show the XP tracker", "xpTracker.enabled")
     p:Button("Test", function() ns.XPTracker:Test() end, 2, -2, 100)
     p:Checkbox("Hide at max level", "xpTracker.hideAtMax")
@@ -1379,6 +1379,7 @@ local function BuildTrackerLook(p)
     p:Slider("Thickness", "xpTracker.height", 4, 30, 1, px, 2)
     p:Slider("Scale", "xpTracker.scale", 0.5, 2, 0.05, times)
     p:Color("Bar color", "xpTracker.color", 2)
+    p:Slider("Background opacity", "xpTracker.bgOpacity", 0, 1, 0.05, pct)
 
     p:Header("Text")
     p:Slider("Text size", "xpTracker.textSize", 8, 30, 1)
@@ -1386,15 +1387,16 @@ local function BuildTrackerLook(p)
     p:Dropdown("Outline", "xpTracker.outline", OUTLINE_OPTIONS)
 
     p:Header("Position")
-    p:Checkbox("Unlock (drag the tracker to move it)", {
+    p:Checkbox("Unlock (drag the tracker sideways to move it)", {
         get = function() return ns.XPTracker.unlocked end,
         set = function(v) ns.XPTracker:SetLocked(not v) end,
     })
     p:Button("Reset position", function()
         local T, D = ns.db.xpTracker, ns.defaults.xpTracker
-        T.x, T.y = D.x, D.y
+        T.x, T.offset = D.x, D.offset
         ns.ApplyAll(true)
     end, 2)
+    p:Slider("Distance from top edge", "xpTracker.offset", 0, 100, 1, px)
 end
 
 local function BuildTrackerBar(p)
