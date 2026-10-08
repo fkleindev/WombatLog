@@ -39,3 +39,4 @@ Swing.lua
 Resources.lua
 Minimap.lua
 Config.lua
+Welcome.lua

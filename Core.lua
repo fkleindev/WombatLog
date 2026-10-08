@@ -67,6 +67,7 @@ ns.defaults = {
     },
     position = { x = -276, y = -266, scale = 1, alpha = 0.9, strata = "MEDIUM" },
     behaviour = {
+        enabled = true,          -- false: the window stays hidden (stats and alerts keep running)
         visibility = "combat",   -- "combat" | "always"
         linger = 5, fadeIn = 0.25, fadeOut = 1.5,
         lines = 7,
@@ -675,6 +676,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.KillAlert:Init()
     ns.XPTracker:Init()
     if ns.Config then ns.Config:Init() end
+    if ns.Welcome then ns.Welcome:Init() end
 end)
 
 ns.Listen("PLAYER_ENTERING_WORLD", function()
@@ -706,6 +708,8 @@ SlashCmdList.WOMBATLOG = function(msg)
     elseif cmd == "lock" then
         ns.Display:SetLocked(true)
         ns.Print(L["locked."])
+    elseif cmd == "welcome" then
+        ns.Welcome:Toggle()
     elseif cmd == "test" then
         ns.RunTest()
     elseif cmd == "debug" then
@@ -732,6 +736,6 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.Profiles.Reset()
         ns.Print(L["profile '%s' reset to defaults."]:format(ns.Profiles.Current()))
     else
-        ns.Print(L["/wl - settings, /wl test - preview fight, /wl journal - fights & records, /wl session [reset], /wl unlock | lock - move, /wl reset - reset profile"])
+        ns.Print(L["/wl - settings, /wl welcome - welcome screen, /wl test - preview fight, /wl journal - fights & records, /wl session [reset], /wl unlock | lock - move, /wl reset - reset profile"])
     end
 end

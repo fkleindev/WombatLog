@@ -125,13 +125,14 @@ end
 local Page = {}
 Page.__index = Page
 
-local function NewPage(parent, top)
+-- left, right, bottom: insets from parent's edges (default: the settings panel's)
+local function NewPage(parent, top, left, right, bottom)
     local ok, scroll = pcall(CreateFrame, "ScrollFrame", nil, parent, "ScrollFrameTemplate")
     if not ok or not scroll.ScrollBar then
         scroll = CreateFrame("ScrollFrame", nil, parent, "UIPanelScrollFrameTemplate")
     end
-    scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", SIDEBAR_W + 26, top or PAGE_TOP)
-    scroll:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -28, 8)
+    scroll:SetPoint("TOPLEFT", parent, "TOPLEFT", left or SIDEBAR_W + 26, top or PAGE_TOP)
+    scroll:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -(right or 28), bottom or 8)
     local child = CreateFrame("Frame", nil, scroll)
     child:SetSize(PAGE_WIDTH, 1)
     scroll:SetScrollChild(child)
@@ -763,6 +764,8 @@ local function BuildLogWindow(p)
     local sw, sh = math.ceil(GetScreenWidth()), math.ceil(GetScreenHeight())
 
     p:Header("Visibility")
+    p:Checkbox("Show the combat log window", "behaviour.enabled")
+    p:Note("Turned off, the window and its swing timer stay hidden. Stats, the journal and the alerts keep running.")
     p:Dropdown("Show the window", "behaviour.visibility", {
         { text = "Only in combat", value = "combat" },
         { text = "Always", value = "always" },
@@ -1462,16 +1465,24 @@ end
 -- Language
 ---------------------------------------------------------------------------
 
-local function BuildLanguage(p)
-    p:Header("Language")
-    p:Dropdown("Language", {
+-- The language choice; a new one asks to reload. beforeReload runs right before it.
+function Config.LanguageBind(beforeReload)
+    return {
         get = function() return WombatLogDB.locale or "auto" end,
         set = function(v)
             if v == (WombatLogDB.locale or "auto") then return end
             WombatLogDB.locale = v
-            Confirm(L["The new language is used after reloading the interface. Reload now?"], ReloadUI)
+            Confirm(L["The new language is used after reloading the interface. Reload now?"], function()
+                if beforeReload then beforeReload() end
+                ReloadUI()
+            end)
         end,
-    }, ns.LocaleOptions)
+    }
+end
+
+local function BuildLanguage(p)
+    p:Header("Language")
+    p:Dropdown("Language", Config.LanguageBind(), ns.LocaleOptions)
     p:Note("Applies to all characters. \"Automatic\" follows the language of your game client and falls back to English.")
     p:Note("Missing your language? Copy Locales/deDE.lua in the addon folder, translate it and add it to WombatLog.toc. It then shows up here by itself. Translations are welcome on GitHub.")
 end
@@ -1640,6 +1651,13 @@ function Config:SelectTab(index, sub)
             end
         end
     end
+end
+
+-- A page of settings widgets in another window (the welcome screen), already shown.
+function Config:EmbedPage(parent, left, top, right, bottom)
+    local p = NewPage(parent, top, left, right, bottom)
+    p.scroll:Show()
+    return p
 end
 
 function Config:RefreshAll()

@@ -733,8 +733,9 @@ end
 -- Shows or fades the window based on combat, preview, lock and visibility settings.
 function Display:UpdateVisibility()
     if not root then return end
-    local want = self.preview or not ns.locked or ns.db.behaviour.visibility == "always"
-        or ns.fight.active or ns.lingering
+    local B = ns.db.behaviour
+    local want = B.enabled and (self.preview or not ns.locked or B.visibility == "always"
+        or ns.fight.active or ns.lingering)
     if want then
         root:Show()
         root.fadeTarget = ns.db.position.alpha

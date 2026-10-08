@@ -22,6 +22,7 @@ Your combat events show up in a transparent, borderless window that fades in whe
 - **Swing timer** for main hand, off hand and ranged.
 - **Fight summary and journal:** fight history, personal records and session stats.
 - **Session tracker** for leveling: XP per hour, time and kills to the next level.
+- **Welcome screen** on each character's first login: turn every feature on or off and pick the language.
 - **Live header:** DPS, HPS, fight timer, damage dealt and taken, biggest hit.
 
 Every feature can be turned off on its own, and the full settings panel shows a live preview as you change things. Profiles are included.

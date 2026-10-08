@@ -44,7 +44,8 @@ combat starts and fades out a few seconds after it ends.
 - **XP tracker:** a small XP bar on a dark panel with rounded corners, hanging from
   the top edge of the screen. When XP comes in it grows downward, fills with a glow,
   lights up the XP just gained and opens up to show "+342 XP" counting up, then
-  settles back. XP from kills and quests shows in the kill and quest alert's colors. More XP while it is big keeps it big and adds up.
+  settles back. XP from kills and quests shows in the kill and quest alert's colors.
+  More XP while it is big keeps it big and adds up.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
@@ -54,6 +55,8 @@ combat starts and fades out a few seconds after it ends.
 - **Minimap button** and an addon compartment entry.
 - The header shows live DPS and HPS, a fight timer, damage dealt and taken, and the
   biggest hit of the fight.
+- A **welcome screen** on each character's first login: every feature with a short
+  description and a switch, plus the language. `/wl welcome` brings it back.
 - A full settings panel with live preview, color pickers, filters and profiles.
 - Available in English, German, French, Spanish and Italian. It follows your game
   language by default and can be switched in the settings.
@@ -73,6 +76,7 @@ Every extra feature can be turned off on its own in the settings.
 | Command | What it does |
 | --- | --- |
 | `/wl` | Opens the settings (also in Esc > Options > AddOns > WombatLog) |
+| `/wl welcome` | Opens the welcome screen: every feature with a switch, and the language |
 | `/wl test` | Runs a fake fight (with a crit streak, a sample record and a proc) so you can see everything outside combat |
 | `/wl journal` | Opens the journal: fight history, records, session |
 | `/wl session` / `/wl session reset` | Shows or resets the current session |
@@ -102,7 +106,7 @@ sub-tabs along the top.
     counting row per DoT instead of a row per tick; the minimum amount and "only
     crits" filters then don't apply to DoT ticks), minimum amounts, "only crits"
     filters and the strict group filter.
-  - *Window:* when the window shows (only in combat or always), how long it stays
+  - *Window:* on/off, when the window shows (only in combat or always), how long it stays
     after combat, fade times, clearing the log when a new fight starts, drag to
     move, X/Y position, scale, window opacity and frame layer.
 - **Crit alerts:** *Visual* (the pop-up, its look, fonts, outline and position), *Sound*, and
@@ -327,6 +331,7 @@ As a result:
 | `Resources.lua` | Personal resource display |
 | `Minimap.lua` | Minimap button and addon compartment entry |
 | `Config.lua` | The settings panel |
+| `Welcome.lua` | Welcome screen on each character's first login |
 | `Media/Gradient.tga` | White-to-transparent texture used for the row backgrounds |
 | `Media/Glow.tga` | Radial glow used by the crit alert |
 | `Media/Corner.tga` | Quarter disc for the XP tracker's rounded corners |
