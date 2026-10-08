@@ -454,6 +454,12 @@ end
 -- Signals
 ---------------------------------------------------------------------------
 
+-- Tells the XP tracker where the XP it is about to show comes from.
+local function markSource(kind)
+    local T = ns.XPTracker
+    if T and T.frame then T:MarkSource(kind) end
+end
+
 -- The quest window: its title, and whether XP right now is a quest's.
 local questTitle, questOpen, questClosed
 
@@ -474,6 +480,7 @@ ns.Listen("QUEST_TURNED_IN", function(questID, xp)
     questID, xp = Safe(questID), Safe(xp)
     local title = questID and C_QuestLog and C_QuestLog.GetTitleForQuestID
         and Safe(C_QuestLog.GetTitleForQuestID(questID))
+    if xp and xp > 0 then markSource("quest") end
     KillAlert:OnQuest(title or (questRecent() and questTitle) or nil, xp)
 end)
 
@@ -481,13 +488,20 @@ ns.Listen("CHAT_MSG_COMBAT_XP_GAIN", function(msg)
     msg = Safe(msg)
     if not msg then
         -- hidden message: a quest's XP or a kill whose XP comes from the XP bar
-        if not questRecent() then KillAlert:OnKill(nil, nil, nil, nil) end
+        if questRecent() then
+            markSource("quest")
+        else
+            markSource("kill")
+            KillAlert:OnKill(nil, nil, nil, nil)
+        end
         return
     end
     local name, xp, rested = parseKill(msg)
     if name then
+        markSource("kill")
         KillAlert:OnKill(name, nil, xp, rested)
     elseif questRecent() then
+        markSource("quest")
         KillAlert:OnQuest(questTitle, parseQuestXP(msg))
     end
 end)

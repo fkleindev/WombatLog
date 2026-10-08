@@ -16,6 +16,7 @@ local SHRINK_DAMPING = 26    -- settles back without wobbling
 local TEXT_FADE = 0.4        -- the "+XP" text fades this long after the hold
 local COUNT_UP = 0.5         -- seconds the gained XP counts up
 local OPEN_SPEED = 10        -- how fast the panel opens for the "+XP" text
+local MERGE = 1.2            -- a kill or quest this close to the XP is where it came from
 local PAD = 6                -- panel padding
 local RADIUS = 8             -- the panel's rounded bottom corners
 local CORNER = "Interface\\AddOns\\WombatLog\\Media\\Corner"
@@ -101,6 +102,8 @@ local lastXP, lastMax
 local shown, from, target, wrapTo
 local gainAge            -- seconds since the latest gain, nil when there is none
 local gained, shownGain = 0, 0
+local gainKind           -- "kill", "quest" or nil (other XP): picks the gain's color
+local source             -- { kind, t } of the latest kill or quest the kill alert saw
 local scale, velocity = 1, 0
 local open = 0           -- 0..1: how far the panel is opened for the "+XP" text
 local restH, openH = 0, 0
@@ -136,7 +139,6 @@ function XPTracker:Apply()
     f.level:SetTextColor(1, 0.82, 0.18)
     ns.SetFont(f.gain, font, T.textSize, outline)
     local c = T.color
-    f.gain:SetTextColor(c[1], c[2], c[3])
     XPBar.Apply(f.bar, T.bar, T.width, T.height, c, font, smallOutline)
     for _, t in ipairs(f.bg) do t:SetAlpha(T.bgOpacity) end
 
@@ -173,6 +175,13 @@ end
 -- Drawing
 ---------------------------------------------------------------------------
 
+-- The gained XP's color: the kill or quest alert's, or the tracker's for other XP.
+local function colorFor(kind)
+    if kind == "kill" then return ns.db.killAlert.color end
+    if kind == "quest" then return ns.db.questAlert.color end
+    return nil
+end
+
 function XPTracker:Render()
     local f, T = self.frame, ns.db.xpTracker
     f.level:SetShown(T.showLevel)
@@ -183,8 +192,11 @@ function XPTracker:Render()
         self:Layout()
     end
     f.gain:SetText(L["+%s XP"]:format(ns.Full(shownGain)))
+    local gc = colorFor(gainKind)
+    local tc = gc or T.color
+    f.gain:SetTextColor(tc[1], tc[2], tc[3])
     -- no glow at rest: it only lights up with a gain
-    XPBar.Render(f.bar, T.bar, shown, from, gainAge or math.huge, 0)
+    XPBar.Render(f.bar, T.bar, shown, from, gainAge or math.huge, 0, gc)
 end
 
 -- One frame: spring the size, fill the bar, count the XP up, fade the text.
@@ -234,7 +246,7 @@ function XPTracker:Step(dt)
         f.gain:SetAlpha(T.popText and textAlpha or 0)
         if not big and scale == 1 and open == 0 and shown == target and textAlpha <= 0 then
             -- settled: the gain is over
-            gainAge, gained, shownGain = nil, 0, 0
+            gainAge, gained, shownGain, gainKind = nil, 0, 0, nil
             if self.testing then
                 self.testing = nil
                 shown = XPBar.Fraction() or 0
@@ -254,12 +266,23 @@ function XPTracker:Gain(delta, toFrac, wrap)
     end
     gained = gained + delta
     gainAge = 0
+    -- the kill or quest message often comes first; if not, MarkSource fixes it up
+    gainKind = (source and GetTime() - source.t <= MERGE) and source.kind or nil
     if wrap then
         target, wrapTo = 1, wrap
     elseif wrapTo then
         wrapTo = toFrac -- still on the way to 100%: land on the newest XP after the wrap
     else
         target = toFrac
+    end
+end
+
+-- A kill or quest gives XP now: its color for the gain, also one shown a moment ago.
+function XPTracker:MarkSource(kind)
+    source = { kind = kind, t = GetTime() }
+    if gainAge and gainAge <= MERGE then
+        gainKind = kind
+        self:Render()
     end
 end
 

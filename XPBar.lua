@@ -100,7 +100,6 @@ function XPBar.Apply(bar, B, w, h, color, font, outline)
     for _, e in ipairs(bar.edges) do e:SetShown(B.border) end
     bar.gloss:SetShown(B.gloss)
     bar.rested:SetVertexColor(color[1], color[2], color[3], 0.3)
-    bar.gain:SetVertexColor(1, 1, 1, 1)
     bar.glow:SetVertexColor(color[1], color[2], color[3], 1)
     bar.glow:SetSize(w * 1.3, math.max(24, h * 6))
     bar.spark:SetSize(math.max(6, h * 1.5), h * 3)
@@ -120,8 +119,8 @@ end
 
 -- Fill, spark, rested stretch, percent text and the effects.
 -- value: the shown fill, from: where the latest gain started, age: seconds since it,
--- glowBase: see RenderEffects.
-function XPBar.Render(bar, B, value, from, age, glowBase)
+-- glowBase, gainColor: see RenderEffects.
+function XPBar.Render(bar, B, value, from, age, glowBase, gainColor)
     local w = bar.width or bar:GetWidth()
     bar:SetValue(value)
 
@@ -140,12 +139,13 @@ function XPBar.Render(bar, B, value, from, age, glowBase)
     bar.text:SetShown(B.percent)
     if B.percent then bar.text:SetText(math.floor(value * 100) .. "%") end
 
-    XPBar.RenderEffects(bar, B, value, from, age, glowBase)
+    XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor)
 end
 
 -- The gain flash and the glow, which follow the gain's age.
 -- glowBase: the glow's alpha once the flash is over (nil = 0.25).
-function XPBar.RenderEffects(bar, B, value, from, age, glowBase)
+-- gainColor: the lit part's color (nil = white).
+function XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor)
     local w = bar.width or bar:GetWidth()
     local flash = flashLevel(age or 0)
     -- should the bar ever start past the fill, light it from the left edge
@@ -156,6 +156,8 @@ function XPBar.RenderEffects(bar, B, value, from, age, glowBase)
         bar.gain:SetPoint("TOPLEFT", bar, "TOPLEFT", from * w, 0)
         bar.gain:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", from * w, 0)
         bar.gain:SetWidth(gainW)
+        local c = gainColor
+        if c then bar.gain:SetVertexColor(c[1], c[2], c[3], 1) else bar.gain:SetVertexColor(1, 1, 1, 1) end
         bar.gain:SetAlpha(0.55 * flash)
         bar.gain:Show()
     else

@@ -44,7 +44,7 @@ combat starts and fades out a few seconds after it ends.
 - **XP tracker:** a small XP bar on a dark panel with rounded corners, hanging from
   the top edge of the screen. When XP comes in it grows downward, fills with a glow,
   lights up the XP just gained and opens up to show "+342 XP" counting up, then
-  settles back. More XP while it is big keeps it big and adds up.
+  settles back. XP from kills and quests shows in the kill and quest alert's colors. More XP while it is big keeps it big and adds up.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
