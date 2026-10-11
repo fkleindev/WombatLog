@@ -643,7 +643,7 @@ function Resources:StartCast(channel, test)
         self:EndCast()
         return
     end
-    c.active, c.channel, c.test, c.holdUntil = true, channel, test, nil
+    c.active, c.channel, c.test, c.holdUntil, c.interrupted = true, channel, test, nil, nil
     c.start, c.stop = startMS / 1000, endMS / 1000
     local b, C = self.bars.castbar, ns.db.resources.castbar
     local color = locked and C.uninterruptibleColor or C.color
@@ -665,6 +665,8 @@ end
 function Resources:InterruptCast()
     local c = self.cast
     if not c.active then return end
+    -- a re-press during a running cast fails the new attempt, not the cast
+    if castInfo(false) or castInfo(true) then return end
     local b = self.bars.castbar
     b:SetMinMaxValues(0, 1)
     b:SetValue(1)
@@ -680,7 +682,7 @@ local function castOnUpdate()
     if not c.active then return end
     local now = GetTime()
     if c.interrupted then
-        if now >= c.holdUntil then
+        if not c.holdUntil or now >= c.holdUntil then
             c.interrupted, c.holdUntil = nil, nil
             Resources:EndCast()
         end
