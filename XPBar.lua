@@ -13,11 +13,14 @@ local WHITE = "Interface\\Buttons\\WHITE8X8"
 local MAX_SEGMENTS = 20
 local FLASH_HOLD = 0.4   -- the gained part stays lit this long, then fades
 local FLASH_FADE = 1.0
-local IDLE_SLICES = 120  -- the idle waves are drawn as at most this many slices
+local IDLE_SLICES = 120  -- the slice-based idle styles use at most this many
 local WAVE_RATE = 0.5    -- wavelengths per second at speed 1
 local SHINE_RATE = 120   -- px per second at speed 1
 local SHINE_PAUSE = 1.5  -- seconds between two shines
 local PULSE_RATE = 0.4   -- pulses per second at speed 1
+local STRIPE_RATE = 0.5  -- stripes per second at speed 1
+local RAINBOW_RATE = 0.2 -- color cycles per second at speed 1
+local SPARKS_MAX = 40    -- twinkling dots per layer at most
 local TAU = math.pi * 2
 
 XPBar.MAX_SEGMENTS = MAX_SEGMENTS
@@ -180,8 +183,9 @@ function XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor)
 end
 
 ---------------------------------------------------------------------------
--- Idle animation: waves, a shine, a pulse or a liquid surface inside the fill.
--- It sits under the gloss, segments, spark and text, and never leaves the fill.
+-- Idle animation, in two layers: one over the fill, one over the empty part (or the
+-- fill's over the whole bar). It sits under the gloss, segments, spark and text, and
+-- never leaves its layer's stretch of the bar.
 ---------------------------------------------------------------------------
 
 local function idleTexture(bar, file, blend)
@@ -192,16 +196,19 @@ local function idleTexture(bar, file, blend)
     return t
 end
 
--- Made on first use, so bars without the animation cost nothing.
-local function idleParts(bar)
-    if not bar.idle then
-        bar.idle = {
-            slices = {}, lines = {}, used = 0,
+-- A layer's textures, made on first use, so bars without the animation cost nothing.
+local function idleParts(bar, layer)
+    bar.idle = bar.idle or {}
+    local P = bar.idle[layer]
+    if not P then
+        P = {
+            slices = {}, lines = {}, sparks = {}, used = 0, sparksUsed = 0,
             shine = idleTexture(bar, GLOW, "ADD"),
             pulse = idleTexture(bar, WHITE, "ADD"),
         }
+        bar.idle[layer] = P
     end
-    return bar.idle
+    return P
 end
 
 local function idleSlice(bar, list, i)
@@ -213,51 +220,99 @@ local function idleSlice(bar, list, i)
     return t
 end
 
-function XPBar.HideIdle(bar)
-    local P = bar.idle
-    if not P then return end
+local function hideParts(P)
     for _, t in ipairs(P.slices) do t:Hide() end
     for _, t in ipairs(P.lines) do t:Hide() end
+    for _, s in ipairs(P.sparks) do s.tex:Hide(); s.born = nil end
     P.shine:Hide()
     P.pulse:Hide()
-    P.style, P.used = nil, 0
+    P.style, P.used, P.sparksUsed = nil, 0, 0
 end
 
--- Bright bands running through the fill.
-local function renderWaves(bar, P, I, fillW, phase, c, a)
+-- layer: "fill" or "empty"; without it, both.
+function XPBar.HideIdle(bar, layer)
+    if not bar.idle then return end
+    for key, P in pairs(bar.idle) do
+        if not layer or key == layer then hideParts(P) end
+    end
+end
+
+-- Calls fn(texture, x, width, i) for the slices covering x0..x1. The slices sit on a grid
+-- fixed to the bar, so a pattern runs on seamlessly from one layer into the other.
+local function forSlices(bar, P, x0, x1, fn)
     local w = bar.width or bar:GetWidth()
     local sw = math.max(2, w / IDLE_SLICES)
-    local n = math.ceil(fillW / sw)
-    for i = 1, n do
-        local t = idleSlice(bar, P.slices, i)
-        local x = (i - 1) * sw
-        local wave = math.max(0, math.sin(TAU * (x / I.wavelength - phase * WAVE_RATE)))
-        t:SetBlendMode("ADD")
-        t:ClearAllPoints()
-        t:SetPoint("TOPLEFT", bar, "TOPLEFT", x, 0)
-        t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
-        t:SetWidth(math.min(sw, fillW - x))
-        t:SetVertexColor(c[1], c[2], c[3], 0.7 * a * wave * wave)
-        t:Show()
+    local n, x = 0, math.floor(x0 / sw) * sw
+    while x < x1 do
+        local left, right = math.max(x, x0), math.min(x + sw, x1)
+        if right - left >= 0.5 then
+            n = n + 1
+            fn(idleSlice(bar, P.slices, n), left, right - left, n)
+        end
+        x = x + sw
     end
     return n
 end
 
+-- A full-height lit slice.
+local function lightSlice(bar, t, x, sx, r, g, b, a)
+    t:SetBlendMode("ADD")
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", bar, "TOPLEFT", x, 0)
+    t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
+    t:SetWidth(sx)
+    t:SetVertexColor(r, g, b, a)
+    t:Show()
+end
+
+-- Hue 0..1 to a full, bright color.
+local function hueColor(h)
+    local i = math.floor(h * 6) % 6
+    local f = h * 6 - math.floor(h * 6)
+    if i == 0 then return 1, f, 0 end
+    if i == 1 then return 1 - f, 1, 0 end
+    if i == 2 then return 0, 1, f end
+    if i == 3 then return 0, 1 - f, 1 end
+    if i == 4 then return f, 0, 1 end
+    return 1, 0, 1 - f
+end
+
+-- Bright bands running along.
+local function renderWaves(bar, P, I, x0, x1, phase, c, a)
+    return forSlices(bar, P, x0, x1, function(t, x, sx)
+        local wave = math.max(0, math.sin(TAU * (x / I.wavelength - phase * WAVE_RATE)))
+        lightSlice(bar, t, x, sx, c[1], c[2], c[3], 0.7 * a * wave * wave)
+    end)
+end
+
+-- Even stripes marching along, like a loading bar.
+local function renderStripes(bar, P, I, x0, x1, phase, c, a)
+    return forSlices(bar, P, x0, x1, function(t, x, sx)
+        local f = (x / I.wavelength - phase * STRIPE_RATE) % 1
+        -- a square wave with soft edges: lit in the first half of each period
+        local v = math.max(0, math.min(1, 0.5 + 2 * math.sin(TAU * f)))
+        lightSlice(bar, t, x, sx, c[1], c[2], c[3], 0.5 * a * v)
+    end)
+end
+
+-- The colors of the rainbow drifting along (ignores the color setting).
+local function renderRainbow(bar, P, I, x0, x1, phase, a)
+    return forSlices(bar, P, x0, x1, function(t, x, sx)
+        local r, g, b = hueColor((x / I.wavelength - phase * RAINBOW_RATE) % 1)
+        lightSlice(bar, t, x, sx, r, g, b, 0.6 * a)
+    end)
+end
+
 -- The fill's top edge rolls like water: dark above the surface, a bright line on it.
 -- The strength sets how deep the waves go; a is only the fade.
-local function renderLiquid(bar, P, I, fillW, phase, c, a)
-    local w, h = bar.width or bar:GetWidth(), bar:GetHeight()
-    local sw = math.max(2, w / IDLE_SLICES)
-    local n = math.ceil(fillW / sw)
-    for i = 1, n do
-        local x = (i - 1) * sw
+local function renderLiquid(bar, P, I, x0, x1, phase, c, a)
+    local h = bar:GetHeight()
+    return forSlices(bar, P, x0, x1, function(t, x, sx, i)
         local u = x / I.wavelength
         -- two waves at different lengths and speeds look less regular
         local level = 0.5 + 0.25 * math.sin(TAU * (u - phase * WAVE_RATE))
             + 0.25 * math.sin(TAU * (u * 1.7 + phase * WAVE_RATE * 0.6))
         local depth = h * 0.45 * I.strength * level
-        local sx = math.min(sw, fillW - x)
-        local t = idleSlice(bar, P.slices, i)
         t:SetBlendMode("BLEND")
         t:ClearAllPoints()
         t:SetPoint("TOPLEFT", bar, "TOPLEFT", x, 0)
@@ -271,60 +326,103 @@ local function renderLiquid(bar, P, I, fillW, phase, c, a)
         line:SetSize(sx, 1)
         line:SetVertexColor(c[1], c[2], c[3], 0.8 * a)
         line:Show()
-    end
-    return n
+    end)
 end
 
--- A soft light sweeping across the fill now and then.
-local function renderShine(bar, P, I, fillW, phase, c, a)
+-- A soft light sweeping across now and then.
+local function renderShine(bar, P, I, x0, x1, phase, c, a)
     local t = P.shine
     local sw = I.wavelength
-    local period = (fillW + sw) / SHINE_RATE + SHINE_PAUSE
-    local pos = (phase % period) * SHINE_RATE - sw -- the shine's left edge
-    local left, right = math.max(0, pos), math.min(fillW, pos + sw)
+    local period = (x1 - x0 + sw) / SHINE_RATE + SHINE_PAUSE
+    local pos = x0 + (phase % period) * SHINE_RATE - sw -- the shine's left edge
+    local left, right = math.max(x0, pos), math.min(x1, pos + sw)
     if right - left < 1 then t:Hide(); return end
     t:ClearAllPoints()
     t:SetPoint("TOPLEFT", bar, "TOPLEFT", left, 0)
     t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", left, 0)
     t:SetWidth(right - left)
-    -- the glow's bright middle band, cut where the shine leaves the fill
+    -- the glow's bright middle band, cut where the shine leaves its stretch
     t:SetTexCoord((left - pos) / sw, (right - pos) / sw, 0.3, 0.7)
     t:SetVertexColor(c[1], c[2], c[3], a)
     t:Show()
 end
 
--- The fill slowly brightens and dims.
-local function renderPulse(bar, P, fillW, phase, c, a)
+-- Slowly brightens and dims.
+local function renderPulse(bar, P, x0, x1, phase, c, a)
     local t = P.pulse
     t:ClearAllPoints()
-    t:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
-    t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
-    t:SetWidth(fillW)
+    t:SetPoint("TOPLEFT", bar, "TOPLEFT", x0, 0)
+    t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x0, 0)
+    t:SetWidth(x1 - x0)
     t:SetVertexColor(c[1], c[2], c[3], 0.5 * a * (0.5 - 0.5 * math.cos(TAU * phase * PULSE_RATE)))
     t:Show()
 end
 
--- I: the idle settings, value: the shown fill, t: running seconds,
--- alpha: 0..1 fade (0 = hidden), color: the effect's color.
-function XPBar.RenderIdle(bar, I, value, t, alpha, color)
-    local P = idleParts(bar)
-    local fillW = value * (bar.width or bar:GetWidth())
-    local style = (alpha > 0 and fillW >= 1) and I.style or nil
-    if style ~= P.style then XPBar.HideIdle(bar) end
+-- Soft dots twinkling up and fading at random spots. phase is their clock.
+local function renderSparkle(bar, P, I, x0, x1, phase, c, a)
+    local h = bar:GetHeight()
+    local size = math.min(h, math.max(3, h * 0.6))
+    local lo, hi = x0 + size / 2, x1 - size / 2
+    local count = 0
+    if hi > lo then
+        count = math.min(SPARKS_MAX, math.max(1, math.floor((x1 - x0) / (I.wavelength / 3))))
+    end
+    for i = 1, count do
+        local s = P.sparks[i]
+        if not s then
+            s = { tex = idleTexture(bar, GLOW, "ADD") }
+            P.sparks[i] = s
+        end
+        local fresh = not s.born
+        if fresh or phase - s.born > s.life or s.x < lo or s.x > hi then
+            s.life = 0.6 + math.random() * 0.6
+            -- new dots start part-way through, so they don't all light up together
+            s.born = fresh and phase - math.random() * s.life or phase
+            s.x = lo + math.random() * (hi - lo)
+            s.y = size / 2 + math.random() * (h - size)
+        end
+        local p = math.max(0, math.min(1, (phase - s.born) / s.life))
+        local t = s.tex
+        t:ClearAllPoints()
+        t:SetPoint("CENTER", bar, "TOPLEFT", s.x, -s.y)
+        t:SetSize(size, size)
+        t:SetVertexColor(c[1], c[2], c[3], a * math.sin(math.pi * p))
+        t:Show()
+    end
+    for i = count + 1, P.sparksUsed do
+        P.sparks[i].tex:Hide()
+        P.sparks[i].born = nil
+    end
+    P.sparksUsed = count
+end
+
+-- layer: "fill" or "empty", I: its settings, x0..x1: the stretch of the bar in pixels,
+-- t: running seconds, alpha: 0..1 fade (0 = hidden), color: the effect's color.
+function XPBar.RenderIdle(bar, layer, I, x0, x1, t, alpha, color)
+    local P = idleParts(bar, layer)
+    local style = (alpha > 0 and x1 - x0 >= 1) and I.style or nil
+    if style == "liquid" and layer ~= "fill" then style = nil end -- a surface needs the fill
+    if style ~= P.style then hideParts(P) end
     P.style = style
     if not style then return end
 
     local phase, a, used = t * I.speed, alpha * I.strength, 0
     if style == "waves" then
-        used = renderWaves(bar, P, I, fillW, phase, color, a)
+        used = renderWaves(bar, P, I, x0, x1, phase, color, a)
+    elseif style == "stripes" then
+        used = renderStripes(bar, P, I, x0, x1, phase, color, a)
+    elseif style == "rainbow" then
+        used = renderRainbow(bar, P, I, x0, x1, phase, a)
     elseif style == "liquid" then
-        used = renderLiquid(bar, P, I, fillW, phase, color, alpha)
+        used = renderLiquid(bar, P, I, x0, x1, phase, color, alpha)
     elseif style == "shine" then
-        renderShine(bar, P, I, fillW, phase, color, a)
+        renderShine(bar, P, I, x0, x1, phase, color, a)
+    elseif style == "sparkle" then
+        renderSparkle(bar, P, I, x0, x1, phase, color, a)
     else
-        renderPulse(bar, P, fillW, phase, color, a)
+        renderPulse(bar, P, x0, x1, phase, color, a)
     end
-    -- slices past the fill (it shrank, or the bar got shorter)
+    -- slices past the stretch (it shrank, or the bar got shorter)
     for i = used + 1, P.used do
         P.slices[i]:Hide()
         if P.lines[i] then P.lines[i]:Hide() end

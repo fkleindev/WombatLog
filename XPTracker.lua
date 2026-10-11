@@ -114,7 +114,7 @@ local open = 0           -- 0..1: how far the panel is opened for the "+XP" text
 local restH, openH = 0, 0
 local level, nextLevel   -- nextLevel shows once the bar wraps
 local idleT, idleAlpha = 0, 0 -- the idle animation's clock and fade
-local idleColor
+local idleColor, idleEmptyColor
 
 local function atMaxLevel()
     if IsXPUserDisabled and Safe(IsXPUserDisabled()) then return true end
@@ -150,10 +150,14 @@ function XPTracker:Apply()
     for _, t in ipairs(f.bg) do t:SetAlpha(T.bgOpacity) end
     -- the bar color lightened halfway to white, or the custom one
     local I = T.idle
-    idleColor = I.useBarColor and { (c[1] + 1) / 2, (c[2] + 1) / 2, (c[3] + 1) / 2 } or I.color
+    local light = { (c[1] + 1) / 2, (c[2] + 1) / 2, (c[3] + 1) / 2 }
+    idleColor = I.useBarColor and light or I.color
+    idleEmptyColor = I.empty.useBarColor and light or I.empty.color
     if not I.enabled then
         idleAlpha = 0
         XPBar.HideIdle(f.bar)
+    elseif I.extend or not I.empty.enabled then
+        XPBar.HideIdle(f.bar, "empty")
     end
 
     -- one row with the level and the bar; the "+XP" text opens a second one below
@@ -263,7 +267,12 @@ function XPTracker:StepIdle(dt, resting)
     else
         idleAlpha = math.max(0, idleAlpha - dt / IDLE_OUT)
     end
-    XPBar.RenderIdle(self.frame.bar, I, shown, idleT, idleAlpha, idleColor)
+    local bar, w = self.frame.bar, ns.db.xpTracker.width
+    local fillW = shown * w
+    XPBar.RenderIdle(bar, "fill", I, 0, I.extend and w or fillW, idleT, idleAlpha, idleColor)
+    if I.empty.enabled and not I.extend then
+        XPBar.RenderIdle(bar, "empty", I.empty, fillW, w, idleT, idleAlpha, idleEmptyColor)
+    end
 end
 
 -- One frame: spring the size, fill the bar, count the XP up, fade the text.

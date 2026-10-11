@@ -569,4 +569,12 @@ ns.RegisterLocale("deDE", "Deutsch", {
     ["Quest"] = "Quest",
     ["Discovery"] = "Entdeckung",
     ["Other"] = "Sonstiges",
+    ["Filled part"] = "Gefüllter Teil",
+    ["Empty part"] = "Leerer Teil",
+    ["Extend to the whole bar"] = "Auf die ganze Leiste ausdehnen",
+    ["Animate the empty part"] = "Leeren Teil animieren",
+    ["Not used while the filled part's animation covers the whole bar."] = "Wird nicht verwendet, solange die Animation des gefüllten Teils die ganze Leiste abdeckt.",
+    ["Sparkle"] = "Funkeln",
+    ["Stripes"] = "Streifen",
+    ["Rainbow"] = "Regenbogen",
 })

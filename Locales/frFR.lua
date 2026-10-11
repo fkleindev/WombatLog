@@ -569,4 +569,12 @@ ns.RegisterLocale("frFR", "Français", {
     ["Quest"] = "Quête",
     ["Discovery"] = "Découverte",
     ["Other"] = "Autre",
+    ["Filled part"] = "Partie remplie",
+    ["Empty part"] = "Partie vide",
+    ["Extend to the whole bar"] = "Étendre à toute la barre",
+    ["Animate the empty part"] = "Animer la partie vide",
+    ["Not used while the filled part's animation covers the whole bar."] = "Inutilisé tant que l'animation de la partie remplie couvre toute la barre.",
+    ["Sparkle"] = "Scintillement",
+    ["Stripes"] = "Rayures",
+    ["Rainbow"] = "Arc-en-ciel",
 })

@@ -569,4 +569,12 @@ ns.RegisterLocale("esES", "Español", {
     ["Quest"] = "Misión",
     ["Discovery"] = "Descubrimiento",
     ["Other"] = "Otros",
+    ["Filled part"] = "Parte llena",
+    ["Empty part"] = "Parte vacía",
+    ["Extend to the whole bar"] = "Extender a toda la barra",
+    ["Animate the empty part"] = "Animar la parte vacía",
+    ["Not used while the filled part's animation covers the whole bar."] = "No se usa mientras la animación de la parte llena cubre toda la barra.",
+    ["Sparkle"] = "Destellos",
+    ["Stripes"] = "Rayas",
+    ["Rainbow"] = "Arcoíris",
 })

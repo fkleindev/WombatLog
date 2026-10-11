@@ -191,10 +191,16 @@ ns.defaults.xpTracker = {
     },
     -- animation inside the bar while no XP comes in
     idle = {
-        enabled = true, style = "waves", -- waves, shine, pulse, liquid
+        enabled = true, style = "waves", -- waves, stripes, rainbow, sparkle, shine, pulse, liquid
         speed = 1, strength = 0.5,
         wavelength = 60,                 -- px: the waves' length, the shine's width
         useBarColor = true, color = { 1, 1, 1 },
+        extend = false,                  -- this animation across the whole bar, not just the fill
+        empty = {                        -- the empty part's own animation
+            enabled = false, style = "sparkle",
+            speed = 1, strength = 0.4, wavelength = 60,
+            useBarColor = true, color = { 1, 1, 1 },
+        },
     },
 }
 

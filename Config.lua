@@ -1418,23 +1418,42 @@ local function BuildTrackerBar(p)
     BuildXPBarEffects(p, "xpTracker.bar", function() ns.XPTracker:Test() end)
 end
 
-local IDLE_STYLES = {
+-- the empty part has no surface: no liquid there
+local IDLE_STYLES_EMPTY = {
     { text = "Waves", value = "waves" },
+    { text = "Stripes", value = "stripes" },
+    { text = "Rainbow", value = "rainbow" },
+    { text = "Sparkle", value = "sparkle" },
     { text = "Shine", value = "shine" },
     { text = "Pulse", value = "pulse" },
-    { text = "Liquid", value = "liquid" },
 }
+local IDLE_STYLES = {}
+for i, o in ipairs(IDLE_STYLES_EMPTY) do IDLE_STYLES[i] = o end
+table.insert(IDLE_STYLES, { text = "Liquid", value = "liquid" })
+
+-- Style, speed, strength, wavelength and color of one part's animation.
+local function BuildIdleLayer(p, path, styles)
+    p:Dropdown("Style", path .. ".style", styles)
+    p:Slider("Speed", path .. ".speed", 0.25, 3, 0.25, times, 2)
+    p:Slider("Strength", path .. ".strength", 0.1, 1, 0.05, pct)
+    p:Slider("Wavelength", path .. ".wavelength", 20, 200, 5, px, 2)
+    p:Checkbox("Same color as the bar", path .. ".useBarColor")
+    p:Color("Custom color", path .. ".color", 2)
+end
 
 local function BuildTrackerIdle(p)
     p:Header("Idle animation")
     p:Note("Keeps the bar moving while no XP comes in. It steps aside when you get XP and comes back once the tracker has settled.")
     p:Checkbox("Animate the bar at rest", "xpTracker.idle.enabled")
-    p:Dropdown("Style", "xpTracker.idle.style", IDLE_STYLES, 2)
-    p:Slider("Speed", "xpTracker.idle.speed", 0.25, 3, 0.25, times)
-    p:Slider("Strength", "xpTracker.idle.strength", 0.1, 1, 0.05, pct, 2)
-    p:Slider("Wavelength", "xpTracker.idle.wavelength", 20, 200, 5, px)
-    p:Checkbox("Same color as the bar", "xpTracker.idle.useBarColor")
-    p:Color("Custom color", "xpTracker.idle.color", 2)
+
+    p:Header("Filled part")
+    BuildIdleLayer(p, "xpTracker.idle", IDLE_STYLES)
+    p:Checkbox("Extend to the whole bar", "xpTracker.idle.extend")
+
+    p:Header("Empty part")
+    p:Note("Not used while the filled part's animation covers the whole bar.")
+    p:Checkbox("Animate the empty part", "xpTracker.idle.empty.enabled")
+    BuildIdleLayer(p, "xpTracker.idle.empty", IDLE_STYLES_EMPTY)
 end
 
 ---------------------------------------------------------------------------
