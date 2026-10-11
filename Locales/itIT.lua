@@ -577,4 +577,7 @@ ns.RegisterLocale("itIT", "Italiano", {
     ["Sparkle"] = "Scintillio",
     ["Stripes"] = "Strisce",
     ["Rainbow"] = "Arcobaleno",
+    ["Exact XP when opened"] = "PE esatti quando aperto",
+    ["Open on mouse over"] = "Apri al passaggio del mouse",
+    ["%s / %s XP"] = "%s / %s PE",
 })

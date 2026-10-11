@@ -1380,6 +1380,8 @@ local function BuildTrackerGeneral(p)
     p:Checkbox("Level", "xpTracker.showLevel", 2)
     p:Checkbox("XP gained under the bar", "xpTracker.popText")
     p:Checkbox("XP source after it", "xpTracker.popSource", 2)
+    p:Checkbox("Exact XP when opened", "xpTracker.popTotal")
+    p:Checkbox("Open on mouse over", "xpTracker.hoverOpen", 2)
 
     p:Header("Growing")
     p:Slider("Size when XP comes in", "xpTracker.popScale", 1, 2.5, 0.05, times)

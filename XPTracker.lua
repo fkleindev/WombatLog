@@ -15,7 +15,8 @@ local GROW_DAMPING = 14      -- low: overshoots a little on the way up
 local SHRINK_DAMPING = 26    -- settles back without wobbling
 local TEXT_FADE = 0.4        -- the "+XP" text fades this long after the hold
 local COUNT_UP = 0.5         -- seconds the gained XP counts up
-local OPEN_SPEED = 10        -- how fast the panel opens for the "+XP" text
+local OPEN_SPEED = 10        -- how fast the panel opens for its text lines
+local HOVER_LINGER = 0.3     -- it stays open this long after the mouse left
 local MERGE = 1.2            -- a kill or quest this close to the XP is where it came from
 local IDLE_IN = 0.6          -- the idle animation fades back in this long after a gain
 local IDLE_OUT = 0.15        -- and out this fast when XP comes in
@@ -83,6 +84,10 @@ local function CreateFrames()
     f.gain = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     f.gain:SetAlpha(0)
     f.gain:SetWordWrap(false) -- a long quest name ends in "..."
+    f.total = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    f.total:SetAlpha(0)
+    f.total:SetWordWrap(false)
+    f.total:SetTextColor(0.9, 0.9, 0.9)
 
     f.overlay = f:CreateTexture(nil, "BACKGROUND", nil, -2)
     f.overlay:SetAllPoints()
@@ -110,8 +115,9 @@ local gained, shownGain = 0, 0
 -- "explore", or nil until known), and the sources seen before their XP arrived.
 local events, pending = {}, {}
 local scale, velocity = 1, 0
-local open = 0           -- 0..1: how far the panel is opened for the "+XP" text
-local restH, openH = 0, 0
+local open = 0           -- how many text lines the panel is opened for (0..2, eased)
+local hoverAge           -- 0 while the mouse is over it, then seconds since it left; nil = not hovered
+local restH, rowH, lineH = 0, 0, 0
 local level, nextLevel   -- nextLevel shows once the bar wraps
 local idleT, idleAlpha = 0, 0 -- the idle animation's clock and fade
 local idleColor, idleEmptyColor
@@ -145,6 +151,7 @@ function XPTracker:Apply()
     ns.SetFont(f.level, font, T.textSize, smallOutline)
     f.level:SetTextColor(1, 0.82, 0.18)
     ns.SetFont(f.gain, font, T.textSize, outline)
+    ns.SetFont(f.total, font, math.max(8, math.floor(T.textSize * 0.85 + 0.5)), smallOutline)
     local c = T.color
     XPBar.Apply(f.bar, T.bar, T.width, T.height, c, font, smallOutline)
     for _, t in ipairs(f.bg) do t:SetAlpha(T.bgOpacity) end
@@ -160,10 +167,10 @@ function XPTracker:Apply()
         XPBar.HideIdle(f.bar, "empty")
     end
 
-    -- one row with the level and the bar; the "+XP" text opens a second one below
-    local rowH = math.max(T.height, T.textSize)
+    -- one row with the level and the bar; the "+XP" and XP lines open below it
+    rowH = math.max(T.height, T.textSize)
     restH = PAD * 2 + rowH
-    openH = restH + T.textSize + 4
+    lineH = T.textSize + 4
     f.bar:ClearAllPoints()
     f.bar:SetPoint("TOPRIGHT", f.content, "TOPRIGHT", -PAD, -(PAD + (rowH - T.height) / 2))
     f.gain:ClearAllPoints()
@@ -178,10 +185,23 @@ function XPTracker:Layout()
     local f, T = self.frame, ns.db.xpTracker
     local levelW = T.showLevel and (math.ceil(f.level:GetStringWidth()) + 6) or 0
     local w = PAD * 2 + levelW + T.width
-    -- opened, it also fits the "+XP" text and its source
-    local opened = w + math.max(0, (self.gainW or 0) + PAD * 2 - w) * open
-    f.content:SetSize(opened, restH + (openH - restH) * open)
+    -- opened, it also fits its text lines
+    local textW = math.max(self.gainLine and self.gainW or 0, self.totalLine and self.totalW or 0)
+    local opened = w + math.max(0, textW + PAD * 2 - w) * math.min(1, open)
+    f.content:SetSize(opened, restH + lineH * open)
     f:SetSize(w, restH)
+    -- the XP line moves up when there is no "+XP" line
+    f.total:ClearAllPoints()
+    f.total:SetPoint("TOP", f.content, "TOP", 0, -(PAD + rowH + 2 + (self.gainLine and lineH or 0)))
+end
+
+-- Measured unbounded, then cut at maxW.
+local function fitText(fs, text, maxW)
+    fs:SetText(text)
+    fs:SetWidth(0)
+    local w = math.min(math.ceil(fs:GetStringWidth()), maxW)
+    fs:SetWidth(w)
+    return w
 end
 
 function XPTracker:UpdateVisibility()
@@ -241,13 +261,16 @@ function XPTracker:Render()
     local src, kind = sourceText()
     local gainText = L["+%s XP"]:format(ns.Full(shownGain))
     if src and T.popSource then gainText = gainText .. " · " .. src end
-    f.gain:SetText(gainText)
-    -- measured unbounded, then cut at twice the bar's length
-    f.gain:SetWidth(0)
-    local gainW = math.min(math.ceil(f.gain:GetStringWidth()), T.width * 2)
-    f.gain:SetWidth(gainW)
-    if gainW ~= self.gainW then
-        self.gainW = gainW
+    -- both lines are cut at twice the bar's length
+    local gainW = fitText(f.gain, gainText, T.width * 2)
+    local totalW = 0
+    if T.popTotal then
+        local xp, max = Safe(UnitXP("player")), Safe(UnitXPMax("player"))
+        local totalText = (xp and max) and L["%s / %s XP"]:format(ns.Full(xp), ns.Full(max)) or ""
+        totalW = fitText(f.total, totalText, T.width * 2)
+    end
+    if gainW ~= self.gainW or totalW ~= self.totalW then
+        self.gainW, self.totalW = gainW, totalW
         self:Layout()
     end
     local gc = colorFor(kind)
@@ -275,12 +298,27 @@ function XPTracker:StepIdle(dt, resting)
     end
 end
 
+-- The mouse over the tracker (or just off it) opens it. The tracker takes no mouse
+-- input, so clicks still go through to what is under it.
+function XPTracker:StepHover(dt)
+    local T = ns.db.xpTracker
+    if T.hoverOpen and not self.unlocked and self.frame.content:IsMouseOver() then
+        hoverAge = 0
+    elseif hoverAge then
+        hoverAge = hoverAge + dt
+        if hoverAge > HOVER_LINGER then hoverAge = nil end
+    end
+    return hoverAge ~= nil
+end
+
 -- One frame: spring the size, fill the bar, count the XP up, fade the text.
 function XPTracker:Step(dt)
     local f, T = self.frame, ns.db.xpTracker
     if not f:IsShown() then return end
     if dt > 0.1 then dt = 0.1 end -- a hitch must not throw the spring off
+    local hovering = self:StepHover(dt)
     local resting = not gainAge and scale == 1 and open == 0 and shown == target and not wrapTo
+        and not hovering
     self:StepIdle(dt, resting)
     if resting then return end
     local hold = 0.25 + T.popHold
@@ -296,11 +334,16 @@ function XPTracker:Step(dt)
     end
     f.content:SetScale(math.max(0.2, scale))
 
-    -- the panel opens downward for the "+XP" text while big
-    local openGoal = (big and T.popText) and 1 or 0
+    -- the panel opens downward: the "+XP" line while big, the XP line while big or hovered
+    self.gainLine = (big and T.popText) and true or false
+    self.totalLine = (T.popTotal and (big or hovering)) and true or false
+    local openGoal = (self.gainLine and 1 or 0) + (self.totalLine and 1 or 0)
     open = open + (openGoal - open) * math.min(1, dt * OPEN_SPEED)
     if math.abs(openGoal - open) < 0.005 then open = openGoal end
     self:Layout()
+    -- a line shows as far as its row is open, so no text hangs out of the panel
+    local totalRow = self.gainLine and 1 or 0
+    f.total:SetAlpha(T.popTotal and math.max(0, math.min(1, open - totalRow)) or 0)
 
     -- fill: head for the target, wrap to 0 after a level up
     if shown ~= target then
@@ -321,7 +364,9 @@ function XPTracker:Step(dt)
         end
         local textAlpha = 1
         if gainAge > hold then textAlpha = math.max(0, 1 - (gainAge - hold) / TEXT_FADE) end
-        f.gain:SetAlpha(T.popText and textAlpha or 0)
+        local gainAlpha = T.popText and textAlpha or 0
+        if not self.gainLine and self.totalLine then gainAlpha = 0 end -- the XP line took its row
+        f.gain:SetAlpha(gainAlpha * math.min(1, open))
         if not big and scale == 1 and open == 0 and shown == target and textAlpha <= 0 then
             -- settled: the gain is over
             gainAge, gained, shownGain = nil, 0, 0

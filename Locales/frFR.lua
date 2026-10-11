@@ -577,4 +577,7 @@ ns.RegisterLocale("frFR", "Français", {
     ["Sparkle"] = "Scintillement",
     ["Stripes"] = "Rayures",
     ["Rainbow"] = "Arc-en-ciel",
+    ["Exact XP when opened"] = "XP exacte une fois ouvert",
+    ["Open on mouse over"] = "Ouvrir au survol de la souris",
+    ["%s / %s XP"] = "%s / %s XP",
 })
