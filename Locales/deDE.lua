@@ -419,6 +419,7 @@ ns.RegisterLocale("deDE", "Deutsch", {
     ["Show resource display"] = "Ressourcenanzeige anzeigen",
     ["Show rested XP"] = "Erholungs-EP anzeigen",
     ["Show spell icons"] = "Zaubersymbole anzeigen",
+    ["Show spell names"] = "Zaubernamen anzeigen",
     ["Show summary after combat"] = "Zusammenfassung nach dem Kampf anzeigen",
     ["Show swing timer"] = "Schlagtimer anzeigen",
     ["Show the combat log window"] = "Kampflog-Fenster anzeigen",

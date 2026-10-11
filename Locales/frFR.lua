@@ -419,6 +419,7 @@ ns.RegisterLocale("frFR", "Français", {
     ["Show resource display"] = "Afficher les ressources",
     ["Show rested XP"] = "Afficher l'XP de repos",
     ["Show spell icons"] = "Afficher les icônes des sorts",
+    ["Show spell names"] = "Afficher les noms des sorts",
     ["Show summary after combat"] = "Afficher le résumé après le combat",
     ["Show swing timer"] = "Afficher le minuteur d'attaque",
     ["Show the combat log window"] = "Afficher la fenêtre du journal de combat",

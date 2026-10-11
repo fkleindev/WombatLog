@@ -419,6 +419,7 @@ ns.RegisterLocale("itIT", "Italiano", {
     ["Show resource display"] = "Mostra indicatore delle risorse",
     ["Show rested XP"] = "Mostra PE di riposo",
     ["Show spell icons"] = "Mostra icone degli incantesimi",
+    ["Show spell names"] = "Mostra nomi degli incantesimi",
     ["Show summary after combat"] = "Mostra riepilogo dopo il combattimento",
     ["Show swing timer"] = "Mostra timer degli attacchi",
     ["Show the combat log window"] = "Mostra la finestra del registro di combattimento",

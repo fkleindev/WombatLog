@@ -333,7 +333,13 @@ local function Fill(r, e)
         r.name:SetPoint("LEFT", inner, "RIGHT", 7, 0)
     end
     local flag = FLAG_SUFFIX[e.flag]
-    r.name:SetText((ns.EventName(e.name) or "") .. (flag and (" (" .. L[flag] .. ")") or "") .. TickText(e))
+    local text = (flag and (" (" .. L[flag] .. ")") or "") .. TickText(e)
+    if A.showNames then
+        text = (ns.EventName(e.name) or "") .. text
+    else
+        text = strtrim(text)
+    end
+    r.name:SetText(text)
 
     local near = r.side == "right" and "RIGHT" or "LEFT"
     local far = r.side == "right" and "LEFT" or "RIGHT"

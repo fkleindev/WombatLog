@@ -37,6 +37,7 @@ ns.defaults = {
         outline = "",            -- "OUTLINE" | "THICKOUTLINE" | ""
         rowBgOpacity = 1,        -- 0 = rows fully transparent
         showIcons = true,
+        showNames = true,        -- false: rows keep only flags and DoT tick counts next to the amount
         mirrorIncoming = true,   -- incoming rows right-aligned
         newestOnTop = true,
         ageDim = true,

@@ -95,7 +95,7 @@ sub-tabs along the top.
 
 - **Combat log**
   - *Layout:* window width, max rows, row height and spacing, row background
-    opacity (0 = fully transparent), spell icons, incoming events on the right or
+    opacity (0 = fully transparent), spell icons and names, incoming events on the right or
     left, newest row on top or bottom, dimming of older rows, fonts (built-in plus
     LibSharedMedia), text sizes, outline, short or full numbers.
   - *Header:* which header parts to show (DPS, HPS, timer, totals, biggest hit).

@@ -419,6 +419,7 @@ ns.RegisterLocale("esES", "Español", {
     ["Show resource display"] = "Mostrar indicador de recursos",
     ["Show rested XP"] = "Mostrar PX de descanso",
     ["Show spell icons"] = "Mostrar iconos de hechizos",
+    ["Show spell names"] = "Mostrar nombres de hechizos",
     ["Show summary after combat"] = "Mostrar resumen tras el combate",
     ["Show swing timer"] = "Mostrar temporizador de ataque",
     ["Show the combat log window"] = "Mostrar la ventana del registro de combate",
