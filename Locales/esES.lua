@@ -552,4 +552,5 @@ ns.RegisterLocale("esES", "Español", {
     ["Show a border around the window"] = "Mostrar un borde alrededor de la ventana",
     ["Space to the border"] = "Espacio hasta el borde",
     ["Window border"] = "Borde de la ventana",
+    ["Outgoing events on the right"] = "Eventos salientes a la derecha",
 })

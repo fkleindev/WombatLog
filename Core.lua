@@ -39,6 +39,7 @@ ns.defaults = {
         showIcons = true,
         showNames = true,        -- false: rows keep only flags and DoT tick counts next to the amount
         mirrorIncoming = true,   -- incoming rows right-aligned
+        mirrorOutgoing = false,  -- outgoing rows right-aligned
         newestOnTop = true,
         ageDim = true,
         numberFormat = "short",  -- "full" | "short"

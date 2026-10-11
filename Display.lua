@@ -203,7 +203,8 @@ end
 
 local function LayoutRow(r, dir)
     local A = ns.db.appearance
-    local side = (dir == "in" and A.mirrorIncoming) and "right" or "left"
+    local mirror = dir == "in" and A.mirrorIncoming or dir ~= "in" and A.mirrorOutgoing
+    local side = mirror and "right" or "left"
     if r.side == side then return end
     r.side = side
 
