@@ -43,6 +43,8 @@ ns.defaults = {
         ageDim = true,
         numberFormat = "short",  -- "full" | "short"
         header = { show = true, dps = true, hps = false, timer = true, totals = true, biggest = true },
+        -- optional frame around the whole window; padding = gap to the content, bgOpacity = dark fill inside
+        border = { enabled = false, color = { 0.35, 0.35, 0.35 }, size = 1, padding = 4, bgOpacity = 0 },
     },
     crit = {
         pop = true, popScale = 2, shine = true, flash = true,

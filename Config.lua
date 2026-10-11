@@ -675,6 +675,13 @@ local function BuildLogLayout(p)
     p:Checkbox("Newest row on top", "appearance.newestOnTop", 2)
     p:Checkbox("Dim older rows", "appearance.ageDim")
 
+    p:Header("Window border")
+    p:Checkbox("Show a border around the window", "appearance.border.enabled")
+    p:Color("Border color", "appearance.border.color", 2)
+    p:Slider("Border thickness", "appearance.border.size", 1, 6, 1, px)
+    p:Slider("Space to the border", "appearance.border.padding", 0, 20, 1, px, 2)
+    p:Slider("Background inside the border", "appearance.border.bgOpacity", 0, 1, 0.05, pct)
+
     p:Header("Text")
     p:Dropdown("Number font", "appearance.amountFont", fontOptions)
     p:Dropdown("Name font", "appearance.nameFont", fontOptions, 2)

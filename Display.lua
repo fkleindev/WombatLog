@@ -665,6 +665,15 @@ function Display:Init()
     root.overlay:Hide()
     root.overlayText:Hide()
 
+    -- optional window border with a fill behind everything
+    root.frameBg = root:CreateTexture(nil, "BACKGROUND", nil, -8)
+    root.frameBg:SetTexture(WHITE)
+    root.edges = {}
+    for i = 1, 4 do
+        root.edges[i] = root:CreateTexture(nil, "BACKGROUND", nil, -7)
+        root.edges[i]:SetTexture(WHITE)
+    end
+
     CreateHeader()
 
     -- swing timer lane between header and feed
@@ -679,6 +688,28 @@ function Display:Init()
     for i = 1, POOL_SIZE do pool[i] = CreateRow() end
 
     self:ApplySettings()
+end
+
+-- The frame sits `padding` outside the window; the top and bottom lines span the corners.
+local function ApplyBorder()
+    local B = ns.db.appearance.border
+    local pad, s, c = B.padding, B.size, B.color
+    local out = pad + s
+    local bg, e = root.frameBg, root.edges
+    bg:ClearAllPoints()
+    bg:SetPoint("TOPLEFT", -out, out)
+    bg:SetPoint("BOTTOMRIGHT", out, -out)
+    bg:SetVertexColor(0, 0, 0, B.bgOpacity)
+    bg:SetShown(B.enabled and B.bgOpacity > 0)
+    for _, t in ipairs(e) do t:ClearAllPoints() end
+    e[1]:SetPoint("TOPLEFT", -out, out); e[1]:SetPoint("TOPRIGHT", out, out); e[1]:SetHeight(s)
+    e[2]:SetPoint("BOTTOMLEFT", -out, -out); e[2]:SetPoint("BOTTOMRIGHT", out, -out); e[2]:SetHeight(s)
+    e[3]:SetPoint("TOPLEFT", -out, pad); e[3]:SetPoint("BOTTOMLEFT", -out, -pad); e[3]:SetWidth(s)
+    e[4]:SetPoint("TOPRIGHT", out, pad); e[4]:SetPoint("BOTTOMRIGHT", out, -pad); e[4]:SetWidth(s)
+    for _, t in ipairs(e) do
+        t:SetVertexColor(c[1], c[2], c[3], 1)
+        t:SetShown(B.enabled)
+    end
 end
 
 function Display:ApplySettings()
@@ -704,6 +735,7 @@ function Display:ApplySettings()
         if headerH > 0 then top = headerH + HEADER_GAP end
     end
     root:SetSize(A.width, top + feedH)
+    ApplyBorder()
     root:SetScale(P.scale)
     root:SetFrameStrata(self.preview and PREVIEW_STRATA or P.strata)
     root:ClearAllPoints()

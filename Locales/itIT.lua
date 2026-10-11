@@ -546,4 +546,10 @@ ns.RegisterLocale("itIT", "Italiano", {
     ["Play"] = "Riproduci",
     ["Put .ogg or .mp3 files into Interface\AddOns\WombatLog\Media\Custom\ and restart the game: it only sees new files after a restart, /reload is not enough. Then add each file by name below. Added sounds show up in every sound list as \"Custom: ...\"."] = "Metti file .ogg o .mp3 in Interface\AddOns\WombatLog\Media\Custom\ e riavvia il gioco: vede i nuovi file solo dopo un riavvio, /reload non basta. Poi aggiungi ogni file con il suo nome qui sotto. I suoni aggiunti compaiono in ogni elenco di suoni come \"Personale: ...\".",
     ["Updating WombatLog can replace the addon folder, so keep a copy of your sounds."] = "Un aggiornamento di WombatLog può sostituire la cartella dell'addon, quindi conserva una copia dei tuoi suoni.",
+    ["Background inside the border"] = "Sfondo all'interno del bordo",
+    ["Border color"] = "Colore del bordo",
+    ["Border thickness"] = "Spessore del bordo",
+    ["Show a border around the window"] = "Mostra un bordo intorno alla finestra",
+    ["Space to the border"] = "Spazio fino al bordo",
+    ["Window border"] = "Bordo della finestra",
 })
