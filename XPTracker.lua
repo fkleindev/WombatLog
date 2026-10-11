@@ -17,6 +17,8 @@ local TEXT_FADE = 0.4        -- the "+XP" text fades this long after the hold
 local COUNT_UP = 0.5         -- seconds the gained XP counts up
 local OPEN_SPEED = 10        -- how fast the panel opens for the "+XP" text
 local MERGE = 1.2            -- a kill or quest this close to the XP is where it came from
+local IDLE_IN = 0.6          -- the idle animation fades back in this long after a gain
+local IDLE_OUT = 0.15        -- and out this fast when XP comes in
 local PAD = 6                -- panel padding
 local RADIUS = 8             -- the panel's rounded bottom corners
 local CORNER = "Interface\\AddOns\\WombatLog\\Media\\Corner"
@@ -108,6 +110,8 @@ local scale, velocity = 1, 0
 local open = 0           -- 0..1: how far the panel is opened for the "+XP" text
 local restH, openH = 0, 0
 local level, nextLevel   -- nextLevel shows once the bar wraps
+local idleT, idleAlpha = 0, 0 -- the idle animation's clock and fade
+local idleColor
 
 local function atMaxLevel()
     if IsXPUserDisabled and Safe(IsXPUserDisabled()) then return true end
@@ -141,6 +145,13 @@ function XPTracker:Apply()
     local c = T.color
     XPBar.Apply(f.bar, T.bar, T.width, T.height, c, font, smallOutline)
     for _, t in ipairs(f.bg) do t:SetAlpha(T.bgOpacity) end
+    -- the bar color lightened halfway to white, or the custom one
+    local I = T.idle
+    idleColor = I.useBarColor and { (c[1] + 1) / 2, (c[2] + 1) / 2, (c[3] + 1) / 2 } or I.color
+    if not I.enabled then
+        idleAlpha = 0
+        XPBar.HideIdle(f.bar)
+    end
 
     -- one row with the level and the bar; the "+XP" text opens a second one below
     local rowH = math.max(T.height, T.textSize)
@@ -199,12 +210,27 @@ function XPTracker:Render()
     XPBar.Render(f.bar, T.bar, shown, from, gainAge or math.huge, 0, gc)
 end
 
+-- The idle animation runs at rest and steps aside while XP comes in.
+function XPTracker:StepIdle(dt, resting)
+    local I = ns.db.xpTracker.idle
+    if not I.enabled then return end
+    idleT = idleT + dt
+    if resting then
+        idleAlpha = math.min(1, idleAlpha + dt / IDLE_IN)
+    else
+        idleAlpha = math.max(0, idleAlpha - dt / IDLE_OUT)
+    end
+    XPBar.RenderIdle(self.frame.bar, I, shown, idleT, idleAlpha, idleColor)
+end
+
 -- One frame: spring the size, fill the bar, count the XP up, fade the text.
 function XPTracker:Step(dt)
     local f, T = self.frame, ns.db.xpTracker
     if not f:IsShown() then return end
-    if not gainAge and scale == 1 and open == 0 and shown == target and not wrapTo then return end -- at rest
     if dt > 0.1 then dt = 0.1 end -- a hitch must not throw the spring off
+    local resting = not gainAge and scale == 1 and open == 0 and shown == target and not wrapTo
+    self:StepIdle(dt, resting)
+    if resting then return end
     local hold = 0.25 + T.popHold
     local big = gainAge and gainAge < hold
 

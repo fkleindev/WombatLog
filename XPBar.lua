@@ -13,6 +13,12 @@ local WHITE = "Interface\\Buttons\\WHITE8X8"
 local MAX_SEGMENTS = 20
 local FLASH_HOLD = 0.4   -- the gained part stays lit this long, then fades
 local FLASH_FADE = 1.0
+local IDLE_SLICES = 120  -- the idle waves are drawn as at most this many slices
+local WAVE_RATE = 0.5    -- wavelengths per second at speed 1
+local SHINE_RATE = 120   -- px per second at speed 1
+local SHINE_PAUSE = 1.5  -- seconds between two shines
+local PULSE_RATE = 0.4   -- pulses per second at speed 1
+local TAU = math.pi * 2
 
 XPBar.MAX_SEGMENTS = MAX_SEGMENTS
 
@@ -171,4 +177,157 @@ function XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor)
     else
         bar.glow:Hide()
     end
+end
+
+---------------------------------------------------------------------------
+-- Idle animation: waves, a shine, a pulse or a liquid surface inside the fill.
+-- It sits under the gloss, segments, spark and text, and never leaves the fill.
+---------------------------------------------------------------------------
+
+local function idleTexture(bar, file, blend)
+    local t = bar:CreateTexture(nil, "OVERLAY")
+    t:SetTexture(file)
+    if blend then t:SetBlendMode(blend) end
+    t:Hide()
+    return t
+end
+
+-- Made on first use, so bars without the animation cost nothing.
+local function idleParts(bar)
+    if not bar.idle then
+        bar.idle = {
+            slices = {}, lines = {}, used = 0,
+            shine = idleTexture(bar, GLOW, "ADD"),
+            pulse = idleTexture(bar, WHITE, "ADD"),
+        }
+    end
+    return bar.idle
+end
+
+local function idleSlice(bar, list, i)
+    local t = list[i]
+    if not t then
+        t = idleTexture(bar, WHITE)
+        list[i] = t
+    end
+    return t
+end
+
+function XPBar.HideIdle(bar)
+    local P = bar.idle
+    if not P then return end
+    for _, t in ipairs(P.slices) do t:Hide() end
+    for _, t in ipairs(P.lines) do t:Hide() end
+    P.shine:Hide()
+    P.pulse:Hide()
+    P.style, P.used = nil, 0
+end
+
+-- Bright bands running through the fill.
+local function renderWaves(bar, P, I, fillW, phase, c, a)
+    local w = bar.width or bar:GetWidth()
+    local sw = math.max(2, w / IDLE_SLICES)
+    local n = math.ceil(fillW / sw)
+    for i = 1, n do
+        local t = idleSlice(bar, P.slices, i)
+        local x = (i - 1) * sw
+        local wave = math.max(0, math.sin(TAU * (x / I.wavelength - phase * WAVE_RATE)))
+        t:SetBlendMode("ADD")
+        t:ClearAllPoints()
+        t:SetPoint("TOPLEFT", bar, "TOPLEFT", x, 0)
+        t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", x, 0)
+        t:SetWidth(math.min(sw, fillW - x))
+        t:SetVertexColor(c[1], c[2], c[3], 0.7 * a * wave * wave)
+        t:Show()
+    end
+    return n
+end
+
+-- The fill's top edge rolls like water: dark above the surface, a bright line on it.
+-- The strength sets how deep the waves go; a is only the fade.
+local function renderLiquid(bar, P, I, fillW, phase, c, a)
+    local w, h = bar.width or bar:GetWidth(), bar:GetHeight()
+    local sw = math.max(2, w / IDLE_SLICES)
+    local n = math.ceil(fillW / sw)
+    for i = 1, n do
+        local x = (i - 1) * sw
+        local u = x / I.wavelength
+        -- two waves at different lengths and speeds look less regular
+        local level = 0.5 + 0.25 * math.sin(TAU * (u - phase * WAVE_RATE))
+            + 0.25 * math.sin(TAU * (u * 1.7 + phase * WAVE_RATE * 0.6))
+        local depth = h * 0.45 * I.strength * level
+        local sx = math.min(sw, fillW - x)
+        local t = idleSlice(bar, P.slices, i)
+        t:SetBlendMode("BLEND")
+        t:ClearAllPoints()
+        t:SetPoint("TOPLEFT", bar, "TOPLEFT", x, 0)
+        t:SetSize(sx, math.max(0.01, depth))
+        t:SetVertexColor(0, 0, 0, 0.6 * a)
+        t:SetShown(depth >= 0.5)
+        local line = idleSlice(bar, P.lines, i)
+        line:SetBlendMode("ADD")
+        line:ClearAllPoints()
+        line:SetPoint("TOPLEFT", bar, "TOPLEFT", x, -depth)
+        line:SetSize(sx, 1)
+        line:SetVertexColor(c[1], c[2], c[3], 0.8 * a)
+        line:Show()
+    end
+    return n
+end
+
+-- A soft light sweeping across the fill now and then.
+local function renderShine(bar, P, I, fillW, phase, c, a)
+    local t = P.shine
+    local sw = I.wavelength
+    local period = (fillW + sw) / SHINE_RATE + SHINE_PAUSE
+    local pos = (phase % period) * SHINE_RATE - sw -- the shine's left edge
+    local left, right = math.max(0, pos), math.min(fillW, pos + sw)
+    if right - left < 1 then t:Hide(); return end
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", bar, "TOPLEFT", left, 0)
+    t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", left, 0)
+    t:SetWidth(right - left)
+    -- the glow's bright middle band, cut where the shine leaves the fill
+    t:SetTexCoord((left - pos) / sw, (right - pos) / sw, 0.3, 0.7)
+    t:SetVertexColor(c[1], c[2], c[3], a)
+    t:Show()
+end
+
+-- The fill slowly brightens and dims.
+local function renderPulse(bar, P, fillW, phase, c, a)
+    local t = P.pulse
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
+    t:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
+    t:SetWidth(fillW)
+    t:SetVertexColor(c[1], c[2], c[3], 0.5 * a * (0.5 - 0.5 * math.cos(TAU * phase * PULSE_RATE)))
+    t:Show()
+end
+
+-- I: the idle settings, value: the shown fill, t: running seconds,
+-- alpha: 0..1 fade (0 = hidden), color: the effect's color.
+function XPBar.RenderIdle(bar, I, value, t, alpha, color)
+    local P = idleParts(bar)
+    local fillW = value * (bar.width or bar:GetWidth())
+    local style = (alpha > 0 and fillW >= 1) and I.style or nil
+    if style ~= P.style then XPBar.HideIdle(bar) end
+    P.style = style
+    if not style then return end
+
+    local phase, a, used = t * I.speed, alpha * I.strength, 0
+    if style == "waves" then
+        used = renderWaves(bar, P, I, fillW, phase, color, a)
+    elseif style == "liquid" then
+        used = renderLiquid(bar, P, I, fillW, phase, color, alpha)
+    elseif style == "shine" then
+        renderShine(bar, P, I, fillW, phase, color, a)
+    else
+        renderPulse(bar, P, fillW, phase, color, a)
+    end
+    -- slices past the fill (it shrank, or the bar got shorter)
+    for i = used + 1, P.used do
+        P.slices[i]:Hide()
+        if P.lines[i] then P.lines[i]:Hide() end
+    end
+    P.used = used
 end

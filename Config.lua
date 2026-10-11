@@ -1417,6 +1417,25 @@ local function BuildTrackerBar(p)
     BuildXPBarEffects(p, "xpTracker.bar", function() ns.XPTracker:Test() end)
 end
 
+local IDLE_STYLES = {
+    { text = "Waves", value = "waves" },
+    { text = "Shine", value = "shine" },
+    { text = "Pulse", value = "pulse" },
+    { text = "Liquid", value = "liquid" },
+}
+
+local function BuildTrackerIdle(p)
+    p:Header("Idle animation")
+    p:Note("Keeps the bar moving while no XP comes in. It steps aside when you get XP and comes back once the tracker has settled.")
+    p:Checkbox("Animate the bar at rest", "xpTracker.idle.enabled")
+    p:Dropdown("Style", "xpTracker.idle.style", IDLE_STYLES, 2)
+    p:Slider("Speed", "xpTracker.idle.speed", 0.25, 3, 0.25, times)
+    p:Slider("Strength", "xpTracker.idle.strength", 0.1, 1, 0.05, pct, 2)
+    p:Slider("Wavelength", "xpTracker.idle.wavelength", 20, 200, 5, px)
+    p:Checkbox("Same color as the bar", "xpTracker.idle.useBarColor")
+    p:Color("Custom color", "xpTracker.idle.color", 2)
+end
+
 ---------------------------------------------------------------------------
 -- Fight summary, session, minimap
 ---------------------------------------------------------------------------
@@ -1641,6 +1660,7 @@ local TABS = {
         { "General", BuildTrackerGeneral },
         { "Look", BuildTrackerLook },
         { "XP bar", BuildTrackerBar },
+        { "Animation", BuildTrackerIdle },
     } },
     { "Swing timer", BuildSwing },
     { "Resource display", {

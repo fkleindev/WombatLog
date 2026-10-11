@@ -188,6 +188,13 @@ ns.defaults.xpTracker = {
         segments = 20, speed = 3,
         spark = true, gloss = false, gainFlash = true, glow = true, rested = true, percent = true,
     },
+    -- animation inside the bar while no XP comes in
+    idle = {
+        enabled = true, style = "waves", -- waves, shine, pulse, liquid
+        speed = 1, strength = 0.5,
+        wavelength = 60,                 -- px: the waves' length, the shine's width
+        useBarColor = true, color = { 1, 1, 1 },
+    },
 }
 
 ns.defaults.session = { enabled = true, headerLine = true }
