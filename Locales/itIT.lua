@@ -538,4 +538,12 @@ ns.RegisterLocale("itIT", "Italiano", {
     ["Your proc list"] = "La tua lista di proc",
     ["Your reminders"] = "I tuoi promemoria",
     ["Your XP bar under the kill alert. Turn it on or off under General. Unlock the alert under Look to see changes live."] = "La tua barra dei PE sotto l'avviso di uccisione. Attivala o disattivala in Generale. Sblocca l'avviso in Aspetto per vedere le modifiche in tempo reale.",
+    ["%s not found. Check the folder and file name, then restart the game."] = "%s non trovato. Controlla la cartella e il nome del file, poi riavvia il gioco.",
+    ["Added sounds"] = "Suoni aggiunti",
+    ["Custom"] = "Personale",
+    ["Custom sounds"] = "Suoni personali",
+    ["File name"] = "Nome del file",
+    ["Play"] = "Riproduci",
+    ["Put .ogg or .mp3 files into Interface\AddOns\WombatLog\Media\Custom\ and restart the game: it only sees new files after a restart, /reload is not enough. Then add each file by name below. Added sounds show up in every sound list as \"Custom: ...\"."] = "Metti file .ogg o .mp3 in Interface\AddOns\WombatLog\Media\Custom\ e riavvia il gioco: vede i nuovi file solo dopo un riavvio, /reload non basta. Poi aggiungi ogni file con il suo nome qui sotto. I suoni aggiunti compaiono in ogni elenco di suoni come \"Personale: ...\".",
+    ["Updating WombatLog can replace the addon folder, so keep a copy of your sounds."] = "Un aggiornamento di WombatLog può sostituire la cartella dell'addon, quindi conserva una copia dei tuoi suoni.",
 })

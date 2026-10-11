@@ -47,14 +47,56 @@ local BUILTIN_SOUNDS = {
     { "MAP_PING", "Map ping" },
 }
 
+-- The player's own files, added by name on the Custom sounds page (addons can't list folders).
+local CUSTOM_DIR = MEDIA .. "Custom\\"
+
 local function sharedMedia()
     return LibStub and LibStub("LibSharedMedia-3.0", true)
+end
+
+local function customSounds()
+    return WombatLogDB and WombatLogDB.customSounds or {}
+end
+Alerts.CustomSounds = customSounds
+
+-- Adds a file name ("boom" becomes "boom.ogg"); returns it, or nil when empty, a path or already added.
+function Alerts.AddCustomSound(text)
+    local file = strtrim(text or "")
+    if file == "" or file:find("[\\/]") then return nil end
+    local lower = file:lower()
+    if not (lower:match("%.ogg$") or lower:match("%.mp3$")) then
+        file, lower = file .. ".ogg", lower .. ".ogg"
+    end
+    local list = customSounds()
+    for _, f in ipairs(list) do
+        if f:lower() == lower then return nil end
+    end
+    list[#list + 1] = file
+    return file
+end
+
+function Alerts.RemoveCustomSound(file)
+    local list = customSounds()
+    for i, f in ipairs(list) do
+        if f == file then
+            table.remove(list, i)
+            return
+        end
+    end
+end
+
+-- Plays a custom file; false when the game can't find it.
+function Alerts.TryCustomSound(file, channel)
+    return PlaySoundFile(CUSTOM_DIR .. file, channel) and true or false
 end
 
 function Alerts.SoundOptions()
     local list = {}
     for _, s in ipairs(CUSTOM_SOUNDS) do
         list[#list + 1] = { value = s.value, text = "WombatLog: " .. L[s.text], raw = true }
+    end
+    for _, file in ipairs(customSounds()) do
+        list[#list + 1] = { value = "custom:" .. file, text = L["Custom"] .. ": " .. file, raw = true }
     end
     if SOUNDKIT then
         for _, s in ipairs(BUILTIN_SOUNDS) do
@@ -80,6 +122,8 @@ local function play(value, channel)
         for _, s in ipairs(CUSTOM_SOUNDS) do
             if s.value == value then return PlaySoundFile(s.file, channel) end
         end
+    elseif kind == "custom" then
+        if PlaySoundFile(CUSTOM_DIR .. key, channel) then return true end
     elseif kind == "kit" and SOUNDKIT and SOUNDKIT[key] then
         return PlaySound(SOUNDKIT[key], channel)
     elseif kind == "lsm" then

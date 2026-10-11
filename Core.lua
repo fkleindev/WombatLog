@@ -702,6 +702,7 @@ ns.Listen("ADDON_LOADED", function(name)
     WombatLogDB.chars = WombatLogDB.chars or {}
     WombatLogDB.charData = WombatLogDB.charData or {}
     WombatLogDB.locale = WombatLogDB.locale or "auto"
+    WombatLogDB.customSounds = WombatLogDB.customSounds or {} -- file names in Media\Custom, for every profile
     ns.SetLocale(WombatLogDB.locale)
     WombatLogDB.spellProfiles = WombatLogDB.spellProfiles or {} -- learned per-spell hit patterns
     if (WombatLogDB.spellProfilesVersion or 1) < 2 then

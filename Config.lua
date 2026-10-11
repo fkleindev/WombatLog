@@ -1462,6 +1462,58 @@ local function BuildMinimap(p)
     p:Note("Click: journal. Right-click: settings. Shift-click: test fight. Drag it along the minimap edge. WombatLog is also listed in the addon compartment.")
 end
 
+local function BuildCustomSounds(p)
+    local A = ns.Alerts
+    p:Header("Custom sounds")
+    p:Note("Put .ogg or .mp3 files into Interface\\AddOns\\WombatLog\\Media\\Custom\\ and restart the game: it only sees new files after a restart, /reload is not enough. Then add each file by name below. Added sounds show up in every sound list as \"Custom: ...\".")
+    p:Note("Updating WombatLog can replace the addon folder, so keep a copy of your sounds.")
+
+    local selected, added
+    local function try(file)
+        if not A.TryCustomSound(file, "Master") then
+            ns.Print(L["%s not found. Check the folder and file name, then restart the game."]:format(file))
+        end
+    end
+    local box = p:EditBox("File name")
+    box:SetMaxLetters(64)
+    p:Button("Add", function()
+        local file = A.AddCustomSound(box:GetText())
+        if not file then return end
+        box:SetText("")
+        box:ClearFocus()
+        selected = file
+        added.Refresh()
+        try(file)
+    end, 2, -18, 100)
+
+    added = p:Dropdown("Added sounds", {
+        get = function()
+            for _, f in ipairs(A.CustomSounds()) do
+                if f == selected then return selected end
+            end
+            selected = nil
+            return nil
+        end,
+        set = function(v)
+            selected = v
+            try(v)
+        end,
+    }, function()
+        local list = {}
+        for _, f in ipairs(A.CustomSounds()) do list[#list + 1] = { text = f, value = f, raw = true } end
+        return list
+    end)
+    p:Button("Play", function()
+        if selected then try(selected) end
+    end)
+    p:Button("Remove", function()
+        if not selected then return end
+        A.RemoveCustomSound(selected)
+        selected = nil
+        added.Refresh()
+    end, 2)
+end
+
 ---------------------------------------------------------------------------
 -- Language
 ---------------------------------------------------------------------------
@@ -1596,6 +1648,7 @@ local TABS = {
         { "History & records", BuildStatsHistory },
     } },
     { "Session", BuildSession },
+    { "Custom sounds", BuildCustomSounds },
     { "Minimap button", BuildMinimap },
     { "Language", BuildLanguage },
     { "Profiles", BuildProfiles },

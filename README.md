@@ -137,6 +137,11 @@ sub-tabs along the top.
 - **Fight summary:** *Summary* (display time, scale, position) and *History &
   records* (how many fights to keep, minimum fight length, personal records).
 - **Session:** session tracker and an optional session line above the log window.
+- **Custom sounds:** your own sounds for every sound list. Put `.ogg` or `.mp3` files
+  into `Interface\AddOns\WombatLog\Media\Custom\`, restart the game (it only sees new
+  files after a restart, `/reload` is not enough) and add each file by name. They
+  then show up as "Custom: ..." wherever you pick a sound. Updating WombatLog can
+  replace the addon folder, so keep a copy of your sounds.
 - **Minimap button:** show or hide it.
 - **Language:** "Automatic" (your game language, English if there is no translation
   for it) or any installed language. It applies to all characters and takes effect
@@ -156,7 +161,8 @@ window, its filters or "only crits" settings, and each has its own on/off switch
   scale and color, and turn the icon, name and glow on or off. Unlock it to drag it
   anywhere.
 - **Sound alert:** comes with three sounds made for WombatLog (Chime, Coin, Impact),
-  plus some built-in WoW sounds and any LibSharedMedia sounds. Picking a sound in the
+  plus some built-in WoW sounds, any LibSharedMedia sounds and your own custom sounds.
+  Picking a sound in the
   list plays it. You can choose the sound channel and a minimum time between sounds,
   so multi-crits don't stack up.
 - Both alerts have a minimum amount and an option to include heal crits.
