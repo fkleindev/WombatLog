@@ -450,6 +450,47 @@ function ns.AddStat(key, amount)
     end
 end
 
+-- The first hits of a pull can arrive before the game flags you as in combat.
+-- They wait here for a moment and join the fight if one starts.
+local PREFIGHT = 2
+local preFight = {}
+
+local function rememberPreFight(e)
+    if ns.testing then return end
+    local now = GetTime()
+    if not e.preAt then
+        while preFight[1] and now - preFight[1].preAt > PREFIGHT do table.remove(preFight, 1) end
+        e.preAt = now
+        preFight[#preFight + 1] = e
+    end
+end
+
+-- Puts an entry into the feed, through the behaviour filters.
+local function pushRow(entry)
+    local b = ns.db.behaviour
+    if entry.tick and not entry.dim and b.pinDots then
+        -- every tick goes into its DoT's row, so the amount filters would falsify the counts
+        if b.show[entry.kind] then ns.Display:Push(entry) end
+    elseif ns.ShouldShow(entry) then
+        ns.Display:Push(entry)
+    end
+end
+
+-- Counts and shows the buffered opener in the fight that just started.
+local function replayPreFight(cleared)
+    local f, now = ns.fight, GetTime()
+    for _, e in ipairs(preFight) do
+        if not ns.testing and now - e.preAt <= PREFIGHT then
+            f.start = math.min(f.start, e.preAt)
+            if e.preOut then ns.Stats:Outgoing(e) end
+            if e.kind == "taken" then ns.AddStat("taken", e.amount) end
+            if e.preRow and (cleared or not e.preShown) then pushRow(e) end
+        end
+        e.preAt, e.preOut, e.preRow, e.preShown = nil, nil, nil, nil
+    end
+    wipe(preFight)
+end
+
 function ns.StartFight()
     local f = ns.fight
     if f.active then return end
@@ -459,8 +500,10 @@ function ns.StartFight()
     f.top = nil
     ns.Stats:StartFight()
     ns.Report:HideSummary()
-    if ns.db.behaviour.clearOnNewFight then ns.Display:Clear() end
+    local cleared = ns.db.behaviour.clearOnNewFight
+    if cleared then ns.Display:Clear() end
     ns.lingering = false
+    replayPreFight(cleared)
     ns.Display:UpdateVisibility()
 end
 
@@ -498,9 +541,10 @@ function ns.ShouldShow(e)
     return true
 end
 
--- Starts the fight if the first event arrives before PLAYER_REGEN_DISABLED.
+-- Starts the fight if the first event arrives before PLAYER_REGEN_DISABLED,
+-- also while the last fight is still lingering.
 local function ensureFight()
-    if ns.fight.active or ns.lingering then return true end
+    if ns.fight.active then return true end
     if ns.Safe(UnitAffectingCombat("player")) then
         ns.StartFight()
         return true
@@ -511,21 +555,24 @@ end
 -- Every outgoing damage/heal/avoid entry that is yours, before any log filters:
 -- stats, streaks and records first, then the crit/record alerts.
 function ns.OnOutgoing(e)
-    ensureFight()
+    if not ensureFight() then
+        e.preOut = true
+        rememberPreFight(e)
+    end
     ns.Stats:Outgoing(e)
     if e.crit or e.record then ns.Alerts:OnHit(e) end
 end
 
 -- Entry point for everything that wants a row in the feed.
 function ns.Emit(entry)
-    if not ensureFight() then return end
-    local b = ns.db.behaviour
-    if entry.tick and not entry.dim and b.pinDots then
-        -- every tick goes into its DoT's row, so the amount filters would falsify the counts
-        if b.show[entry.kind] then ns.Display:Push(entry) end
-    elseif ns.ShouldShow(entry) then
-        ns.Display:Push(entry)
+    if not ensureFight() then
+        entry.preRow = true
+        rememberPreFight(entry)
+        -- after a fight the feed stays open for late rows; otherwise wait for the fight
+        if not ns.lingering then return end
+        entry.preShown = true
     end
+    pushRow(entry)
 end
 
 ---------------------------------------------------------------------------
