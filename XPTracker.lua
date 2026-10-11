@@ -25,6 +25,7 @@ local CORNER = "Interface\\AddOns\\WombatLog\\Media\\Corner"
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 
 local SAMPLE_XP = 342
+local SAMPLE_SOURCE = "Defias Thug"
 
 ---------------------------------------------------------------------------
 -- Frame
@@ -81,6 +82,7 @@ local function CreateFrames()
     f.level:SetPoint("RIGHT", f.bar, "LEFT", -6, 0)
     f.gain = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     f.gain:SetAlpha(0)
+    f.gain:SetWordWrap(false) -- a long quest name ends in "..."
 
     f.overlay = f:CreateTexture(nil, "BACKGROUND", nil, -2)
     f.overlay:SetAllPoints()
@@ -104,8 +106,9 @@ local lastXP, lastMax
 local shown, from, target, wrapTo
 local gainAge            -- seconds since the latest gain, nil when there is none
 local gained, shownGain = 0, 0
-local gainKind           -- "kill", "quest" or nil (other XP): picks the gain's color
-local source             -- { kind, t } of the latest kill or quest the kill alert saw
+-- Where the XP came from: one { kind, name, t } per gain in this pop (kind "kill", "quest",
+-- "explore", or nil until known), and the sources seen before their XP arrived.
+local events, pending = {}, {}
 local scale, velocity = 1, 0
 local open = 0           -- 0..1: how far the panel is opened for the "+XP" text
 local restH, openH = 0, 0
@@ -171,7 +174,9 @@ function XPTracker:Layout()
     local f, T = self.frame, ns.db.xpTracker
     local levelW = T.showLevel and (math.ceil(f.level:GetStringWidth()) + 6) or 0
     local w = PAD * 2 + levelW + T.width
-    f.content:SetSize(w, restH + (openH - restH) * open)
+    -- opened, it also fits the "+XP" text and its source
+    local opened = w + math.max(0, (self.gainW or 0) + PAD * 2 - w) * open
+    f.content:SetSize(opened, restH + (openH - restH) * open)
     f:SetSize(w, restH)
 end
 
@@ -193,6 +198,33 @@ local function colorFor(kind)
     return nil
 end
 
+local function kindLabel(kind)
+    if kind == "kill" then return L["Kill"] end
+    if kind == "quest" then return L["Quest"] end
+    if kind == "explore" then return L["Discovery"] end
+    return L["Other"]
+end
+
+-- The latest known source, counted: "Defias Thug", "Defias Thug ×3" (all the same) or
+-- "Defias Thug +2" (mixed), and its kind. XP whose source is still unknown after MERGE
+-- was other XP; before that it is left out.
+local function sourceText()
+    local now = GetTime()
+    local latest, kind, count, mixed = nil, nil, 0, false
+    for _, e in ipairs(events) do
+        local k = e.kind or (now - e.t > MERGE and "other") or nil
+        if k then
+            local label = e.name or kindLabel(k)
+            if latest and label ~= latest then mixed = true end
+            latest, kind, count = label, k, count + 1
+        end
+    end
+    if count > 1 then
+        latest = mixed and (latest .. " +" .. (count - 1)) or (latest .. " ×" .. count)
+    end
+    return latest, kind
+end
+
 function XPTracker:Render()
     local f, T = self.frame, ns.db.xpTracker
     f.level:SetShown(T.showLevel)
@@ -202,8 +234,19 @@ function XPTracker:Render()
         self.levelText = text
         self:Layout()
     end
-    f.gain:SetText(L["+%s XP"]:format(ns.Full(shownGain)))
-    local gc = colorFor(gainKind)
+    local src, kind = sourceText()
+    local gainText = L["+%s XP"]:format(ns.Full(shownGain))
+    if src and T.popSource then gainText = gainText .. " · " .. src end
+    f.gain:SetText(gainText)
+    -- measured unbounded, then cut at twice the bar's length
+    f.gain:SetWidth(0)
+    local gainW = math.min(math.ceil(f.gain:GetStringWidth()), T.width * 2)
+    f.gain:SetWidth(gainW)
+    if gainW ~= self.gainW then
+        self.gainW = gainW
+        self:Layout()
+    end
+    local gc = colorFor(kind)
     local tc = gc or T.color
     f.gain:SetTextColor(tc[1], tc[2], tc[3])
     -- no glow at rest: it only lights up with a gain
@@ -272,7 +315,8 @@ function XPTracker:Step(dt)
         f.gain:SetAlpha(T.popText and textAlpha or 0)
         if not big and scale == 1 and open == 0 and shown == target and textAlpha <= 0 then
             -- settled: the gain is over
-            gainAge, gained, shownGain, gainKind = nil, 0, 0, nil
+            gainAge, gained, shownGain = nil, 0, 0
+            wipe(events)
             if self.testing then
                 self.testing = nil
                 shown = XPBar.Fraction() or 0
@@ -289,11 +333,16 @@ function XPTracker:Gain(delta, toFrac, wrap)
     if not gainAge or gainAge > 0.25 + ns.db.xpTracker.popHold then
         -- a new pop: the gain is lit from where the bar is now, the count starts over
         from, gained, shownGain = shown, 0, 0
+        wipe(events)
     end
     gained = gained + delta
     gainAge = 0
-    -- the kill or quest message often comes first; if not, MarkSource fixes it up
-    gainKind = (source and GetTime() - source.t <= MERGE) and source.kind or nil
+    -- the kill or quest message often comes first; if not, MarkSource fills it in
+    local now = GetTime()
+    while pending[1] and now - pending[1].t > MERGE do table.remove(pending, 1) end
+    local e = table.remove(pending, 1) or {}
+    e.t = now
+    events[#events + 1] = e
     if wrap then
         target, wrapTo = 1, wrap
     elseif wrapTo then
@@ -303,13 +352,33 @@ function XPTracker:Gain(delta, toFrac, wrap)
     end
 end
 
--- A kill or quest gives XP now: its color for the gain, also one shown a moment ago.
-function XPTracker:MarkSource(kind)
-    source = { kind = kind, t = GetTime() }
-    if gainAge and gainAge <= MERGE then
-        gainKind = kind
-        self:Render()
+-- A kill, quest or discovery gives XP now (name: the mob, quest or zone, if known).
+-- hint: a signal that may repeat one already seen (a death after its XP message, the
+-- quest's second event); the XP message itself is one source per XP.
+-- It goes to XP shown a moment ago without a source, or waits for its XP.
+function XPTracker:MarkSource(kind, name, hint)
+    local now = GetTime()
+    -- the same source again: a hint matches any, an XP message only a hint
+    for _, list in ipairs({ pending, events }) do
+        for i = #list, 1, -1 do
+            local e = list[i]
+            if e.kind == kind and now - e.t <= MERGE and (hint or e.hint)
+                and (not name or not e.name or e.name == name) then
+                e.name = e.name or name
+                e.hint = e.hint and hint
+                self:Render()
+                return
+            end
+        end
     end
+    for _, e in ipairs(events) do
+        if not e.kind and now - e.t <= MERGE then
+            e.kind, e.name, e.hint = kind, name, hint
+            self:Render()
+            return
+        end
+    end
+    pending[#pending + 1] = { kind = kind, name = name, hint = hint, t = now }
 end
 
 ---------------------------------------------------------------------------
@@ -321,6 +390,7 @@ function XPTracker:Test()
     self.testing = true
     self:UpdateVisibility()
     local frac = XPBar.Fraction() or 0.4
+    table.insert(pending, 1, { kind = "kill", name = SAMPLE_SOURCE, t = GetTime() })
     self:Gain(SAMPLE_XP, math.min(1, frac + 0.06))
 end
 

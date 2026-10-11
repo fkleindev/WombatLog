@@ -565,4 +565,8 @@ ns.RegisterLocale("frFR", "Français", {
     ["Strength"] = "Intensité",
     ["Wavelength"] = "Longueur d'onde",
     ["Same color as the bar"] = "Même couleur que la barre",
+    ["XP source after it"] = "Source de l'XP à la suite",
+    ["Quest"] = "Quête",
+    ["Discovery"] = "Découverte",
+    ["Other"] = "Autre",
 })

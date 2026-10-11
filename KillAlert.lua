@@ -333,8 +333,18 @@ local function applyXPUpdate(k, now)
     end
 end
 
+-- Tells the XP tracker where the XP it is about to show comes from (name: mob, quest or
+-- zone; hint: may repeat a signal already sent, see XPTracker:MarkSource).
+local function markSource(kind, name, hint)
+    local T = ns.XPTracker
+    if T and T.frame then T:MarkSource(kind, name, hint) end
+end
+
 -- Any kill signal. Signals close together merge into one kill.
 function KillAlert:OnKill(name, guid, xp, rested)
+    -- the mob's name for the XP tracker, also when the XP message can't be read
+    -- or the kill alert is off
+    if name then markSource("kill", name, true) end
     local K = ns.db and ns.db.killAlert
     if not K or not K.enabled or not self.frame or self.unlocked then return end
     local now = GetTime()
@@ -454,12 +464,6 @@ end
 -- Signals
 ---------------------------------------------------------------------------
 
--- Tells the XP tracker where the XP it is about to show comes from.
-local function markSource(kind)
-    local T = ns.XPTracker
-    if T and T.frame then T:MarkSource(kind) end
-end
-
 -- The quest window: its title, and whether XP right now is a quest's.
 local questTitle, questOpen, questClosed
 
@@ -480,8 +484,9 @@ ns.Listen("QUEST_TURNED_IN", function(questID, xp)
     questID, xp = Safe(questID), Safe(xp)
     local title = questID and C_QuestLog and C_QuestLog.GetTitleForQuestID
         and Safe(C_QuestLog.GetTitleForQuestID(questID))
-    if xp and xp > 0 then markSource("quest") end
-    KillAlert:OnQuest(title or (questRecent() and questTitle) or nil, xp)
+    title = title or (questRecent() and questTitle) or nil
+    if xp and xp > 0 then markSource("quest", title, true) end
+    KillAlert:OnQuest(title, xp)
 end)
 
 ns.Listen("CHAT_MSG_COMBAT_XP_GAIN", function(msg)
@@ -489,7 +494,7 @@ ns.Listen("CHAT_MSG_COMBAT_XP_GAIN", function(msg)
     if not msg then
         -- hidden message: a quest's XP or a kill whose XP comes from the XP bar
         if questRecent() then
-            markSource("quest")
+            markSource("quest", questTitle, true)
         else
             markSource("kill")
             KillAlert:OnKill(nil, nil, nil, nil)
@@ -498,12 +503,24 @@ ns.Listen("CHAT_MSG_COMBAT_XP_GAIN", function(msg)
     end
     local name, xp, rested = parseKill(msg)
     if name then
-        markSource("kill")
+        markSource("kill", name)
         KillAlert:OnKill(name, nil, xp, rested)
     elseif questRecent() then
-        markSource("quest")
+        markSource("quest", questTitle, true)
         KillAlert:OnQuest(questTitle, parseQuestXP(msg))
     end
+end)
+
+-- "Discovered Goldshire: 85 experience gained": the zone for the XP tracker.
+local explorePattern
+ns.Listen("CHAT_MSG_SYSTEM", function(msg)
+    msg = Safe(msg)
+    if not msg then return end
+    if not explorePattern then
+        explorePattern = toPattern(ERR_ZONE_EXPLORED_XP or "Discovered %s: %d experience gained")
+    end
+    local zone = msg:match(explorePattern)
+    if zone then markSource("explore", zone) end
 end)
 
 ns.Listen("PLAYER_XP_UPDATE", function()

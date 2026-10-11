@@ -565,4 +565,8 @@ ns.RegisterLocale("deDE", "Deutsch", {
     ["Strength"] = "Stärke",
     ["Wavelength"] = "Wellenlänge",
     ["Same color as the bar"] = "Gleiche Farbe wie die Leiste",
+    ["XP source after it"] = "EP-Quelle dahinter",
+    ["Quest"] = "Quest",
+    ["Discovery"] = "Entdeckung",
+    ["Other"] = "Sonstiges",
 })

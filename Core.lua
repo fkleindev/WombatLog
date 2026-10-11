@@ -178,6 +178,7 @@ ns.defaults.xpTracker = {
     popScale = 1.5,                 -- size while XP comes in
     popHold = 2,                    -- seconds it stays big after the latest XP
     popText = true,                 -- "+342 XP" under the bar while big
+    popSource = true,               -- where it came from after it: "+342 XP · Defias Thug"
     scale = 1, width = 220, height = 8, textSize = 14,
     bgOpacity = 0.6,                -- the dark panel behind it
     color = { 0.72, 0.52, 1.00 },
