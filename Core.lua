@@ -499,6 +499,7 @@ function ns.StartFight()
     local f = ns.fight
     if f.active then return end
     if ns.lingerTimer then ns.lingerTimer:Cancel(); ns.lingerTimer = nil end
+    ns.Display:EndPreviewRows() -- the fight goes into the log, not between the settings' sample rows
     f.active, f.start, f.stop = true, GetTime(), nil
     f.damage, f.healing, f.taken = 0, 0, 0
     f.top = nil

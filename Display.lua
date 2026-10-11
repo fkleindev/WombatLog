@@ -713,6 +713,20 @@ local function ApplyBorder()
     end
 end
 
+-- Redraws the log rows with the current settings.
+local function RefreshRows()
+    local B = ns.db.behaviour
+    while #active > B.lines do Release(table.remove(active, 1)) end
+    if not B.pinDots then
+        for _, r in ipairs(active) do r.entry.pin = nil end
+    end
+    for _, r in ipairs(active) do
+        Fill(r, r.entry)
+        r:ClearAllPoints()
+    end
+    Relayout(true)
+end
+
 function Display:ApplySettings()
     if not root then return end
     local A, P, B = ns.db.appearance, ns.db.position, ns.db.behaviour
@@ -748,15 +762,7 @@ function Display:ApplySettings()
     if self.preview and not ns.fight.active then
         self:RenderPreview(false)
     else
-        while #active > B.lines do Release(table.remove(active, 1)) end
-        if not B.pinDots then
-            for _, r in ipairs(active) do r.entry.pin = nil end
-        end
-        for _, r in ipairs(active) do
-            Fill(r, r.entry)
-            r:ClearAllPoints()
-        end
-        Relayout(true)
+        RefreshRows()
     end
 
     ns.Swing:Apply()
@@ -793,21 +799,42 @@ function Display:SetLocked(locked)
     if ns.Config then ns.Config:RefreshAll() end
 end
 
+-- The log rows the preview replaced, put back when it ends.
+local saved
+
 -- While the settings panel is open, the window shows sample rows that follow every change.
 function Display:SetPreview(on)
-    if not root then return end
+    if not root or on == self.preview then return end
     self.preview = on
     root:SetFrameStrata(on and PREVIEW_STRATA or ns.db.position.strata)
     ns.Swing:SetSample(on)
     if not ns.fight.active then
         if on then
+            saved = { top = ns.fight.top }
+            for i, r in ipairs(active) do saved[i] = r.entry end
             self:RenderPreview(true)
-        elseif not ns.lingering then
-            self:Clear()
+        else
+            self:EndPreviewRows()
         end
     end
     self:UpdateVisibility()
     self:UpdateHeader()
+end
+
+-- Swaps the sample rows back for the log (settings closed, or a fight started while open).
+function Display:EndPreviewRows()
+    if not saved then return end
+    self:Clear()
+    for _, e in ipairs(saved) do
+        local r = table.remove(pool)
+        if not r then break end
+        Fill(r, e)
+        active[#active + 1] = r
+        r:Show()
+    end
+    ns.fight.top = saved.top
+    saved = nil
+    RefreshRows()
 end
 
 function Display:RenderPreview(animate)
@@ -868,6 +895,11 @@ end
 -- instant: place the row without slide-in or crit animations (used by the preview)
 function Display:Push(e, instant)
     if not root then return end
+    -- a late row after a fight while the settings show their samples: keep it for the log
+    if saved and not instant then
+        saved[#saved + 1] = e
+        return
+    end
 
     local f = ns.fight
     if e.kind == "damage" and not e.dim and f.active and e.amount and (not f.top or e.amount > f.top.amount) then
