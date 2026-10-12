@@ -44,6 +44,23 @@ def gen_textures():
     # mirrored for the bottom-right one). The disc's center is the top-right corner.
     write_tga(os.path.join(MEDIA, "Corner.tga"), 32, 32, corner(32))
 
+    # Round00-50: rounded squares, the corner radius in percent of the side (modern
+    # action buttons: icon mask, border, background and states; 50 = a circle)
+    for pct in range(0, 51, 5):
+        write_tga(os.path.join(MEDIA, f"Round{pct:02d}.tga"), 64, 64, rounded_square(64, pct / 100))
+
+
+def rounded_square(n, radius):
+    """Antialiased alpha of an n x n square whose corners are rounded by radius * n."""
+    r = radius * n
+    if r < 0.5:
+        return np.full((n, n), 255.0)
+    y, x = np.mgrid[0:n, 0:n] + 0.5
+    # distance past the corner circle's center, per axis (0 along the straight edges)
+    dx = np.maximum(np.maximum(r - x, x - (n - r)), 0)
+    dy = np.maximum(np.maximum(r - y, y - (n - r)), 0)
+    return np.clip(r - np.hypot(dx, dy) + 0.5, 0, 1) * 255
+
 
 def corner(n):
     """Antialiased alpha of a quarter disc of radius n centered on the top-right corner."""
@@ -321,7 +338,7 @@ def main():
     for path in (gen_chime(), gen_coin(), gen_impact(), gen_record(), gen_proc(), *gen_extras(), *gen_streaks()):
         data, rate = sf.read(path)
         print(f"{os.path.basename(path)}: {len(data) / rate:.2f}s, {rate} Hz, peak {np.max(np.abs(data)):.2f}")
-    print("textures: Gradient.tga, Glow.tga, Corner.tga")
+    print("textures: Gradient.tga, Glow.tga, Corner.tga, Round00-50.tga")
 
 
 if __name__ == "__main__":

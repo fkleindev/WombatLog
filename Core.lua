@@ -216,6 +216,30 @@ ns.defaults.blizzard = {
         enabled = false,        -- flat buttons with a thin border
         hideArt = false,        -- the gryphons and the bar's background
         hotkeys = true, macroNames = true,
+        -- the look of each button (needs enabled)
+        button = {
+            radius = 0,                   -- % of the button, 0..50 (50 = round)
+            zoom = 0.08,                  -- icon edge trimmed off
+            border = true, borderSize = 1, borderColor = { 0, 0, 0 }, borderOpacity = 1,
+            bgColor = { 0, 0, 0 }, bgOpacity = 0.45,
+            hoverColor = { 1, 1, 1 }, hoverOpacity = 0.15,
+            pushedColor = { 0, 0, 0 }, pushedOpacity = 0.4,
+            checkedColor = { 1, 0.82, 0 }, checkedOpacity = 0.35,
+            shadow = false, shadowOpacity = 0.6,
+        },
+        -- a panel behind each bar (needs enabled)
+        bar = {
+            enabled = false,
+            padding = 4, radius = 6,      -- px
+            bgColor = { 0, 0, 0 }, bgOpacity = 0.5,
+            border = true, borderSize = 1, borderColor = { 0, 0, 0 }, borderOpacity = 1,
+            shadow = false, shadowOpacity = 0.6,
+        },
+        anim = {
+            hover = false,                -- the hover light fades in and out
+            press = false,                -- the icon dips in when the button is used (click or key)
+            cooldown = false,             -- a flash when a cooldown longer than the global one ends
+        },
     },
 }
 

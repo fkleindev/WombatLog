@@ -1529,6 +1529,67 @@ local function BuildBlizzard(p)
     p:Note("On some clients the key binding also shows the out-of-range dot, which goes away with it.")
 end
 
+local function percentOf(v) return v .. "%" end
+
+local function BuildBlizzardButtons(p)
+    local path = "blizzard.actionBars.button."
+    p:Note("These options need \"Modern action buttons\" on the General tab.")
+    p:Header("Shape")
+    p:Slider("Corner radius", path .. "radius", 0, 50, 5, percentOf)
+    p:Slider("Icon zoom", path .. "zoom", 0, 0.2, 0.01, pct, 2)
+
+    p:Header("Border")
+    p:Checkbox("Border", path .. "border")
+    p:Slider("Thickness", path .. "borderSize", 1, 4, 1, px, 2)
+    p:Color("Color", path .. "borderColor")
+    p:Slider("Opacity", path .. "borderOpacity", 0, 1, 0.05, pct, 2)
+
+    p:Header("Background")
+    p:Color("Color", path .. "bgColor")
+    p:Slider("Opacity", path .. "bgOpacity", 0, 1, 0.05, pct, 2)
+    p:Checkbox("Shadow", path .. "shadow")
+    p:Slider("Shadow opacity", path .. "shadowOpacity", 0, 1, 0.05, pct, 2)
+
+    p:Header("States")
+    p:Color("Mouse over", path .. "hoverColor")
+    p:Slider("Opacity", path .. "hoverOpacity", 0, 1, 0.05, pct, 2)
+    p:Color("Pressed", path .. "pushedColor")
+    p:Slider("Opacity", path .. "pushedOpacity", 0, 1, 0.05, pct, 2)
+    p:Color("Active", path .. "checkedColor")
+    p:Slider("Opacity", path .. "checkedOpacity", 0, 1, 0.05, pct, 2)
+end
+
+local function BuildBlizzardBars(p)
+    local path = "blizzard.actionBars.bar."
+    p:Note("These options need \"Modern action buttons\" on the General tab.")
+    p:Header("Background")
+    p:Checkbox("Panel behind each bar", path .. "enabled")
+    p:Slider("Padding", path .. "padding", 0, 12, 1, px)
+    p:Slider("Corner radius", path .. "radius", 0, 16, 1, px, 2)
+    p:Color("Color", path .. "bgColor")
+    p:Slider("Opacity", path .. "bgOpacity", 0, 1, 0.05, pct, 2)
+    p:Checkbox("Shadow", path .. "shadow")
+    p:Slider("Shadow opacity", path .. "shadowOpacity", 0, 1, 0.05, pct, 2)
+
+    p:Header("Border")
+    p:Checkbox("Border", path .. "border")
+    p:Slider("Thickness", path .. "borderSize", 1, 4, 1, px, 2)
+    p:Color("Color", path .. "borderColor")
+    p:Slider("Opacity", path .. "borderOpacity", 0, 1, 0.05, pct, 2)
+end
+
+local function BuildBlizzardAnimations(p)
+    local path = "blizzard.actionBars.anim."
+    p:Note("These options need \"Modern action buttons\" on the General tab.")
+    p:Header("Animations")
+    p:Checkbox("Fade the mouse-over light", path .. "hover")
+    p:Note("The light on the button under the mouse fades in and out instead of switching.")
+    p:Checkbox("Press", path .. "press")
+    p:Note("The icon dips in and springs back when you use the button, by click or key.")
+    p:Checkbox("Flash when ready", path .. "cooldown")
+    p:Note("A short flash when a cooldown ends. The global cooldown doesn't count.")
+end
+
 local function BuildMinimap(p)
     p:Header("Minimap button")
     p:Checkbox("Show minimap button", "minimap.enabled")
@@ -1722,7 +1783,12 @@ local TABS = {
         { "History & records", BuildStatsHistory },
     } },
     { "Session", BuildSession },
-    { "Blizzard UI", BuildBlizzard },
+    { "Blizzard UI", {
+        { "General", BuildBlizzard },
+        { "Buttons", BuildBlizzardButtons },
+        { "Bars", BuildBlizzardBars },
+        { "Animations", BuildBlizzardAnimations },
+    } },
     { "Custom sounds", BuildCustomSounds },
     { "Minimap button", BuildMinimap },
     { "Language", BuildLanguage },

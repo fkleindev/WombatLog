@@ -59,8 +59,10 @@ combat starts and fades out a few seconds after it ends.
   kills, deaths and money.
 - **Minimap button** and an addon compartment entry.
 - **Blizzard UI:** hide Blizzard's own XP bar while you level, and give the action
-  bars a modern look: flat buttons with a thin border, no gryphons or bar art, and
-  key bindings and macro names that can be hidden. All off by default.
+  bars a modern look: flat buttons with rounded corners, your own border, background
+  and state colors, a panel behind each bar, soft hover, press and "ready"
+  animations, no gryphons or bar art, and key bindings and macro names that can be
+  hidden. All off by default.
 - The header shows live DPS and HPS, a fight timer, damage dealt and taken, and the
   biggest hit of the fight.
 - A **welcome screen** on each character's first login: every feature with a short
@@ -150,10 +152,15 @@ sub-tabs along the top.
 - **Fight summary:** *Summary* (display time, scale, position) and *History &
   records* (how many fights to keep, minimum fight length, personal records).
 - **Session:** session tracker and an optional session line above the log window.
-- **Blizzard UI:** hide Blizzard's XP bar (while you level; where Blizzard shows your
-  reputation in the same spot at max level, it stays), modern action buttons
-  (turning them off needs a reload), hide the bar art, show or hide key bindings and
-  macro names.
+- **Blizzard UI:** *General* (hide Blizzard's XP bar while you level; where Blizzard
+  shows your reputation in the same spot at max level, it stays; modern action
+  buttons, turning them off needs a reload; hide the bar art; show or hide key
+  bindings and macro names), *Buttons* (corner radius up to round, icon zoom, border
+  thickness, color and opacity, background, shadow, and the mouse-over, pressed and
+  active colors), *Bars* (a panel behind each bar with padding, corner radius,
+  color, border and shadow) and *Animations* (fading mouse-over light, the icon
+  dipping in on use, a flash when a cooldown ends). Buttons, Bars and Animations
+  need the modern action buttons.
 - **Custom sounds:** your own sounds for every sound list. Put `.ogg` or `.mp3` files
   into `Interface\AddOns\WombatLog\Media\Custom\`, restart the game (it only sees new
   files after a restart, `/reload` is not enough) and add each file by name. They
@@ -353,12 +360,13 @@ As a result:
 | `Swing.lua` | Swing timer lane inside the log window |
 | `Resources.lua` | Personal resource display |
 | `Minimap.lua` | Minimap button and addon compartment entry |
-| `BlizzardUI.lua` | Changes to Blizzard's UI: hiding its XP bar, modern action buttons |
+| `BlizzardUI.lua` | Changes to Blizzard's UI: hiding its XP bar, modern action buttons and bars |
 | `Config.lua` | The settings panel |
 | `Welcome.lua` | Welcome screen on each character's first login |
 | `Media/Gradient.tga` | White-to-transparent texture used for the row backgrounds |
 | `Media/Glow.tga` | Radial glow used by the crit alert |
 | `Media/Corner.tga` | Quarter disc for the XP tracker's rounded corners |
+| `Media/Round00-50.tga` | Rounded squares (corner radius 0-50 % of the side) for the modern action buttons |
 | `Media/Diamond.tga` | Diamond mask for diamond-shaped combo points |
 | `Media/Sounds/*.ogg` | Alert sounds (crit, streak, record, proc) |
 | `tools/gen_spelldata.py` | Regenerates the `SpellData_*.lua` files from each client's game data via wago.tools (`--all`, or `--flavor forever\|vanilla\|tbc\|mists\|retail [--build x.y.z.n]`) |
