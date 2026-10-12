@@ -190,14 +190,24 @@ local function artRegions()
     return list
 end
 
+-- A texture's vertex alpha is its alpha, so a new vertex color from Blizzard (empty
+-- slots' grid) would show it again: hidden once more right after.
+local function keepHidden(t)
+    t:SetAlpha(0)
+    if not t.wlHidden then
+        t.wlHidden = true
+        hooksecurefunc(t, "SetVertexColor", function(self) self:SetAlpha(0) end)
+    end
+end
+
 -- Blizzard's thick border, kept hidden whenever Blizzard puts it back.
 local function hideBorder(btn)
     local t = btn:GetNormalTexture()
-    if t then t:SetAlpha(0) end
+    if t then keepHidden(t) end
     local name = btn:GetName()
     for _, k in ipairs({ "NormalTexture", "NormalTexture2" }) do
         local r = name and _G[name .. k]
-        if r then r:SetAlpha(0) end
+        if r then keepHidden(r) end
     end
 end
 
@@ -257,18 +267,29 @@ local function restyle(btn)
         btn:SetCheckedTexture(tex)
         flat(btn:GetCheckedTexture(), B.checkedColor, B.checkedOpacity, "ADD")
     end
-    -- the hover light is WombatLog's own, so it can fade
+    -- the hover light is WombatLog's own, so it can fade. A texture's vertex alpha is
+    -- its alpha, so these two are colored at full and shown through SetAlpha alone.
     btn:SetHighlightTexture(tex)
     local hl = btn:GetHighlightTexture()
     if hl then hl:SetAlpha(0) end
-    flat(w.hover, B.hoverColor, B.hoverOpacity, "ADD")
-    flat(w.flash, { 1, 1, 1 }, 0.8, "ADD")
+    flat(w.hover, B.hoverColor, 1, "ADD")
+    w.fadeIn:SetToAlpha(B.hoverOpacity)
+    w.fadeOut:SetFromAlpha(B.hoverOpacity)
+    w.hover:SetAlpha(w.hovered and B.hoverOpacity or 0)
+    flat(w.flash, { 1, 1, 1 }, 1, "ADD")
+    w.flash:SetAlpha(0)
 
     local cd = w.cooldown
     if cd and not InCombatLockdown() then
         cd:ClearAllPoints()
         cd:SetAllPoints(icon)
-        if cd.SetSwipeTexture then pcall(cd.SetSwipeTexture, cd, tex) end
+        -- a rounded swipe; its own color must be set, or the white texture shows as is.
+        -- Square buttons keep Blizzard's swipe untouched.
+        if cd.SetSwipeTexture and cd.SetSwipeColor and (rounded or w.swipe) then
+            w.swipe = rounded or nil
+            pcall(cd.SetSwipeTexture, cd, rounded and tex or WHITE)
+            pcall(cd.SetSwipeColor, cd, 0, 0, 0, 0.8)
+        end
     end
 end
 
@@ -281,11 +302,12 @@ end
 -- The hover light fades in and out, or just switches.
 local function hover(btn, on)
     local w = btn.wl
+    w.hovered = on
     w.hoverIn:Stop(); w.hoverOut:Stop()
     if settings().anim.hover then
         (on and w.hoverIn or w.hoverOut):Play()
     else
-        w.hover:SetAlpha(on and 1 or 0)
+        w.hover:SetAlpha(on and settings().button.hoverOpacity or 0)
     end
 end
 
@@ -322,14 +344,14 @@ local function skin(btn, name)
     w.flash = btn:CreateTexture(nil, "OVERLAY", nil, 6)
     w.flash:SetAlpha(0)
 
-    -- hover: fades in and out
+    -- hover: fades in and out (to the opacity restyle sets)
     w.hoverIn = w.hover:CreateAnimationGroup()
-    local fadeIn = anim(w.hoverIn, "Alpha", 0.12)
-    fadeIn:SetFromAlpha(0); fadeIn:SetToAlpha(1)
-    w.hoverIn:SetScript("OnFinished", function() w.hover:SetAlpha(1) end)
+    w.fadeIn = anim(w.hoverIn, "Alpha", 0.12)
+    w.fadeIn:SetFromAlpha(0); w.fadeIn:SetToAlpha(1)
+    w.hoverIn:SetScript("OnFinished", function() w.hover:SetAlpha(settings().button.hoverOpacity) end)
     w.hoverOut = w.hover:CreateAnimationGroup()
-    local fadeOut = anim(w.hoverOut, "Alpha", 0.2)
-    fadeOut:SetFromAlpha(1); fadeOut:SetToAlpha(0)
+    w.fadeOut = anim(w.hoverOut, "Alpha", 0.2)
+    w.fadeOut:SetFromAlpha(1); w.fadeOut:SetToAlpha(0)
     w.hoverOut:SetScript("OnFinished", function() w.hover:SetAlpha(0) end)
     btn:HookScript("OnEnter", function(b) hover(b, true) end)
     btn:HookScript("OnLeave", function(b) hover(b, false) end)
@@ -346,7 +368,7 @@ local function skin(btn, name)
     -- ready: a flash when a cooldown longer than the global one ends
     w.ready = w.flash:CreateAnimationGroup()
     local flash = anim(w.ready, "Alpha", 0.45, 1, "OUT")
-    flash:SetFromAlpha(1); flash:SetToAlpha(0)
+    flash:SetFromAlpha(0.8); flash:SetToAlpha(0)
     w.ready:SetScript("OnFinished", function() w.flash:SetAlpha(0) end)
     local cd = w.cooldown
     if cd then
