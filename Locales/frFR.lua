@@ -612,4 +612,7 @@ ns.RegisterLocale("frFR", "Français", {
     ["A short flash when a cooldown ends. The global cooldown doesn't count."] = "Un bref éclat à la fin d'un temps de recharge. Le temps de recharge global ne compte pas.",
     ["Buttons"] = "Boutons",
     ["Kill XP color"] = "Couleur de l'XP des victimes",
+    ["Modern bag bar"] = "Barre des sacs moderne",
+    ["Modern micro menu"] = "Micro-menu moderne",
+    ["The bags and the buttons for your spellbook, talents and so on, with the look from the Buttons, Bars and Animations tabs. They need the modern action buttons, and turning one off needs a reload."] = "Les sacs et les boutons du grimoire, des talents, etc., avec l'apparence des onglets Boutons, Barres et Animations. Ils nécessitent les boutons d'action modernes, et les désactiver nécessite un rechargement.",
 })

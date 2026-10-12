@@ -145,7 +145,32 @@ end
 -- Action buttons
 ---------------------------------------------------------------------------
 
--- prefix, count, and the bar it belongs to
+local function settings()
+    return ns.db.blizzard.actionBars
+end
+
+-- The micro menu's buttons are whole pictures with a stone frame: only this part of
+-- each (left, right, top, bottom, as a share of the picture) is kept. Classic UIs draw
+-- the button in the lower part of a tall picture; newer ones fill it.
+local MICRO_CROP = {
+    classic = { 0.18, 0.82, 0.52, 0.90 },
+    modern = { 0, 1, 0, 1 }, -- free-standing icons already, nothing to cut
+}
+
+local BAG_NAMES = {
+    "MainMenuBarBackpackButton", "CharacterBag0Slot", "CharacterBag1Slot",
+    "CharacterBag2Slot", "CharacterBag3Slot", "CharacterReagentBag0Slot",
+}
+local MICRO_NAMES = {
+    "CharacterMicroButton", "SpellbookMicroButton", "PlayerSpellsMicroButton", "TalentMicroButton",
+    "ProfessionMicroButton", "AchievementMicroButton", "QuestLogMicroButton",
+    "SocialsMicroButton", "GuildMicroButton", "LFGMicroButton", "LFDMicroButton", "PVPMicroButton",
+    "CollectionsMicroButton", "EJMicroButton", "WorldMapMicroButton",
+    "HousingMicroButton", "StoreMicroButton", "MainMenuMicroButton", "HelpMicroButton",
+}
+
+-- prefix and count (or a list of names), the bar it belongs to, the kind of button,
+-- and the setting that turns it on besides the modern buttons themselves
 local BUTTONS = {
     { "ActionButton", 12, "main" }, { "BonusActionButton", 12, "main" },
     { "MultiBarBottomLeftButton", 12, "bottomLeft" }, { "MultiBarBottomRightButton", 12, "bottomRight" },
@@ -153,14 +178,29 @@ local BUTTONS = {
     { "MultiBar5Button", 12, "bar5" }, { "MultiBar6Button", 12, "bar6" }, { "MultiBar7Button", 12, "bar7" },
     { "PetActionButton", 10, "pet" },
     { "StanceButton", 10, "stance" }, { "ShapeshiftButton", 10, "stance" },
+    { BAG_NAMES, nil, "bags", "bag", "bags" },
+    { MICRO_NAMES, nil, "micro", "micro", "micro" },
 }
 
-local function eachButton(fn)
+-- fn(btn, name, group, kind) for every button there is; onlyOn: just the ones whose
+-- bar is switched on.
+local function eachButton(fn, onlyOn)
+    local A = settings()
     for _, set in ipairs(BUTTONS) do
-        for i = 1, set[2] do
-            local name = set[1] .. i
-            local btn = _G[name]
-            if btn then fn(btn, name, set[3]) end
+        local kind, switch = set[4] or "action", set[5]
+        if not onlyOn or not switch or A[switch] then
+            if type(set[1]) == "table" then
+                for _, name in ipairs(set[1]) do
+                    local btn = _G[name]
+                    if btn then fn(btn, name, set[3], kind) end
+                end
+            else
+                for i = 1, set[2] do
+                    local name = set[1] .. i
+                    local btn = _G[name]
+                    if btn then fn(btn, name, set[3], kind) end
+                end
+            end
         end
     end
 end
@@ -170,21 +210,41 @@ local function part(btn, name, key, suffix)
     return btn[key] or _G[name .. (suffix or key)]
 end
 
--- The bar art: the gryphons and the bar's background.
-local function artRegions()
+-- The frames holding each kind of bar. Newer UIs draw a bar's frame, background and
+-- dividers as the bar frame's own textures, plus keyed art like BorderArt.
+local BAR_FRAMES = {
+    action = { "MainActionBar", "MainMenuBar", "MultiBarBottomLeft", "MultiBarBottomRight",
+               "MultiBarRight", "MultiBarLeft", "MultiBar5", "MultiBar6", "MultiBar7",
+               "StanceBar", "PetActionBar" },
+    bags = { "BagsBar" },
+    micro = { "MicroMenu", "MicroMenuContainer" },
+}
+local ART_KEYS = { "EndCaps", "BorderArt", "BackgroundArt" }
+
+-- The art of one kind of bar: the gryphons, backgrounds, frames and dividers.
+local function artRegions(kind)
     local list = {}
-    local names = { "MainMenuBarLeftEndCap", "MainMenuBarRightEndCap" }
-    for i = 0, 3 do
-        names[#names + 1] = "MainMenuBarTexture" .. i
-        names[#names + 1] = "MainMenuMaxLevelBar" .. i
+    local function add(r)
+        if r then list[#list + 1] = r end
     end
-    for _, n in ipairs(names) do
-        if _G[n] then list[#list + 1] = _G[n] end
+    if kind == "action" then
+        -- the classic UI's main bar art
+        add(MainMenuBarLeftEndCap); add(MainMenuBarRightEndCap)
+        for i = 0, 3 do
+            add(_G["MainMenuBarTexture" .. i]); add(_G["MainMenuMaxLevelBar" .. i])
+        end
     end
-    local bar = MainActionBar or MainMenuBar
-    if bar then
-        for _, k in ipairs({ "EndCaps", "BorderArt" }) do
-            if bar[k] then list[#list + 1] = bar[k] end
+    for _, n in ipairs(BAR_FRAMES[kind]) do
+        local bar = _G[n]
+        if bar then
+            for _, k in ipairs(ART_KEYS) do add(bar[k]) end
+            for _, r in ipairs({ bar:GetRegions() }) do
+                if r:GetObjectType() == "Texture" then add(r) end
+            end
+            -- frames drawn as nine-slices (edges with dividers between the buttons)
+            for _, child in ipairs({ bar:GetChildren() }) do
+                if child.TopEdge or child.BottomEdge or child.LeftEdge then add(child) end
+            end
         end
     end
     return list
@@ -211,17 +271,123 @@ local function hideBorder(btn)
     end
 end
 
-local function settings()
-    return ns.db.blizzard.actionBars
+-- t on the button's face, inset by the border.
+local function inset(t, face, size)
+    t:ClearAllPoints()
+    t:SetPoint("TOPLEFT", face, "TOPLEFT", size, -size)
+    t:SetPoint("BOTTOMRIGHT", face, "BOTTOMRIGHT", -size, size)
 end
 
--- The look from the settings: shape, border, background, icon, states and shadow.
+local function borderSize()
+    local B = settings().button
+    return B.border and B.borderSize or 0
+end
+
+local function addMask(w, t)
+    if t and not w.masked[t] then
+        w.masked[t] = true
+        t:AddMaskTexture(w.mask)
+    end
+end
+
+-- The micro button's face: a square in the button, where its picture is shown.
+local function layoutFace(btn)
+    local w = btn.wl
+    if not w or w.kind ~= "micro" then return end
+    local bw, bh = btn:GetSize()
+    local f = w.face
+    f:ClearAllPoints()
+    if w.style == "classic" then
+        local s = math.max(1, bw - 4)
+        f:SetSize(s, s)
+        f:SetPoint("BOTTOM", btn, "BOTTOM", 0, 2)
+    else
+        local s = math.max(1, math.min(bw, bh) - 4)
+        f:SetSize(s, s)
+        f:SetPoint("CENTER", btn, "CENTER")
+    end
+end
+
+local MICRO_PICTURES = {
+    { "GetNormalTexture", "SetNormalTexture", "SetNormalAtlas" },
+    { "GetPushedTexture", "SetPushedTexture", "SetPushedAtlas" },
+    { "GetDisabledTexture", "SetDisabledTexture", "SetDisabledAtlas" },
+}
+
+-- Cuts a picture down to the crop's share of the coordinates Blizzard gave it (t.wlBase).
+local function cut(t, c)
+    local l, r, top, bottom = unpack(t.wlBase)
+    t.wlCutting = true
+    t:SetTexCoord(l + (r - l) * c[1], l + (r - l) * c[2], top + (bottom - top) * c[3], top + (bottom - top) * c[4])
+    t.wlCutting = nil
+end
+
+-- The coordinates Blizzard gave a picture: from SetTexCoord (4 or 8 numbers) or, after
+-- an atlas, read back.
+local function baseFrom(t, ...)
+    local n = select("#", ...)
+    if n >= 8 then
+        local ulx, uly, _, lly, urx = ...
+        t.wlBase = { ulx, urx, uly, lly }
+    elseif n >= 4 then
+        t.wlBase = { ... }
+    else
+        local ulx, uly, _, lly, urx = t:GetTexCoord()
+        t.wlBase = { ulx, urx, uly, lly }
+    end
+end
+
+-- The micro button's pictures, cut down to the part inside the stone frame, on its
+-- face. Blizzard may set a picture's coordinates itself (a sheet, an atlas): the cut
+-- is taken from those, and taken again whenever Blizzard sets new ones.
+local function placeMicro(btn)
+    local w = btn.wl
+    if not w then return end
+    local size = borderSize()
+    local c = MICRO_CROP[w.style]
+    for _, m in ipairs(MICRO_PICTURES) do
+        local t = btn[m[1]] and btn[m[1]](btn)
+        if t then
+            if not t.wlBase then baseFrom(t) end
+            if not t.wlCutHook then
+                t.wlCutHook = true
+                hooksecurefunc(t, "SetTexCoord", function(self, ...)
+                    if self.wlCutting then return end
+                    baseFrom(self, ...)
+                    cut(self, MICRO_CROP[w.style])
+                end)
+                -- an atlas set on the picture itself brings its own coordinates
+                hooksecurefunc(t, "SetAtlas", function(self)
+                    baseFrom(self)
+                    cut(self, MICRO_CROP[w.style])
+                end)
+            end
+            cut(t, c)
+            inset(t, w.face, size)
+            addMask(w, t)
+        end
+    end
+    local hl = btn:GetHighlightTexture()
+    if hl then hl:SetAlpha(0) end
+    for _, k in ipairs({ "Background", "PushedBackground" }) do
+        if btn[k] then keepHidden(btn[k]) end
+    end
+    local portrait = btn.Portrait or (btn == CharacterMicroButton and MicroButtonPortrait)
+    if portrait then
+        inset(portrait, w.face, size)
+        addMask(w, portrait)
+    end
+end
+
+-- The look from the settings: shape, border, background, contents, states and shadow.
 local function restyle(btn)
     local w = btn.wl
     local B = settings().button
     local tex = roundTexture(B.radius)
     local rounded = B.radius > 0
-    local size = B.border and B.borderSize or 0
+    local size = borderSize()
+    local face = w.face
+    layoutFace(btn)
 
     w.shadow:SetShown(B.shadow)
     tint(w.shadow, { 0, 0, 0 }, B.shadowOpacity)
@@ -229,27 +395,18 @@ local function restyle(btn)
     -- square: strips around a full background, as see-through as set; rounded: the
     -- border's shape behind a background inset by its width
     for _, s in ipairs(w.strips) do s:SetShown(B.border and not rounded) end
-    layoutStrips(w.strips, btn, size, 0)
+    layoutStrips(w.strips, face, size, 0)
     tintAll(w.strips, B.borderColor, B.borderOpacity)
     w.border:SetShown(B.border and rounded)
     w.border:SetTexture(tex)
     tint(w.border, B.borderColor, B.borderOpacity)
     local bgInset = rounded and size or 0
     w.bg:SetTexture(tex)
-    w.bg:ClearAllPoints()
-    w.bg:SetPoint("TOPLEFT", btn, "TOPLEFT", bgInset, -bgInset)
-    w.bg:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -bgInset, bgInset)
+    inset(w.bg, face, bgInset)
     tint(w.bg, B.bgColor, B.bgOpacity)
 
-    local icon = w.icon
-    local z = B.zoom
-    icon:SetTexCoord(z, 1 - z, z, 1 - z)
-    icon:ClearAllPoints()
-    icon:SetPoint("TOPLEFT", btn, "TOPLEFT", size, -size)
-    icon:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -size, size)
     w.mask:SetTexture(tex, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    w.mask:ClearAllPoints()
-    w.mask:SetAllPoints(icon)
+    inset(w.mask, face, size)
 
     local function flat(t, c, a, blend)
         if not t then return end
@@ -257,21 +414,29 @@ local function restyle(btn)
         t:SetTexCoord(0, 1, 0, 1)
         tint(t, c, a)
         t:SetBlendMode(blend)
-        t:ClearAllPoints()
-        t:SetAllPoints(icon)
+        inset(t, face, size)
     end
-    hideBorder(btn)
-    btn:SetPushedTexture(tex)
-    flat(btn:GetPushedTexture(), B.pushedColor, B.pushedOpacity, "BLEND")
-    if btn.SetCheckedTexture then
-        btn:SetCheckedTexture(tex)
-        flat(btn:GetCheckedTexture(), B.checkedColor, B.checkedOpacity, "ADD")
+    if w.kind == "micro" then
+        -- the pictures are Blizzard's, pressed and disabled ones included
+        placeMicro(btn)
+    else
+        local icon = w.icon
+        local z = B.zoom
+        icon:SetTexCoord(z, 1 - z, z, 1 - z)
+        inset(icon, face, size)
+        hideBorder(btn)
+        btn:SetPushedTexture(tex)
+        flat(btn:GetPushedTexture(), B.pushedColor, B.pushedOpacity, "BLEND")
+        if btn.SetCheckedTexture then
+            btn:SetCheckedTexture(tex)
+            flat(btn:GetCheckedTexture(), B.checkedColor, B.checkedOpacity, "ADD")
+        end
+        btn:SetHighlightTexture(tex)
+        local hl = btn:GetHighlightTexture()
+        if hl then hl:SetAlpha(0) end
     end
     -- the hover light is WombatLog's own, so it can fade. A texture's vertex alpha is
     -- its alpha, so these two are colored at full and shown through SetAlpha alone.
-    btn:SetHighlightTexture(tex)
-    local hl = btn:GetHighlightTexture()
-    if hl then hl:SetAlpha(0) end
     flat(w.hover, B.hoverColor, 1, "ADD")
     w.fadeIn:SetToAlpha(B.hoverOpacity)
     w.fadeOut:SetFromAlpha(B.hoverOpacity)
@@ -282,7 +447,7 @@ local function restyle(btn)
     local cd = w.cooldown
     if cd and not InCombatLockdown() then
         cd:ClearAllPoints()
-        cd:SetAllPoints(icon)
+        cd:SetAllPoints(w.icon)
         -- a rounded swipe; its own color must be set, or the white texture shows as is.
         -- Square buttons keep Blizzard's swipe untouched.
         if cd.SetSwipeTexture and cd.SetSwipeColor and (rounded or w.swipe) then
@@ -312,33 +477,49 @@ local function hover(btn, on)
 end
 
 local function press(btn)
-    if settings().anim.press then
-        btn.wl.press:Stop()
-        btn.wl.press:Play()
+    local w = btn.wl
+    if w.press and settings().anim.press then
+        w.press:Stop()
+        w.press:Play()
     end
 end
 
-local function skin(btn, name)
-    local icon = part(btn, name, "icon", "Icon")
-    if not icon then return end
-    local w = { icon = icon, cooldown = part(btn, name, "cooldown", "Cooldown") }
+local function skin(btn, name, kind)
+    local w = { kind = kind, masked = {} }
+    if kind == "micro" then
+        w.style = (MicroMenu or MicroMenuContainer) and "modern" or "classic"
+        w.face = CreateFrame("Frame", nil, btn)
+    else
+        w.icon = part(btn, name, "icon", "Icon") or _G[name .. "IconTexture"]
+        if not w.icon then return end
+        w.face = btn
+        w.cooldown = part(btn, name, "cooldown", "Cooldown")
+    end
     btn.wl = w
+    local face, icon = w.face, w.icon
 
-    if btn.IconMask and icon.RemoveMaskTexture then icon:RemoveMaskTexture(btn.IconMask) end
+    for _, k in ipairs({ "IconMask", "CircleMask", "SquareMask" }) do
+        if icon and btn[k] and icon.RemoveMaskTexture then icon:RemoveMaskTexture(btn[k]) end
+    end
     for _, k in ipairs({ "SlotArt", "SlotBackground" }) do
         if btn[k] then btn[k]:SetAlpha(0) end
+    end
+    -- a bag slot's frame (newer UIs draw it as the icon's border)
+    if kind == "bag" then
+        local border = part(btn, name, "IconBorder")
+        if border then keepHidden(border) end
     end
 
     w.shadow = btn:CreateTexture(nil, "BACKGROUND", nil, -8)
     w.shadow:SetTexture(GLOW)
-    w.shadow:SetPoint("TOPLEFT", btn, "TOPLEFT", -SHADOW, SHADOW)
-    w.shadow:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", SHADOW, -SHADOW)
+    w.shadow:SetPoint("TOPLEFT", face, "TOPLEFT", -SHADOW, SHADOW)
+    w.shadow:SetPoint("BOTTOMRIGHT", face, "BOTTOMRIGHT", SHADOW, -SHADOW)
     w.border = btn:CreateTexture(nil, "BACKGROUND", nil, -7)
-    w.border:SetAllPoints()
+    w.border:SetAllPoints(face)
     w.bg = btn:CreateTexture(nil, "BACKGROUND", nil, -6)
     w.strips = newStrips(btn, "ARTWORK", 7)
     w.mask = btn:CreateMaskTexture()
-    icon:AddMaskTexture(w.mask)
+    addMask(w, icon)
     w.hover = btn:CreateTexture(nil, "OVERLAY", nil, 5)
     w.hover:SetAlpha(0)
     w.flash = btn:CreateTexture(nil, "OVERLAY", nil, 6)
@@ -355,6 +536,33 @@ local function skin(btn, name)
     w.hoverOut:SetScript("OnFinished", function() w.hover:SetAlpha(0) end)
     btn:HookScript("OnEnter", function(b) hover(b, true) end)
     btn:HookScript("OnLeave", function(b) hover(b, false) end)
+
+    if kind == "micro" then
+        -- Blizzard puts its pictures back on every state change: cut them again
+        for _, m in ipairs(MICRO_PICTURES) do
+            local get = m[1]
+            if btn[m[2]] then
+                -- a new file keeps the coordinates it had (SetTexCoord sets new ones)
+                hooksecurefunc(btn, m[2], function(b)
+                    placeMicro(b)
+                end)
+            end
+            if btn[m[3]] then
+                hooksecurefunc(btn, m[3], function(b)
+                    local t = b[get](b)
+                    if t then t.wlBase = nil end -- the atlas's own coordinates
+                    placeMicro(b)
+                end)
+            end
+        end
+        for _, m in ipairs({ "SetHighlightTexture", "SetHighlightAtlas" }) do
+            if btn[m] then hooksecurefunc(btn, m, placeMicro) end
+        end
+        btn:HookScript("OnMouseDown", placeMicro)
+        btn:HookScript("OnMouseUp", placeMicro)
+        btn:HookScript("OnSizeChanged", restyle)
+        return
+    end
 
     -- press: the icon dips in and springs back
     w.press = icon:CreateAnimationGroup()
@@ -398,10 +606,10 @@ function BlizzardUI:SkinButtons()
         return
     end
     self.pending = nil
-    eachButton(function(btn, name)
-        if not btn.wl then skin(btn, name) end
+    eachButton(function(btn, name, _, kind)
+        if not btn.wl then skin(btn, name, kind) end
         if btn.wl then restyle(btn) end
-    end)
+    end, true)
     self.skinned = true
 end
 
@@ -456,9 +664,11 @@ function BlizzardUI:UpdatePanels()
     local boxes = {}
     eachButton(function(btn, _, group)
         if not btn:IsVisible() then return end
-        local l, b, w, h = btn:GetRect()
+        -- a micro button's visible part is its face
+        local area = btn.wl and btn.wl.face or btn
+        local l, b, w, h = area:GetRect()
         if not l then return end
-        local s = btn:GetEffectiveScale() / ui
+        local s = area:GetEffectiveScale() / ui
         l, b, w, h = l * s, b * s, w * s, h * s
         local box = boxes[group]
         if not box then
@@ -468,7 +678,7 @@ function BlizzardUI:UpdatePanels()
             box.l, box.b = math.min(box.l, l), math.min(box.b, b)
             box.r, box.t = math.max(box.r, l + w), math.max(box.t, b + h)
         end
-    end)
+    end, true)
     for group, p in pairs(panels) do
         if not boxes[group] then p:Hide() end
     end
@@ -514,13 +724,51 @@ local function show(key, regionList, visible)
     for _, r in ipairs(regionList) do r:SetAlpha(visible and 1 or 0) end
 end
 
+function BlizzardUI:ApplyArt()
+    local A = settings()
+    show("art", artRegions("action"), not A.hideArt)
+    -- the modern bag bar and micro menu go without Blizzard's frames behind them
+    show("bagArt", artRegions("bags"), not (A.enabled and A.bags))
+    show("microArt", artRegions("micro"), not (A.enabled and A.micro))
+end
+
+-- Bars lay themselves out again (Edit Mode, more buttons, a new row) and take new
+-- dividers from a pool then: hidden again right after.
+local artQueued
+function BlizzardUI:QueueArt()
+    if artQueued then return end
+    artQueued = true
+    C_Timer.After(0, function()
+        artQueued = nil
+        self:ApplyArt()
+    end)
+end
+
+local LAYOUT_METHODS = { "UpdateDividers", "UpdateGridLayout", "Layout", "UpdateSize" }
+
+function BlizzardUI:HookBarLayouts()
+    for _, list in pairs(BAR_FRAMES) do
+        for _, n in ipairs(list) do
+            local bar = _G[n]
+            if bar then
+                for _, m in ipairs(LAYOUT_METHODS) do
+                    if type(bar[m]) == "function" then
+                        hooksecurefunc(bar, m, function() self:QueueArt() end)
+                    end
+                end
+            end
+        end
+    end
+end
+
 function BlizzardUI:ApplyActionBars()
     local A = settings()
     if A.enabled then self:SkinButtons() end
     self:ApplyPanels()
-    show("art", artRegions(), not A.hideArt)
+    self:ApplyArt()
     local hotkeys, names = {}, {}
-    eachButton(function(btn, name)
+    eachButton(function(btn, name, _, kind)
+        if kind ~= "action" then return end
         hotkeys[#hotkeys + 1] = part(btn, name, "HotKey")
         names[#names + 1] = part(btn, name, "Name")
     end)
@@ -548,6 +796,9 @@ function BlizzardUI:Init()
     ns.Listen("PLAYER_REGEN_ENABLED", function()
         if self.pending then self:ApplyActionBars() end
     end)
+    self:HookBarLayouts()
+    -- the bars' first layout can come after login
+    ns.Listen("PLAYER_ENTERING_WORLD", function() C_Timer.After(1, function() self:ApplyArt() end) end)
     self.ready = true
     self:Apply()
 end

@@ -612,4 +612,7 @@ ns.RegisterLocale("esES", "Español", {
     ["A short flash when a cooldown ends. The global cooldown doesn't count."] = "Un breve destello cuando termina un tiempo de reutilización. El tiempo de reutilización global no cuenta.",
     ["Buttons"] = "Botones",
     ["Kill XP color"] = "Color de PX por muertes",
+    ["Modern bag bar"] = "Barra de bolsas moderna",
+    ["Modern micro menu"] = "Micromenú moderno",
+    ["The bags and the buttons for your spellbook, talents and so on, with the look from the Buttons, Bars and Animations tabs. They need the modern action buttons, and turning one off needs a reload."] = "Las bolsas y los botones del libro de hechizos, talentos, etc., con el aspecto de las pestañas Botones, Barras y Animaciones. Necesitan los botones de acción modernos, y desactivarlos requiere recargar.",
 })

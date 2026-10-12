@@ -612,4 +612,7 @@ ns.RegisterLocale("deDE", "Deutsch", {
     ["A short flash when a cooldown ends. The global cooldown doesn't count."] = "Ein kurzes Aufblitzen, wenn eine Abklingzeit endet. Die globale Abklingzeit zählt nicht.",
     ["Buttons"] = "Tasten",
     ["Kill XP color"] = "EP-Farbe bei Kills",
+    ["Modern bag bar"] = "Moderne Taschenleiste",
+    ["Modern micro menu"] = "Modernes Mikromenü",
+    ["The bags and the buttons for your spellbook, talents and so on, with the look from the Buttons, Bars and Animations tabs. They need the modern action buttons, and turning one off needs a reload."] = "Die Taschen und die Tasten für Zauberbuch, Talente usw., im Look aus den Reitern Tasten, Leisten und Animationen. Sie brauchen die modernen Aktionstasten, und zum Ausschalten ist ein Neuladen nötig.",
 })

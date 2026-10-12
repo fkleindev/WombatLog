@@ -217,6 +217,7 @@ ns.defaults.blizzard = {
         enabled = false,        -- flat buttons with a thin border
         hideArt = false,        -- the gryphons and the bar's background
         hotkeys = true, macroNames = true,
+        bags = false, micro = false,  -- the bag bar and the micro menu, too (need enabled)
         -- the look of each button (needs enabled)
         button = {
             radius = 0,                   -- % of the button, 0..50 (50 = round)

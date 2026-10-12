@@ -23,7 +23,7 @@ Your combat events show up in a transparent, borderless window that fades in whe
 - **Fight summary and journal:** fight history, personal records and session stats.
 - **Session tracker** for leveling: XP per hour, time and kills to the next level.
 - **Custom sounds:** drop your own .ogg or .mp3 files into the addon's `Media\Custom` folder and pick them for any alert.
-- **Blizzard UI tweaks:** hide Blizzard's XP bar and give your action bars a modern look: rounded corners, your own colors, borders and backgrounds, a panel behind each bar and smooth animations, without the gryphons. Off by default.
+- **Blizzard UI tweaks:** hide Blizzard's XP bar and give your action bars a modern look: rounded corners, your own colors, borders and backgrounds, a panel behind each bar and smooth animations, without the gryphons. Optionally for the bag bar and the micro menu, too. Off by default.
 - **Welcome screen** on each character's first login: turn every feature on or off and pick the language.
 - **Live header:** DPS, HPS, fight timer, damage dealt and taken, biggest hit.
 

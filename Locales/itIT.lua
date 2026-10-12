@@ -612,4 +612,7 @@ ns.RegisterLocale("itIT", "Italiano", {
     ["A short flash when a cooldown ends. The global cooldown doesn't count."] = "Un breve lampo quando finisce un tempo di recupero. Il tempo di recupero globale non conta.",
     ["Buttons"] = "Pulsanti",
     ["Kill XP color"] = "Colore PE delle uccisioni",
+    ["Modern bag bar"] = "Barra delle borse moderna",
+    ["Modern micro menu"] = "Micromenu moderno",
+    ["The bags and the buttons for your spellbook, talents and so on, with the look from the Buttons, Bars and Animations tabs. They need the modern action buttons, and turning one off needs a reload."] = "Le borse e i pulsanti per libro degli incantesimi, talenti ecc., con l'aspetto delle schede Pulsanti, Barre e Animazioni. Richiedono i pulsanti azione moderni, e disattivarli richiede di ricaricare.",
 })

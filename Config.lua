@@ -1511,18 +1511,26 @@ local function BuildBlizzard(p)
     p:Checkbox("Hide Blizzard's XP bar", "blizzard.hideXPBar")
     p:Note("While you level. Where Blizzard shows your reputation in the same spot at max level, it stays.")
 
+    -- the modern look can't be taken back without a reload
+    local function modernBind(key)
+        return {
+            get = function() return ns.db.blizzard.actionBars[key] end,
+            set = function(v)
+                ns.db.blizzard.actionBars[key] = v
+                ns.ApplyAll()
+                if not v and ns.BlizzardUI.skinned then
+                    Confirm(L["The original action buttons come back after reloading the interface. Reload now?"], ReloadUI)
+                end
+            end,
+        }
+    end
+
     p:Header("Action bars")
-    p:Checkbox("Modern action buttons", {
-        get = function() return ns.db.blizzard.actionBars.enabled end,
-        set = function(v)
-            ns.db.blizzard.actionBars.enabled = v
-            ns.ApplyAll()
-            if not v and ns.BlizzardUI.skinned then
-                Confirm(L["The original action buttons come back after reloading the interface. Reload now?"], ReloadUI)
-            end
-        end,
-    })
+    p:Checkbox("Modern action buttons", modernBind("enabled"))
     p:Note("Flat buttons with a thin border, trimmed icons and outlined text. Turning it off needs a reload.")
+    p:Checkbox("Modern bag bar", modernBind("bags"))
+    p:Checkbox("Modern micro menu", modernBind("micro"), 2)
+    p:Note("The bags and the buttons for your spellbook, talents and so on, with the look from the Buttons, Bars and Animations tabs. They need the modern action buttons, and turning one off needs a reload.")
     p:Checkbox("Hide the bar art", "blizzard.actionBars.hideArt")
     p:Note("The gryphons and the background of the main action bar.")
     p:Checkbox("Show key bindings", "blizzard.actionBars.hotkeys")
