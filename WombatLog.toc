@@ -38,5 +38,6 @@ Report.lua
 Swing.lua
 Resources.lua
 Minimap.lua
+BlizzardUI.lua
 Config.lua
 Welcome.lua

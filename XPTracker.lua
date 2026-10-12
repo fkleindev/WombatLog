@@ -122,13 +122,6 @@ local level, nextLevel   -- nextLevel shows once the bar wraps
 local idleT, idleAlpha = 0, 0 -- the idle animation's clock and fade
 local idleColor, idleEmptyColor
 
-local function atMaxLevel()
-    if IsXPUserDisabled and Safe(IsXPUserDisabled()) then return true end
-    local lvl = Safe(UnitLevel("player"))
-    local max = GetMaxLevelForPlayerExpansion and Safe(GetMaxLevelForPlayerExpansion()) or MAX_PLAYER_LEVEL
-    return lvl and max and lvl >= max or false
-end
-
 function XPTracker:Init()
     self.frame = CreateFrames()
     self.frame:SetScript("OnUpdate", function(_, dt) self:Step(dt) end)
@@ -207,7 +200,7 @@ end
 function XPTracker:UpdateVisibility()
     local f, T = self.frame, ns.db.xpTracker
     local show = self.unlocked or self.testing
-        or (T.enabled and not (T.hideAtMax and atMaxLevel()) and XPBar.Fraction() ~= nil)
+        or (T.enabled and not (T.hideAtMax and XPBar.AtMaxLevel()) and XPBar.Fraction() ~= nil)
     f:SetShown(show and true or false)
 end
 

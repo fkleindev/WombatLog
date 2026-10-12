@@ -32,6 +32,14 @@ function XPBar.Fraction()
     return xp / max
 end
 
+-- True at the level cap or with XP gain turned off.
+function XPBar.AtMaxLevel()
+    if IsXPUserDisabled and Safe(IsXPUserDisabled()) then return true end
+    local lvl = Safe(UnitLevel("player"))
+    local max = GetMaxLevelForPlayerExpansion and Safe(GetMaxLevelForPlayerExpansion()) or MAX_PLAYER_LEVEL
+    return lvl and max and lvl >= max or false
+end
+
 -- Rested XP as a fraction of the current level, or nil.
 function XPBar.RestedFraction()
     local rested = GetXPExhaustion and Safe(GetXPExhaustion())

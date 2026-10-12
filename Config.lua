@@ -1505,6 +1505,30 @@ local function BuildSession(p)
     end, 2)
 end
 
+local function BuildBlizzard(p)
+    p:Header("XP bar")
+    p:Checkbox("Hide Blizzard's XP bar", "blizzard.hideXPBar")
+    p:Note("While you level. Where Blizzard shows your reputation in the same spot at max level, it stays.")
+
+    p:Header("Action bars")
+    p:Checkbox("Modern action buttons", {
+        get = function() return ns.db.blizzard.actionBars.enabled end,
+        set = function(v)
+            ns.db.blizzard.actionBars.enabled = v
+            ns.ApplyAll()
+            if not v and ns.BlizzardUI.skinned then
+                Confirm(L["The original action buttons come back after reloading the interface. Reload now?"], ReloadUI)
+            end
+        end,
+    })
+    p:Note("Flat buttons with a thin border, trimmed icons and outlined text. Turning it off needs a reload.")
+    p:Checkbox("Hide the bar art", "blizzard.actionBars.hideArt")
+    p:Note("The gryphons and the background of the main action bar.")
+    p:Checkbox("Show key bindings", "blizzard.actionBars.hotkeys")
+    p:Checkbox("Show macro names", "blizzard.actionBars.macroNames", 2)
+    p:Note("On some clients the key binding also shows the out-of-range dot, which goes away with it.")
+end
+
 local function BuildMinimap(p)
     p:Header("Minimap button")
     p:Checkbox("Show minimap button", "minimap.enabled")
@@ -1698,6 +1722,7 @@ local TABS = {
         { "History & records", BuildStatsHistory },
     } },
     { "Session", BuildSession },
+    { "Blizzard UI", BuildBlizzard },
     { "Custom sounds", BuildCustomSounds },
     { "Minimap button", BuildMinimap },
     { "Language", BuildLanguage },

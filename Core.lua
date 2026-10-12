@@ -209,6 +209,16 @@ ns.defaults.xpTracker = {
 ns.defaults.session = { enabled = true, headerLine = true }
 ns.defaults.minimap = { enabled = true, angle = 200 }
 
+-- changes to Blizzard's own UI; the defaults leave it as it is
+ns.defaults.blizzard = {
+    hideXPBar = false,          -- while you level, where the spot also holds the reputation
+    actionBars = {
+        enabled = false,        -- flat buttons with a thin border
+        hideArt = false,        -- the gryphons and the bar's background
+        hotkeys = true, macroNames = true,
+    },
+}
+
 -- icons for spells that want attention: usable now (Riposte) or a buff to refresh
 ns.defaults.reminders = {
     enabled = true, combatOnly = true,
@@ -366,6 +376,7 @@ function ns.ApplyAll(refreshPanel)
     ns.Reminders:Apply()
     ns.KillAlert:Apply()
     ns.XPTracker:Apply()
+    ns.BlizzardUI:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
 
@@ -744,6 +755,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.Reminders:Init()
     ns.KillAlert:Init()
     ns.XPTracker:Init()
+    ns.BlizzardUI:Init()
     if ns.Config then ns.Config:Init() end
     if ns.Welcome then ns.Welcome:Init() end
 end)
