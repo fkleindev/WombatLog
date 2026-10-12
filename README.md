@@ -43,9 +43,14 @@ combat starts and fades out a few seconds after it ends.
   pop-up with the quest's name.
 - **XP tracker:** a small XP bar on a dark panel with rounded corners, hanging from
   the top edge of the screen. When XP comes in it grows downward, fills with a glow,
-  lights up the XP just gained and opens up to show "+342 XP" counting up, then
-  settles back. XP from kills and quests shows in the kill and quest alert's colors.
-  More XP while it is big keeps it big and adds up.
+  lights up the XP just gained and opens up to show "+342 XP" counting up, followed
+  by where it came from ("+342 XP · Defias Thug", a quest's name, "Discovery"), and
+  your exact XP ("12,345 / 20,000 XP"), then settles back. XP from kills and quests
+  shows in the kill and quest alert's colors. More XP while it is big keeps it big
+  and adds up. Moving the mouse over it opens it, too. While no XP comes in, an idle
+  animation keeps the bar moving (waves, stripes, rainbow, sparkle, shine, pulse or
+  liquid), on the filled part, the whole bar or with its own animation for the
+  empty part.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
@@ -127,9 +132,13 @@ sub-tabs along the top.
   background, segments, border, color, fill speed, and effects: spark, gloss, the
   XP just gained lighting up, glow, rested XP, percent text; off by default) and
   *Quest alert* (on/off, quest name, color, sound).
-- **XP tracker:** *General* (on/off, hide at max level, level, XP gained text, how big
-  and how long it grows), *Look* (length, thickness, scale, color, background
-  opacity, text size, font, outline, position along and distance from the top edge) and *XP bar* (the same options as the kill alert's bar).
+- **XP tracker:** *General* (on/off, hide at max level, level, XP gained text, XP
+  source, exact XP when opened, open on mouse over, how big and how long it grows),
+  *Look* (length, thickness, scale, color, background opacity, text size, font,
+  outline, position along and distance from the top edge), *XP bar* (the same
+  options as the kill alert's bar) and *Animation* (the idle animation: style, speed,
+  strength, wavelength and color for the filled part, optionally stretched over the
+  whole bar, and a separate one for the empty part).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),
