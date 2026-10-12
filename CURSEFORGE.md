@@ -17,7 +17,7 @@ Your combat events show up in a transparent, borderless window that fades in whe
 - **Proc alerts** for buffs you pick, such as Clearcasting.
 - **Spell reminders:** icons that light up when a spell is usable (Riposte, Overpower, Execute), a buff or debuff is missing or running out, or your target casts something you can interrupt.
 - **Kill and quest alerts:** XP counting up, "LEVEL UP!", multi-kill counter and a rising sound.
-- **XP tracker:** a small XP bar hanging from the top edge of the screen that grows downward, with a glow, when you get XP and shows where it came from ("+342 XP · Defias Thug"). Mouse over it for your exact XP. At rest the bar can move with waves, stripes, a rainbow, sparkles and more.
+- **XP tracker:** a small XP bar hanging from the top edge of the screen that grows downward, with a glow, when you get XP and shows where it came from ("+342 XP · Defias Thug"). Mouse over it for your exact XP. The bar can move with waves, stripes, a rainbow, sparkles and more.
 - **Personal resource display:** health, power, druid mana, combo points and a cast bar under your character. Bars in any order, and combo points as a bar, squares, circles or diamonds.
 - **Swing timer** for main hand, off hand and ranged.
 - **Fight summary and journal:** fight history, personal records and session stats.

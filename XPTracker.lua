@@ -18,7 +18,7 @@ local COUNT_UP = 0.5         -- seconds the gained XP counts up
 local OPEN_SPEED = 10        -- how fast the panel opens for its text lines
 local HOVER_LINGER = 0.3     -- it stays open this long after the mouse left
 local MERGE = 1.2            -- a kill or quest this close to the XP is where it came from
-local IDLE_IN = 0.6          -- the idle animation fades back in this long after a gain
+local IDLE_IN = 0.6          -- the bar's animation fades back in this long after a gain
 local IDLE_OUT = 0.15        -- and out this fast when XP comes in
 local PAD = 6                -- panel padding
 local RADIUS = 8             -- the panel's rounded bottom corners
@@ -280,12 +280,12 @@ function XPTracker:Render()
     XPBar.Render(f.bar, T.bar, shown, from, gainAge or math.huge, 0, gc)
 end
 
--- The idle animation runs at rest and steps aside while XP comes in.
-function XPTracker:StepIdle(dt, resting)
+-- The bar's animation steps aside while XP comes in.
+function XPTracker:StepIdle(dt, animate)
     local I = ns.db.xpTracker.idle
     if not I.enabled then return end
     idleT = idleT + dt
-    if resting then
+    if animate then
         idleAlpha = math.min(1, idleAlpha + dt / IDLE_IN)
     else
         idleAlpha = math.max(0, idleAlpha - dt / IDLE_OUT)
@@ -319,9 +319,12 @@ function XPTracker:Step(dt)
     local hovering = self:StepHover(dt)
     local resting = not gainAge and scale == 1 and open == 0 and shown == target and not wrapTo
         and not hovering
-    self:StepIdle(dt, resting)
-    if resting then return end
     local hold = 0.25 + T.popHold
+    -- the animation steps aside only while XP comes in, not while the tracker is open
+    local animate = shown == target and not wrapTo
+        and not (gainAge and gainAge < hold + TEXT_FADE)
+    self:StepIdle(dt, animate)
+    if resting then return end
     local big = gainAge and gainAge < hold
 
     -- size: a spring toward popScale while big, back to 1 after

@@ -102,6 +102,7 @@ end
 -- Size and look from the settings B (a killAlert.bar-like table).
 function XPBar.Apply(bar, B, w, h, color, font, outline)
     bar.width = w
+    bar.color = color
     bar:SetSize(w, h)
     bar:SetStatusBarTexture(ns.BarTexture and ns.BarTexture(B.texture) or WHITE)
     bar:SetStatusBarColor(color[1], color[2], color[3], 0.95)
@@ -153,10 +154,21 @@ end
 
 -- The gain flash and the glow, which follow the gain's age.
 -- glowBase: the glow's alpha once the flash is over (nil = 0.25).
--- gainColor: the lit part's color (nil = white).
+-- gainColor: the whole fill's and the lit part's color while it is lit (nil = the
+-- bar's color and white).
 function XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor)
     local w = bar.width or bar:GetWidth()
     local flash = flashLevel(age or 0)
+    -- with a source color the whole fill takes it, then blends back to the bar's color
+    local c, g = bar.color, gainColor
+    if c then
+        if g and flash > 0 then
+            bar:SetStatusBarColor(c[1] + (g[1] - c[1]) * flash, c[2] + (g[2] - c[2]) * flash,
+                c[3] + (g[3] - c[3]) * flash, 0.95)
+        else
+            bar:SetStatusBarColor(c[1], c[2], c[3], 0.95)
+        end
+    end
     -- should the bar ever start past the fill, light it from the left edge
     from = (from and from <= value) and from or 0
     local gainW = (value - from) * w

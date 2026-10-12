@@ -1444,9 +1444,9 @@ local function BuildIdleLayer(p, path, styles)
 end
 
 local function BuildTrackerIdle(p)
-    p:Header("Idle animation")
-    p:Note("Keeps the bar moving while no XP comes in. It steps aside when you get XP and comes back once the tracker has settled.")
-    p:Checkbox("Animate the bar at rest", "xpTracker.idle.enabled")
+    p:Header("Animation")
+    p:Note("Keeps the bar moving, also while the tracker is open. It steps aside while XP comes in.")
+    p:Checkbox("Animate the bar", "xpTracker.idle.enabled")
 
     p:Header("Filled part")
     BuildIdleLayer(p, "xpTracker.idle", IDLE_STYLES)
