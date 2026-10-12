@@ -184,6 +184,7 @@ ns.defaults.xpTracker = {
     scale = 1, width = 220, height = 8, textSize = 14,
     bgOpacity = 0.6,                -- the dark panel behind it
     color = { 0.72, 0.52, 1.00 },
+    killColor = { 1.00, 0.25, 0.20 }, -- the fill and the "+XP" text for XP from kills
     x = 0, offset = 0,              -- offset: distance from the top edge
     font = "", outline = "OUTLINE", -- "" font = the log window's
     bar = {

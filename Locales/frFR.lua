@@ -611,4 +611,5 @@ ns.RegisterLocale("frFR", "Français", {
     ["Flash when ready"] = "Éclat quand prêt",
     ["A short flash when a cooldown ends. The global cooldown doesn't count."] = "Un bref éclat à la fin d'un temps de recharge. Le temps de recharge global ne compte pas.",
     ["Buttons"] = "Boutons",
+    ["Kill XP color"] = "Couleur de l'XP des victimes",
 })

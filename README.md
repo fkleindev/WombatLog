@@ -45,8 +45,9 @@ combat starts and fades out a few seconds after it ends.
   the top edge of the screen. When XP comes in it grows downward, fills with a glow,
   lights up the XP just gained and opens up to show "+342 XP" counting up, followed
   by where it came from ("+342 XP · Defias Thug", a quest's name, "Discovery"), and
-  your exact XP ("12,345 / 20,000 XP"), then settles back. XP from kills and quests
-  colors the whole fill in the kill and quest alert's colors for a moment. More XP while it is big keeps it big
+  your exact XP ("12,345 / 20,000 XP"), then settles back. XP from kills colors
+  the whole fill red (a color of its own), XP from quests in the quest alert's
+  color, until the bar's animation takes over. More XP while it is big keeps it big
   and adds up. Moving the mouse over it opens it, too. An animation keeps the bar
   moving, also while it is open, and steps aside while XP comes in (waves, stripes,
   rainbow, sparkle, shine, pulse or liquid), on the filled part, the whole bar or with its own animation for the
@@ -139,7 +140,7 @@ sub-tabs along the top.
   *Quest alert* (on/off, quest name, color, sound).
 - **XP tracker:** *General* (on/off, hide at max level, level, XP gained text, XP
   source, exact XP when opened, open on mouse over, how big and how long it grows),
-  *Look* (length, thickness, scale, color, background opacity, text size, font,
+  *Look* (length, thickness, scale, color, background opacity, kill XP color, text size, font,
   outline, position along and distance from the top edge), *XP bar* (the same
   options as the kill alert's bar) and *Animation* (style, speed,
   strength, wavelength and color for the filled part, optionally stretched over the

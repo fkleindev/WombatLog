@@ -611,4 +611,5 @@ ns.RegisterLocale("deDE", "Deutsch", {
     ["Flash when ready"] = "Aufblitzen, wenn bereit",
     ["A short flash when a cooldown ends. The global cooldown doesn't count."] = "Ein kurzes Aufblitzen, wenn eine Abklingzeit endet. Die globale Abklingzeit zählt nicht.",
     ["Buttons"] = "Tasten",
+    ["Kill XP color"] = "EP-Farbe bei Kills",
 })

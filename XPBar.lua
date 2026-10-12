@@ -137,8 +137,8 @@ end
 
 -- Fill, spark, rested stretch, percent text and the effects.
 -- value: the shown fill, from: where the latest gain started, age: seconds since it,
--- glowBase, gainColor: see RenderEffects.
-function XPBar.Render(bar, B, value, from, age, glowBase, gainColor)
+-- glowBase, gainColor, colorLevel: see RenderEffects.
+function XPBar.Render(bar, B, value, from, age, glowBase, gainColor, colorLevel)
     local w = bar.width or bar:GetWidth()
     bar:SetValue(value)
 
@@ -157,22 +157,24 @@ function XPBar.Render(bar, B, value, from, age, glowBase, gainColor)
     bar.text:SetShown(B.percent)
     if B.percent then bar.text:SetText(math.floor(value * 100) .. "%") end
 
-    XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor)
+    XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor, colorLevel)
 end
 
 -- The gain flash and the glow, which follow the gain's age.
 -- glowBase: the glow's alpha once the flash is over (nil = 0.25).
 -- gainColor: the whole fill's and the lit part's color while it is lit (nil = the
 -- bar's color and white).
-function XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor)
+-- colorLevel: how much of gainColor the whole fill takes, 0..1 (nil = the flash's curve).
+function XPBar.RenderEffects(bar, B, value, from, age, glowBase, gainColor, colorLevel)
     local w = bar.width or bar:GetWidth()
     local flash = flashLevel(age or 0)
     -- with a source color the whole fill takes it, then blends back to the bar's color
     local c, g = bar.color, gainColor
+    local k = colorLevel or flash
     if c then
-        if g and flash > 0 then
-            bar:SetStatusBarColor(c[1] + (g[1] - c[1]) * flash, c[2] + (g[2] - c[2]) * flash,
-                c[3] + (g[3] - c[3]) * flash, 0.95)
+        if g and k > 0 then
+            bar:SetStatusBarColor(c[1] + (g[1] - c[1]) * k, c[2] + (g[2] - c[2]) * k,
+                c[3] + (g[3] - c[3]) * k, 0.95)
         else
             bar:SetStatusBarColor(c[1], c[2], c[3], 0.95)
         end

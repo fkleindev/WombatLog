@@ -1395,6 +1395,7 @@ local function BuildTrackerLook(p)
     p:Slider("Scale", "xpTracker.scale", 0.5, 2, 0.05, times)
     p:Color("Bar color", "xpTracker.color", 2)
     p:Slider("Background opacity", "xpTracker.bgOpacity", 0, 1, 0.05, pct)
+    p:Color("Kill XP color", "xpTracker.killColor", 2)
 
     p:Header("Text")
     p:Slider("Text size", "xpTracker.textSize", 8, 30, 1)

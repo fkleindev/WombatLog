@@ -121,6 +121,9 @@ local restH, rowH, lineH = 0, 0, 0
 local level, nextLevel   -- nextLevel shows once the bar wraps
 local idleT, idleAlpha = 0, 0 -- the idle animation's clock and fade
 local idleColor, idleEmptyColor
+-- The fill takes the source's color while XP comes in and hands over to the animation:
+-- tintColor, and how much of it shows (1 until the animation comes back, then down to 0).
+local tint, tintColor = 0, nil
 
 function XPTracker:Init()
     self.frame = CreateFrames()
@@ -208,9 +211,10 @@ end
 -- Drawing
 ---------------------------------------------------------------------------
 
--- The gained XP's color: the kill or quest alert's, or the tracker's for other XP.
+-- The gained XP's color: the tracker's kill color, the quest alert's, or the tracker's
+-- for other XP.
 local function colorFor(kind)
-    if kind == "kill" then return ns.db.killAlert.color end
+    if kind == "kill" then return ns.db.xpTracker.killColor end
     if kind == "quest" then return ns.db.questAlert.color end
     return nil
 end
@@ -269,8 +273,10 @@ function XPTracker:Render()
     local gc = colorFor(kind)
     local tc = gc or T.color
     f.gain:SetTextColor(tc[1], tc[2], tc[3])
+    -- the fill keeps the color after the gain has settled, until it has blended back
+    if gainAge then tintColor = gc end
     -- no glow at rest: it only lights up with a gain
-    XPBar.Render(f.bar, T.bar, shown, from, gainAge or math.huge, 0, gc)
+    XPBar.Render(f.bar, T.bar, shown, from, gainAge or math.huge, 0, tintColor, tint)
 end
 
 -- The bar's animation steps aside while XP comes in.
@@ -310,13 +316,21 @@ function XPTracker:Step(dt)
     if not f:IsShown() then return end
     if dt > 0.1 then dt = 0.1 end -- a hitch must not throw the spring off
     local hovering = self:StepHover(dt)
-    local resting = not gainAge and scale == 1 and open == 0 and shown == target and not wrapTo
-        and not hovering
     local hold = 0.25 + T.popHold
     -- the animation steps aside only while XP comes in, not while the tracker is open
     local animate = shown == target and not wrapTo
         and not (gainAge and gainAge < hold + TEXT_FADE)
     self:StepIdle(dt, animate)
+    -- the source's color holds until the animation comes back, then fades as it fades in
+    local tinted = tint > 0 -- one more frame after it reaches 0, to draw the bar's color
+    if not animate and gainAge then
+        tint = 1
+    elseif tint > 0 then
+        tint = math.max(0, tint - dt / IDLE_IN)
+        if tint == 0 then tintColor = nil end
+    end
+    local resting = not gainAge and scale == 1 and open == 0 and shown == target and not wrapTo
+        and not hovering and not tinted
     if resting then return end
     local big = gainAge and gainAge < hold
 

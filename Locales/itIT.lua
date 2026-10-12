@@ -611,4 +611,5 @@ ns.RegisterLocale("itIT", "Italiano", {
     ["Flash when ready"] = "Lampo quando pronto",
     ["A short flash when a cooldown ends. The global cooldown doesn't count."] = "Un breve lampo quando finisce un tempo di recupero. Il tempo di recupero globale non conta.",
     ["Buttons"] = "Pulsanti",
+    ["Kill XP color"] = "Colore PE delle uccisioni",
 })

@@ -611,4 +611,5 @@ ns.RegisterLocale("esES", "Español", {
     ["Flash when ready"] = "Destello al estar listo",
     ["A short flash when a cooldown ends. The global cooldown doesn't count."] = "Un breve destello cuando termina un tiempo de reutilización. El tiempo de reutilización global no cuenta.",
     ["Buttons"] = "Botones",
+    ["Kill XP color"] = "Color de PX por muertes",
 })
