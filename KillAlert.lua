@@ -35,16 +35,7 @@ local SAMPLE_QUEST = { name = "The Defias Brotherhood", xp = 1250 }
 ---------------------------------------------------------------------------
 
 -- "%s dies, you gain %d experience." -> a Lua pattern with two captures
-local function toPattern(fmt)
-    fmt = fmt:gsub("%.$", "")
-    -- mark the placeholders (also numbered ones like %1$s), escape the rest, then
-    -- turn the marks into captures
-    fmt = fmt:gsub("%%%d%$s", "\001"):gsub("%%%d%$d", "\002")
-    fmt = fmt:gsub("%%s", "\001"):gsub("%%d", "\002")
-    fmt = fmt:gsub("([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
-    fmt = fmt:gsub("\001", "(.-)"):gsub("\002", "(%%d+)")
-    return "^" .. fmt
-end
+local toPattern = ns.FormatToPattern
 
 local killPattern
 

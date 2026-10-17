@@ -1460,6 +1460,98 @@ local function BuildTrackerIdle(p)
 end
 
 ---------------------------------------------------------------------------
+-- Quest progress
+---------------------------------------------------------------------------
+
+local function BuildQuestGeneral(p)
+    p:Header("Quest progress")
+    p:Note("A card when one of your quests moves on: all its objectives, the one that just changed lit up, and a bar that fills for every \"kill X\" or \"collect X\" objective. Press Test twice to see a quest getting done.")
+    p:Checkbox("Show quest progress", "questProgress.enabled")
+    p:Button("Test", function() ns.QuestProgress:Test() end, 2, -2, 100)
+    p:Dropdown("Position", "questProgress.anchor", {
+        { text = "Free pop-up", value = "free" },
+        { text = "Under the XP tracker", value = "tracker" },
+    })
+    p:Slider("Display time", "questProgress.duration", 2, 15, 0.5, secs, 2)
+    p:Slider("Quests at once", "questProgress.maxQuests", 1, 5, 1)
+    p:Checkbox("Bars for kill and collect objectives", "questProgress.bars")
+    p:Checkbox("Dim the other objectives", "questProgress.dimUnchanged", 2)
+    p:Checkbox("\"Quest complete!\" banner", "questProgress.completeBanner")
+    p:Checkbox("Wait until the fight is over", "questProgress.delayInCombat", 2)
+    p:Checkbox("Hide the game's quest progress text", "questProgress.hideBlizzardText")
+    p:Note("The progress is read from your quest log on every client, so it works in every language. Bonus objectives that fill a bar show their percent (Retail). The game's text is the yellow \"Kobold Vermin slain: 3/10\" in the middle of the screen; its other messages still show.")
+end
+
+local function BuildQuestLook(p)
+    p:Header("Look")
+    p:Slider("Width", "questProgress.width", 180, 450, 10, px)
+    p:Slider("Scale", "questProgress.scale", 0.5, 2, 0.05, times, 2)
+    p:Slider("Background opacity", "questProgress.bgOpacity", 0, 1, 0.05, pct)
+    p:Color("Changed objective", "questProgress.highlightColor", 2)
+    p:Color("Done objective", "questProgress.doneColor")
+    p:Color("\"Quest complete!\" color", "questProgress.completeColor", 2)
+
+    p:Header("Text")
+    p:Slider("Text size", "questProgress.textSize", 8, 24, 1)
+    p:Dropdown("Font", "questProgress.font", alertFontOptions, 2)
+    p:Dropdown("Outline", "questProgress.outline", OUTLINE_OPTIONS)
+
+    p:Header("Position")
+    p:Checkbox("Unlock (drag the card to move it)", {
+        get = function() return ns.QuestProgress.unlocked end,
+        set = function(v) ns.QuestProgress:SetLocked(not v) end,
+    })
+    p:Button("Reset position", function()
+        local Q, D = ns.db.questProgress, ns.defaults.questProgress
+        Q.x, Q.y = D.x, D.y
+        ns.ApplyAll(true)
+    end, 2)
+    p:Note("Under the XP tracker, the card follows the tracker; move the tracker instead.")
+end
+
+local function BuildQuestBars(p)
+    p:Header("Bars")
+    p:Slider("Thickness", "questProgress.bar.height", 3, 20, 1, px)
+    p:Color("Bar color", "questProgress.barColor", 2)
+    p:Dropdown("Bar texture", "questProgress.bar.texture", ns.Resources.TextureOptions)
+    p:Slider("Background opacity", "questProgress.bar.bgOpacity", 0, 1, 0.05, pct, 2)
+    p:Checkbox("One segment per item (up to 20)", "questProgress.bar.segments")
+    p:Checkbox("Thin border", "questProgress.bar.border", 2)
+    p:Slider("Fill speed", "questProgress.bar.speed", 1, 20, 1)
+
+    p:Header("Effects")
+    p:Checkbox("Spark at the fill's edge", "questProgress.bar.spark")
+    p:Checkbox("Gloss", "questProgress.bar.gloss", 2)
+    p:Checkbox("Light up the progress just made", "questProgress.bar.gainFlash")
+    p:Checkbox("Glow behind the bar", "questProgress.bar.glow", 2)
+    p:Button("Test", function() ns.QuestProgress:Test() end)
+end
+
+local function BuildQuestSound(p)
+    p:Header("Sound")
+    p:Checkbox("Sound on progress", "questProgress.sound")
+    p:Dropdown("Sound", {
+        get = function() return ns.db.questProgress.soundChoice end,
+        set = function(v)
+            local Q = ns.db.questProgress
+            Q.soundChoice = v
+            ns.Alerts.PlaySound(v, Q.channel)
+        end,
+    }, ns.Alerts.SoundOptions, 2)
+    p:Checkbox("Sound when a quest is complete", "questProgress.completeSound")
+    p:Dropdown("Completion sound", {
+        get = function() return ns.db.questProgress.completeSoundChoice end,
+        set = function(v)
+            local Q = ns.db.questProgress
+            Q.completeSoundChoice = v
+            ns.Alerts.PlaySound(v, Q.channel)
+        end,
+    }, ns.Alerts.SoundOptions, 2)
+    p:Dropdown("Sound channel", "questProgress.channel", SOUND_CHANNELS)
+    p:Note("When a quest gets complete, only the completion sound plays.")
+end
+
+---------------------------------------------------------------------------
 -- Fight summary, session, minimap
 ---------------------------------------------------------------------------
 
@@ -1777,6 +1869,12 @@ local TABS = {
         { "Look", BuildTrackerLook },
         { "XP bar", BuildTrackerBar },
         { "Animation", BuildTrackerIdle },
+    } },
+    { "Quest progress", {
+        { "General", BuildQuestGeneral },
+        { "Look", BuildQuestLook },
+        { "Bars", BuildQuestBars },
+        { "Sound", BuildQuestSound },
     } },
     { "Swing timer", BuildSwing },
     { "Resource display", {

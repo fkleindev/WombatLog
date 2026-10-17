@@ -52,6 +52,13 @@ combat starts and fades out a few seconds after it ends.
   moving, also while it is open, and steps aside while XP comes in (waves, stripes,
   rainbow, sparkle, shine, pulse or liquid), on the filled part, the whole bar or with its own animation for the
   empty part.
+- **Quest progress:** a card that pops up when one of your quests moves on, with all
+  its objectives. The one that just changed lights up with a "+1", and every "kill X"
+  or "collect X" objective has a bar that fills from the old count to the new one
+  (bonus objectives show their percent on Retail). Objectives just done get a check
+  mark, and when the last one is done the card says "Quest complete!". Several quests
+  at once stack. It pops up freely or hangs under the XP tracker, can wait until the
+  fight is over, and can replace the game's yellow "Kobold Vermin slain: 3/10".
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
@@ -146,6 +153,12 @@ sub-tabs along the top.
   options as the kill alert's bar) and *Animation* (style, speed,
   strength, wavelength and color for the filled part, optionally stretched over the
   whole bar, and a separate one for the empty part).
+- **Quest progress:** *General* (on/off, free or under the XP tracker, display time,
+  quests at once, bars, dim the other objectives, "Quest complete!" banner, wait until
+  the fight is over, hide the game's quest progress text), *Look* (width, scale,
+  background opacity, colors, text size, font, outline, position), *Bars* (thickness,
+  color, texture, background, segments, border, fill speed, spark, gloss, light,
+  glow) and *Sound* (on progress, on completion, channel).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, when it shows, fade times, opacity),
@@ -279,6 +292,8 @@ effort: whatever the client keeps secret is left out.
 | `PLAYER_SWING`, `UnitAttackSpeed` | Swing timer |
 | `CHAT_MSG_COMBAT_XP_GAIN`, `PLAYER_XP_UPDATE` | Kills, XP per kill and per hour, XP tracker |
 | `QUEST_COMPLETE`, `QUEST_FINISHED`, `QUEST_TURNED_IN` | Quest alerts |
+| `QUEST_LOG_UPDATE`, `QUEST_WATCH_UPDATE`, `C_QuestLog` / `GetQuestLogTitle`, `GetQuestLogLeaderBoard` | Quest progress: the objectives read again and compared after every change |
+| `UI_INFO_MESSAGE` | Hiding the game's quest progress text (optional) |
 | `PLAYER_MONEY`, `PLAYER_DEAD` | Session money and deaths |
 | `PLAYER_REGEN_DISABLED` / `_ENABLED` | Showing and hiding the window |
 
@@ -358,6 +373,7 @@ As a result:
 | `XPBar.lua` | The XP bar widget shared by the kill alert and the XP tracker |
 | `KillAlert.lua` | Kill and quest alerts (XP, XP bar, multi-kills) |
 | `XPTracker.lua` | XP tracker that is always shown and grows when XP comes in |
+| `QuestProgress.lua` | Quest progress cards: all objectives, the changed one lit, bars for counts |
 | `Report.lua` | Fight summary card and the journal window |
 | `Swing.lua` | Swing timer lane inside the log window |
 | `Resources.lua` | Personal resource display |

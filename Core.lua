@@ -207,6 +207,33 @@ ns.defaults.xpTracker = {
     },
 }
 
+-- a card when a quest moves on: all its objectives, the changed one lit, bars for counts
+ns.defaults.questProgress = {
+    enabled = true,
+    anchor = "free",                -- "free" | "tracker" (hangs under the XP tracker)
+    x = 560, y = 200,               -- free: the stack's top edge, from the screen center
+    duration = 5, maxQuests = 3,
+    bars = true,                    -- bars for "kill X" / "collect X" objectives
+    dimUnchanged = true,            -- the other objectives a little darker
+    completeBanner = true,          -- "Quest complete!" when the last objective is done
+    delayInCombat = false,          -- hold the cards back until the fight is over
+    hideBlizzardText = false,       -- the game's yellow "Kobold Vermin slain: 3/10"
+    scale = 1, width = 260, textSize = 13, bgOpacity = 0.6,
+    font = "", outline = "OUTLINE", -- "" font = the log window's
+    highlightColor = { 1.00, 0.82, 0.18 },
+    doneColor = { 0.35, 1.00, 0.45 },
+    completeColor = { 1.00, 0.82, 0.18 },
+    barColor = { 0.95, 0.65, 0.20 },
+    sound = false, soundChoice = "wl:pluck",
+    completeSound = false, completeSoundChoice = "kit:IG_QUEST_LIST_COMPLETE",
+    channel = "Master",
+    bar = {
+        height = 6, texture = "blizzard", bgOpacity = 0.5, border = true,
+        segments = true,            -- one segment per item, up to 20
+        speed = 4, spark = true, gloss = false, gainFlash = true, glow = true,
+    },
+}
+
 ns.defaults.session = { enabled = true, headerLine = true }
 ns.defaults.minimap = { enabled = true, angle = 200 }
 
@@ -298,6 +325,19 @@ function ns.SafeTable(t)
     if type(t) ~= "table" then return nil end
     if issecrettable and issecrettable(t) then return nil end
     return t
+end
+
+-- A game format string ("%s dies, you gain %d experience.") as a Lua pattern that
+-- captures its placeholders, anchored at the start.
+function ns.FormatToPattern(fmt)
+    fmt = fmt:gsub("%.$", "")
+    -- mark the placeholders (also numbered ones like %1$s), escape the rest, then
+    -- turn the marks into captures
+    fmt = fmt:gsub("%%%d%$s", "\001"):gsub("%%%d%$d", "\002")
+    fmt = fmt:gsub("%%s", "\001"):gsub("%%d", "\002")
+    fmt = fmt:gsub("([%%%(%)%.%+%-%*%?%[%]%^%$])", "%%%1")
+    fmt = fmt:gsub("\001", "(.-)"):gsub("\002", "(%%d+)")
+    return "^" .. fmt
 end
 
 function ns.Print(msg)
@@ -402,6 +442,7 @@ function ns.ApplyAll(refreshPanel)
     ns.Reminders:Apply()
     ns.KillAlert:Apply()
     ns.XPTracker:Apply()
+    ns.QuestProgress:Apply()
     ns.BlizzardUI:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
@@ -781,6 +822,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.Reminders:Init()
     ns.KillAlert:Init()
     ns.XPTracker:Init()
+    ns.QuestProgress:Init()
     ns.BlizzardUI:Init()
     if ns.Config then ns.Config:Init() end
     if ns.Welcome then ns.Welcome:Init() end
