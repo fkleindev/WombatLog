@@ -356,6 +356,65 @@ function ns.Full(n)
     return tostring(n)
 end
 
+function ns.IsSecret(v)
+    return issecretvalue ~= nil and issecretvalue(v) == true
+end
+
+-- ns.Short's steps for the client's AbbreviateNumbers, which (unlike Lua) may round
+-- a secret number: 8.333 -> "8", 12345 -> "12.3k", 1234567 -> "1.23m". Without the
+-- last step it hands small values back unrounded (8,3333333 for a secret DPS).
+-- Value shown = floor(v / significandDivisor) / fractionDivisor.
+local ABBREV_OPTIONS = {
+    breakpointData = {
+        { breakpoint = 1e6, abbreviation = "m", significandDivisor = 1e4, fractionDivisor = 100, abbreviationIsGlobal = false },
+        { breakpoint = 1e4, abbreviation = "k", significandDivisor = 100, fractionDivisor = 10, abbreviationIsGlobal = false },
+        { breakpoint = 0, abbreviation = "", significandDivisor = 1, fractionDivisor = 1, abbreviationIsGlobal = false },
+    },
+}
+
+-- A secret number as a short string (secret in, secret out), or nil.
+local function secretShort(v)
+    if AbbreviateNumbers then
+        local ok, s = pcall(AbbreviateNumbers, v, ABBREV_OPTIONS)
+        if ok then return s end
+    end
+    -- no options support: a rounded integer
+    if C_StringUtil and C_StringUtil.RoundToNearestString then
+        local ok, s = pcall(C_StringUtil.RoundToNearestString, v)
+        if ok then return s end
+    end
+end
+
+-- Puts prefix .. amount on a font string. Since the Forever release UNIT_COMBAT
+-- amounts are secret: no math, compares or truth tests, but the client's formatters
+-- and SetFormattedText still draw them. full: thousands separators instead of "12.3k".
+function ns.SetAmountText(fs, prefix, v, full)
+    prefix = prefix or ""
+    if not ns.IsSecret(v) then
+        if type(v) ~= "number" then v = 0 end
+        fs:SetText(prefix .. (full and ns.Full(v) or ns.Short(v)))
+        return
+    end
+    local s
+    if full and BreakUpLargeNumbers then
+        local ok, r = pcall(BreakUpLargeNumbers, v)
+        if ok then s = r end
+    else
+        s = secretShort(v)
+    end
+    -- a nil result makes SetFormattedText fail, which falls through to "%d"
+    if pcall(fs.SetFormattedText, fs, "%s%s", prefix, s) then return end
+    if not pcall(fs.SetFormattedText, fs, "%s%d", prefix, v) then fs:SetText(prefix .. "?") end
+end
+
+-- The same as a string for a longer line (secret in, secret out), "-" when missing.
+function ns.AmountString(v)
+    if not ns.IsSecret(v) then
+        return type(v) == "number" and ns.Short(v) or "-"
+    end
+    return secretShort(v) or "?"
+end
+
 function ns.CopyTable(t)
     if type(t) ~= "table" then return t end
     local c = {}
@@ -627,14 +686,15 @@ local HIT_KINDS = { damage = true, heal = true, taken = true, healIn = true }
 function ns.ShouldShow(e)
     local b = ns.db.behaviour
     if not b.show[e.kind] then return false end
-    if e.amount and HIT_KINDS[e.kind] then
+    if (e.amount or e.secret) and HIT_KINDS[e.kind] then
         local minAmount, hideNormal
         if e.dir == "in" then
             minAmount, hideNormal = b.minAmountIn, b.hideNormalIn
         else
             minAmount, hideNormal = b.minAmountOut, b.hideNormalOut
         end
-        if e.amount < minAmount then return false end
+        -- a secret amount (Forever) can't be compared: only the crit filter applies
+        if e.amount and e.amount < minAmount then return false end
         if hideNormal and not e.crit then return false end
     end
     return true

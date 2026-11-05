@@ -27,7 +27,7 @@ local function fillTooltip(tt)
     tt:AddLine("WombatLog")
     local last = ns.Stats.last
     if last and not last.test then
-        tt:AddDoubleLine(L["Last fight"], ns.Short(last.dps) .. " DPS, " .. ns.Stats.FormatDuration(last.duration), 0.8, 0.8, 0.8, 1, 1, 1)
+        tt:AddDoubleLine(L["Last fight"], (last.secret and "-" or ns.Short(last.dps)) .. " DPS, " .. ns.Stats.FormatDuration(last.duration), 0.8, 0.8, 0.8, 1, 1, 1)
     end
     if ns.db.session.enabled then
         local i = ns.Stats:SessionInfo()

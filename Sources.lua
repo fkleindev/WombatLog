@@ -332,7 +332,31 @@ end
 -- UNIT_COMBAT
 ---------------------------------------------------------------------------
 
-local function onTarget(action, flag, amount, school)
+-- A hit's amount: readable (number) or secret (Forever release). A secret amount
+-- goes into e.secretAmount with e.secret = true, and e.amount stays nil, so nothing
+-- does math on it. (A secret is never tested or compared, only drawn.)
+local function newEntry(dir, flag, amount, school, isSecret, raw)
+    local e = { dir = dir, flag = flag, school = school, crit = flag == "CRITICAL" }
+    if isSecret then
+        e.secret, e.secretAmount = true, raw
+        ns.secretAmounts = true -- totals come from Blizzard's damage meter from now on
+    else
+        e.amount = amount
+    end
+    return e
+end
+
+-- WOUND with nothing left is an absorbed hit; a secret amount can't be checked,
+-- and fully absorbed hits come as their own ABSORB action anyway.
+local function landed(action, amount, isSecret)
+    return action == "WOUND" and (isSecret or amount > 0)
+end
+
+local function noAmount(e)
+    e.amount, e.secret, e.secretAmount = nil, nil, nil
+end
+
+local function onTarget(action, flag, amount, school, isSecret, raw)
     if Safe(UnitIsUnit("target", "player")) then return end -- already reported as "player"
     if action == "ENERGIZE" or action == "INTERRUPT" then return end
 
@@ -344,14 +368,15 @@ local function onTarget(action, flag, amount, school)
     end
 
     local grouped = IsInGroup()
-    local e = { dir = "out", flag = flag, amount = amount, school = school, crit = flag == "CRITICAL" }
+    local e = newEntry("out", flag, amount, school, isSecret, raw)
     if action == "HEAL" then
         e.kind = "heal"
-    elseif action == "WOUND" and amount > 0 then
+    elseif landed(action, amount, isSecret) then
         e.kind = "damage"
     else
         e.kind = "avoid"
         e.tag = AVOID_OUT[action] or (action == "WOUND" and "ABSORB") or action
+        noAmount(e)
     end
 
     local a = matchAction(school, grouped, e.kind == "heal", e.kind ~= "heal" and looksLikeTick(school))
@@ -369,9 +394,9 @@ local function onTarget(action, flag, amount, school)
     ns.Emit(e)
 end
 
-local function onPlayer(action, flag, amount, school)
+local function onPlayer(action, flag, amount, school, isSecret, raw)
     if action == "ENERGIZE" or action == "INTERRUPT" then return end
-    local e = { dir = "in", flag = flag, amount = amount, school = school, crit = flag == "CRITICAL" }
+    local e = newEntry("in", flag, amount, school, isSecret, raw)
 
     if action == "HEAL" then
         local grouped = IsInGroup()
@@ -385,7 +410,7 @@ local function onPlayer(action, flag, amount, school)
         else
             e.kind, e.name, e.icon = "healIn", "Healed", ICON_HEAL
         end
-    elseif action == "WOUND" and amount > 0 then
+    elseif landed(action, amount, isSecret) then
         e.kind = "taken"
         e.icon = ICON_TAKEN
         if school == 1 then
@@ -393,11 +418,12 @@ local function onPlayer(action, flag, amount, school)
         else
             e.name = (ns.SCHOOL_NAMES[school] or "Spell") .. " damage"
         end
-        ns.AddStat("taken", amount)
+        ns.AddStat("taken", e.amount)
         if flag == "BLOCK_REDUCED" then ns.Reminders:OnAvoid("in", "BLOCK") end -- Revenge
     else
         e.kind, e.icon = "avoid", ICON_TAKEN
         e.tag = AVOID_IN[action] or (action == "WOUND" and "ABSORBED") or action
+        noAmount(e)
         e.name = "Incoming"
         ns.Reminders:OnAvoid("in", action) -- Riposte, Revenge
     end
@@ -408,13 +434,16 @@ ns.Listen("UNIT_COMBAT", function(unit, action, flag, amount, school)
     unit, action = Safe(unit), Safe(action)
     if not unit or not action then return end
     flag = Safe(flag)
+    -- since the Forever release the amount is secret: keep it to draw, never compute
+    local raw = amount
+    local isSecret = ns.IsSecret(raw)
     amount = Safe(amount) or 0
     school = Safe(school) or 1
-    trace("UNIT_COMBAT %s %s %s %d school %d", unit, action, flag or "-", amount, school)
+    trace("UNIT_COMBAT %s %s %s %s school %d", unit, action, flag or "-", isSecret and "secret" or tostring(amount), school)
     if unit == "player" then
-        onPlayer(action, flag, amount, school)
+        onPlayer(action, flag, amount, school, isSecret, raw)
     elseif unit == "target" then
-        onTarget(action, flag, amount, school)
+        onTarget(action, flag, amount, school, isSecret, raw)
     end
 end, "player", "target")
 

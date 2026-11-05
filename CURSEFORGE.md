@@ -49,6 +49,7 @@ On the Classic clients WombatLog reads the full combat log, so every hit is exac
 - **Rebuilding the feed:** it uses the events that are still allowed: hits on you and your target, your swings and your casts. Each hit on your target is matched to the swing or cast most likely behind it, by timing, cast order and damage school.
 - **Built-in spell data:** every class spell of every rank ships with its school, DoT ticks and duration, generated from each client's own game data. Matching is right from the first cast. Anything missing (pets, items, racials) is learned as you play and saved for all your characters.
 - **Secret values:** they go straight to the game's own bars, so health, power and combo points still fill correctly in combat. Only the numbers in the text may disappear.
+- **Secret damage numbers (Forever):** the feed and crit alerts still show every hit's real number. DPS and totals come from Blizzard's damage meter. Records, the biggest hit and the minimum-amount filters pause while the numbers are secret.
 - **Swing timer:** it remembers your weapon speed from outside combat and adjusts to the real gap between your swings, so haste buffs are picked up mid-fight.
 - **Spell reminders:** they carry on from what they last saw and from your own casts while auras are hidden.
 

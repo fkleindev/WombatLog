@@ -311,7 +311,11 @@ function AlertFrame:Render(d)
     local V = self.getCfg()
     local c = d.color
     self.lastData = d
-    f.amount:SetText(d.big or "")
+    if d.secret then
+        ns.SetAmountText(f.amount, d.bigPrefix, d.secretBig, true) -- secret amount (Forever)
+    else
+        f.amount:SetText(d.big or "")
+    end
     f.amount:SetTextColor(c[1], c[2], c[3])
     f.iconBorder:SetColorTexture(c[1], c[2], c[3], 1)
     f.icon:SetTexture(d.icon or 134400)
@@ -379,6 +383,9 @@ local function critData(e, streak, record)
         big = (e.kind == "heal" and "+" or "") .. ns.Full(e.amount or 0),
         small = ns.EventName(e.name), icon = e.icon, color = critColor(),
     }
+    if e.secret then
+        d.secret, d.secretBig, d.bigPrefix = true, e.secretAmount, e.kind == "heal" and "+" or ""
+    end
     if record then
         d.banner, d.bannerColor = L["NEW RECORD!"], ns.db.colors.crit
     elseif streak then
@@ -443,6 +450,7 @@ end
 local function qualifies(cfg, e)
     if not cfg.enabled then return false end
     if e.kind == "heal" and not cfg.heals then return false end
+    if e.secret then return true end -- can't be compared: the threshold counts as met
     return (e.amount or 0) >= cfg.minAmount
 end
 

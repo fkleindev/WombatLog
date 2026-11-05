@@ -355,6 +355,12 @@ As a result:
   the bar can be off by a little in those cases.
 - **Values the game keeps secret are skipped.** The game hides some values from
   addons during combat, and WombatLog never shows or calculates with them.
+- **Secret hit amounts (Forever since release).** `UNIT_COMBAT` amounts arrive as
+  secret values. The game still draws them, so rows and crit alerts show the real
+  numbers, but WombatLog can't add them up or compare them. DPS, HPS and totals then
+  come from Blizzard's damage meter (`C_DamageMeter`, `DamageMeter.lua`), or show "-"
+  without it. The spell breakdown is sorted by hits, the biggest hit, records and the
+  minimum-amount filters pause, and DoT pins show the latest tick instead of a sum.
 
 ## Files
 
@@ -368,6 +374,7 @@ As a result:
 | `CombatLog.lua` | Classic clients: turns the combat log into feed entries |
 | `Display.lua` | The window, header, rows, animations and live preview |
 | `Stats.lua` | Fight statistics, history, records, crit streaks and the session tracker |
+| `DamageMeter.lua` | Your DPS, HPS and totals from Blizzard's damage meter while hit amounts are secret (Forever) |
 | `Alerts.lua` | Crit, streak, record and proc alerts (visual and sound) |
 | `Reminders.lua` | Spell reminders (usable spells, buffs to refresh) |
 | `XPBar.lua` | The XP bar widget shared by the kill alert and the XP tracker |
@@ -409,5 +416,5 @@ The language then shows up in the language picker by itself.
 
 Run `/console scriptErrors 1` so errors show on screen, reproduce the problem, and
 open an issue with the full error text, and the output of `/wl debug` (it shows which
-client and which data source WombatLog detected). Forever is in beta, so its API can
-change between builds.
+client and which data source WombatLog detected). Forever is new, so its API can
+still change between patches: at release, for example, hit amounts became secret.

@@ -42,9 +42,9 @@ local function brighten(c)
     return { c[1] + (1 - c[1]) * 0.35, c[2] + (1 - c[2]) * 0.35, c[3] + (1 - c[3]) * 0.35 }
 end
 
-local function formatAmount(n)
-    if ns.db.appearance.numberFormat == "short" then return ns.Short(n) end
-    return ns.Full(n)
+-- readable or secret amount (see ns.SetAmountText)
+local function setAmount(fs, prefix, v)
+    ns.SetAmountText(fs, prefix, v, ns.db.appearance.numberFormat ~= "short")
 end
 
 -- Tinted fade, strongest at the given side. Uses a texture + vertex color because
@@ -281,7 +281,9 @@ local function Fill(r, e)
     local A, C, K = ns.db.appearance, ns.db.colors, ns.db.crit
     local tag = e.tag or TAGS[e.kind]
     local color = e.kind == "damage" and schoolColor(e.school or 1) or C[e.kind] or C.avoid
-    local crit = (e.crit and e.amount and not tag) and true or false
+    local amount = e.amount
+    if e.secret then amount = e.secretAmount end -- secret (Forever): drawn only, never tested
+    local crit = (e.crit and (e.secret or e.amount) and not tag) and true or false
     local cc = C.crit
 
     LayoutRow(r, e.dir)
@@ -297,11 +299,11 @@ local function Fill(r, e)
     elseif crit then
         local c = e.kind == "damage" and cc or brighten(color)
         font(r.amount, A.amountFont, A.critSize, A.outline == "" and "OUTLINE" or "THICKOUTLINE")
-        r.amount:SetText((PREFIX[e.kind] or "") .. formatAmount(e.amount))
+        setAmount(r.amount, PREFIX[e.kind], amount)
         r.amount:SetTextColor(c[1], c[2], c[3])
     else
         font(r.amount, A.amountFont, A.amountSize, A.outline)
-        r.amount:SetText((PREFIX[e.kind] or "") .. formatAmount(e.amount or 0))
+        setAmount(r.amount, PREFIX[e.kind], amount)
         r.amount:SetTextColor(color[1], color[2], color[3])
     end
 
@@ -566,9 +568,13 @@ function Display:UpdateHeader()
         f, elapsed = PREVIEW_STATS, PREVIEW_STATS.elapsed
     end
     local div = math.max(elapsed, 1)
+    header.timer:SetText(string.format("%d:%02d", math.floor(elapsed / 60), math.floor(elapsed % 60)))
+    if ns.secretAmounts and f ~= PREVIEW_STATS and not ns.testing then
+        self:UpdateMeterHeader()
+        return
+    end
     header.dps:SetText(ns.Short(f.damage / div))
     header.hps:SetText(ns.Short(f.healing / div))
-    header.timer:SetText(string.format("%d:%02d", math.floor(elapsed / 60), math.floor(elapsed % 60)))
     header.totals:SetText(L["%s dmg    %s taken"]:format(ns.Short(f.damage), ns.Short(f.taken)))
     if f.top then
         header.top:SetText(L["Biggest hit"] .. "  " .. ns.EventName(f.top.name) .. "  " .. ns.Full(f.top.amount)
@@ -576,6 +582,24 @@ function Display:UpdateHeader()
     else
         header.top:SetText("")
     end
+end
+
+-- Secret amounts (Forever): DPS/HPS and totals from Blizzard's damage meter, drawn
+-- without math; "-" when there's no meter. No biggest hit: secret hits can't be compared.
+function Display:UpdateMeterHeader()
+    local DM = ns.DamageMeter
+    local dmg, dps = DM:Player("DamageDone")
+    local _, hps = DM:Player("HealingDone")
+    local taken = DM:Player("DamageTaken")
+    local function put(fs, v)
+        if ns.IsSecret(v) or type(v) == "number" then ns.SetAmountText(fs, "", v) else fs:SetText("-") end
+    end
+    put(header.dps, dps)
+    put(header.hps, hps)
+    local okTotals = pcall(header.totals.SetFormattedText, header.totals, L["%s dmg    %s taken"],
+        ns.AmountString(dmg), ns.AmountString(taken))
+    if not okTotals then header.totals:SetText("") end
+    header.top:SetText("")
 end
 
 ---------------------------------------------------------------------------
@@ -877,7 +901,11 @@ end
 
 local function AddTick(pe, e, now)
     local pin = pe.pin
-    pe.amount = pe.amount + (e.amount or 0)
+    if e.secret then
+        pe.secret, pe.secretAmount = true, e.secretAmount -- secret ticks can't be summed: show the latest one
+    else
+        pe.amount = pe.amount + (e.amount or 0)
+    end
     pe.ticks = pe.ticks + 1
     if e.crit then pe.critTicks = pe.critTicks + 1 end
     pin.lastTick = now

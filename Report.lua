@@ -31,6 +31,18 @@ local function pct(part, whole)
     return math.floor(part / whole * 100 + 0.5) .. "%"
 end
 
+-- A fight total, or "-" when the hits' amounts were secret (Forever) and Blizzard's
+-- damage meter had no readable total either.
+local function total(snap, v)
+    if snap.secret then return "-" end
+    return ns.Short(v or 0)
+end
+
+-- What a spell row's bar and share are measured in: hits when the amounts were secret.
+local function spellSize(snap, s)
+    return snap.secretSpells and s.hits or s.total
+end
+
 local function when(t, withDate)
     if not t then return "" end
     return date(withDate and "%d.%m. %H:%M" or "%H:%M", t)
@@ -206,7 +218,7 @@ local function FillSummary(f, snap)
     f.sub:SetText(fightTitle(snap))
 
     local values = {
-        ns.Short(snap.dps), ns.Short(snap.hps), pct(snap.crits, snap.hits),
+        total(snap, snap.dps), total(snap, snap.hps), pct(snap.crits, snap.hits),
         snap.top and ns.Short(snap.top.amount) or "-",
         snap.longestStreak > 0 and ("x" .. snap.longestStreak) or "-",
     }
@@ -215,7 +227,7 @@ local function FillSummary(f, snap)
     f.blocks[3].value:SetTextColor(C.crit[1], C.crit[2], C.crit[3])
 
     local shown = 0
-    local topTotal = snap.spells[1] and snap.spells[1].total or 1
+    local topTotal = snap.spells[1] and spellSize(snap, snap.spells[1]) or 1
     for i, r in ipairs(f.rows) do
         local s = snap.spells[i]
         if s then
@@ -225,10 +237,11 @@ local function FillSummary(f, snap)
             r.bg:SetVertexColor(0, 0, 0, bgAlpha)
             r.accent:SetColorTexture(c[1], c[2], c[3], 0.9)
             r.bar:SetVertexColor(c[1], c[2], c[3], 0.3)
-            r.bar:SetWidth(math.max(1, (CARD_W - 20) * s.total / topTotal))
+            r.bar:SetWidth(math.max(1, (CARD_W - 20) * spellSize(snap, s) / math.max(topTotal, 1)))
             r.icon:SetTexture(s.icon or 134400)
             r.name:SetText(ns.EventName(s.name))
-            r.value:SetText(ns.Short(s.total) .. "  " .. pct(s.total, kindTotal) .. "  |cffaaaaaa" .. L["%s crit"]:format(pct(s.crits, s.hits)) .. "|r")
+            local amount = snap.secretSpells and (s.hits .. "\195\151") or (ns.Short(s.total) .. "  " .. pct(s.total, kindTotal))
+            r.value:SetText(amount .. "  |cffaaaaaa" .. L["%s crit"]:format(pct(s.crits, s.hits)) .. "|r")
             r:Show()
         else
             r:Hide()
@@ -449,26 +462,31 @@ local function RenderDetail(d, snap)
     d.title:SetText(fightTitle(snap))
     d.when:SetText(when(snap.time, true) .. "   -   " .. ns.Stats.FormatDuration(snap.duration))
     d.line1:SetText(string.format(L["Damage |cffffffff%s|r (%s DPS)    Healing |cffffffff%s|r (%s HPS)    Taken |cffffffff%s|r"],
-        ns.Short(snap.damage), ns.Short(snap.dps), ns.Short(snap.healing), ns.Short(snap.hps), ns.Short(snap.taken)))
+        total(snap, snap.damage), total(snap, snap.dps), total(snap, snap.healing), total(snap, snap.hps), total(snap, snap.taken)))
     local biggest = snap.top and (ns.EventName(snap.top.name) .. " " .. ns.Full(snap.top.amount)
         .. (snap.top.crit and (" " .. L["crit"]) or "")) or "-"
     d.line2:SetText(string.format(L["Crit rate |cffffffff%s|r (%d/%d)    Misses %d    Longest streak |cffffffff%s|r    Biggest %s"],
         pct(snap.crits, snap.hits), snap.crits, snap.hits, snap.misses or 0,
         snap.longestStreak > 0 and ("x" .. snap.longestStreak) or "-", biggest))
 
-    local topTotal = snap.spells[1] and snap.spells[1].total or 1
+    local topTotal = snap.spells[1] and spellSize(snap, snap.spells[1]) or 1
     for i, row in ipairs(d.rows) do
         local s = snap.spells[i]
         if s then
             local kindTotal = s.kind == "heal" and snap.healing or snap.damage
             local c = s.kind == "heal" and C.heal or C.crit
             row.bar:SetVertexColor(c[1], c[2], c[3], 0.3)
-            row.bar:SetWidth(math.max(1, 390 * s.total / topTotal))
+            row.bar:SetWidth(math.max(1, 390 * spellSize(snap, s) / math.max(topTotal, 1)))
             row.icon:SetTexture(s.icon or 134400)
-            local values = {
-                ns.EventName(s.name), ns.Short(s.total), pct(s.total, kindTotal), s.hits,
-                pct(s.crits, s.hits), ns.Short(s.hits > 0 and s.total / s.hits or 0), ns.Short(s.max),
-            }
+            local values
+            if snap.secretSpells then
+                values = { ns.EventName(s.name), "-", "-", s.hits, pct(s.crits, s.hits), "-", "-" }
+            else
+                values = {
+                    ns.EventName(s.name), ns.Short(s.total), pct(s.total, kindTotal), s.hits,
+                    pct(s.crits, s.hits), ns.Short(s.hits > 0 and s.total / s.hits or 0), ns.Short(s.max),
+                }
+            end
             for c2, cell in ipairs(row.cells) do cell:SetText(values[c2]) end
             row.cells[1]:SetTextColor(s.kind == "heal" and C.heal[1] or 1, s.kind == "heal" and C.heal[2] or 1,
                 s.kind == "heal" and C.heal[3] or 1)
@@ -493,7 +511,7 @@ local function RefreshFights(j)
         local r = ListRow(j, i)
         r.snap = snap
         r.top:SetText(when(snap.time) .. "  " .. fightTitle(snap))
-        r.bottom:SetText(ns.Stats.FormatDuration(snap.duration) .. "   " .. ns.Short(snap.dps) .. " DPS   "
+        r.bottom:SetText(ns.Stats.FormatDuration(snap.duration) .. "   " .. total(snap, snap.dps) .. " DPS   "
             .. L["%s crit"]:format(pct(snap.crits, snap.hits)))
         if snap == Report.selected then
             r.bg:SetColorTexture(1, 0.82, 0, 0.14)

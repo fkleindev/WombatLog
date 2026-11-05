@@ -147,12 +147,17 @@ function Stats:Outgoing(e)
     if e.amount and e.amount > 0 then self:CheckRecord(e, key) end
 end
 
-local function sortedSpells(spells, limit)
+-- byHits: amounts were secret (Forever), so the totals are all 0
+local function sortedSpells(spells, limit, byHits)
     local list = {}
     for _, s in pairs(spells or {}) do
-        if s.total > 0 then list[#list + 1] = s end
+        if s.total > 0 or (byHits and s.hits > 0) then list[#list + 1] = s end
     end
-    table.sort(list, function(a, b) return a.total > b.total end)
+    if byHits then
+        table.sort(list, function(a, b) return a.hits > b.hits end)
+    else
+        table.sort(list, function(a, b) return a.total > b.total end)
+    end
     while #list > limit do table.remove(list) end
     return list
 end
@@ -161,6 +166,18 @@ function Stats:FinishFight()
     local f = ns.fight
     if not f.spells then return end
     local duration = ns.Elapsed()
+    local secretSpells = ns.secretAmounts and not ns.testing
+    local secret = secretSpells
+    if secret then
+        -- the hits' amounts were secret: take the totals from Blizzard's damage meter
+        -- when it has readable ones (it may not until combat ends), else they stay unknown
+        local DM = ns.DamageMeter
+        local dmg = DM:PlayerReadable("DamageDone")
+        local heal = DM:PlayerReadable("HealingDone")
+        local taken = DM:PlayerReadable("DamageTaken")
+        f.damage, f.healing, f.taken = dmg or 0, heal or 0, taken or 0
+        secret = dmg == nil -- no readable damage: the summary shows counts only
+    end
     local snap = {
         time = time(), zone = f.zone, target = f.target, duration = duration,
         damage = f.damage, healing = f.healing, taken = f.taken,
@@ -171,23 +188,25 @@ function Stats:FinishFight()
         records = {},
         spells = {},
         test = ns.testing or nil,
+        secret = secret or nil, -- totals unknown: the report shows hits and crit rates only
+        secretSpells = secretSpells or nil, -- per-spell amounts unknown (spells sorted by hits)
     }
     for _, rec in ipairs(f.newRecords or {}) do
         snap.records[#snap.records + 1] = { name = rec.name, icon = rec.icon, amount = rec.amount, crit = rec.crit }
     end
-    for _, s in ipairs(sortedSpells(f.spells, TOP_SPELLS)) do
+    for _, s in ipairs(sortedSpells(f.spells, TOP_SPELLS, secretSpells)) do
         snap.spells[#snap.spells + 1] = {
             name = s.name, icon = s.icon, kind = s.kind,
             hits = s.hits, crits = s.crits, misses = s.misses, total = s.total, max = s.max,
         }
     end
-    local useful = (f.damage + f.healing) > 0
+    local useful = (f.damage + f.healing) > 0 or (secret and f.hits > 0)
 
     if not ns.testing and useful then
         local S = ns.db.stats
         if S.records.enabled then
             local rec = self.char.records
-            if duration >= S.records.minDpsDuration and (not rec.bestDps or snap.dps > rec.bestDps.dps) then
+            if not secret and duration >= S.records.minDpsDuration and (not rec.bestDps or snap.dps > rec.bestDps.dps) then
                 snap.newBestDps = rec.bestDps ~= nil
                 rec.bestDps = { dps = snap.dps, duration = duration, date = snap.time, zone = snap.zone }
             end

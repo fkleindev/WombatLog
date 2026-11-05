@@ -59,9 +59,7 @@ local POWER_COLORS = {
 
 local PREVIEW = { health = 0.7, power = 0.45, druidMana = 0.8, combo = 3 }
 
-local function isSecret(v)
-    return v ~= nil and issecretvalue ~= nil and issecretvalue(v)
-end
+local isSecret = ns.IsSecret
 
 local function sharedMedia()
     return LibStub and LibStub("LibSharedMedia-3.0", true)

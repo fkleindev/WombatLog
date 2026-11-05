@@ -28,6 +28,7 @@ SpellData_Retail.lua
 Sources.lua
 CombatLog.lua
 Stats.lua
+DamageMeter.lua
 Display.lua
 Alerts.lua
 Reminders.lua
