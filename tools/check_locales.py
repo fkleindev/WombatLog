@@ -46,6 +46,12 @@ TABLES = [
     ("Report.lua", r'local headers = \{', r'\{ ' + STR + r', \d'),
     ("Report.lua", r'local TABS = \{', r'\{ "\w+", ' + STR + r', Build'),
     ("Locales/Locales.lua", r'local OWN_NAMES = \{', r'\[' + STR + r'\] = true'),
+    ("MacroBuilder.lua", r'local COMMAND_MENU = \{', r'\{ ' + STR + r' \}'),
+    ("MacroBuilder.lua", r'local COMMAND_MENU = \{', r'\{ "[^"]*", ' + STR + r' \}'),
+    ("MacroBuilder.lua", r'local CONDITIONS = \{', r'\{ ' + STR + r' \}'),
+    ("MacroBuilder.lua", r'local CONDITIONS = \{', r'\{ "[^"]*", ' + STR + r','),
+    ("MacroBuilder.lua", r'local CONDITIONS = \{', r', ' + STR + r' \}'),
+    ("MacroBuilder.lua", r'local TARGETS = \{', r'\{ "[^"]*", ' + STR + r' \}'),
 ]
 # one-off spots: (file, regex)
 SPOTS = [

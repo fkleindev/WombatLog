@@ -41,5 +41,6 @@ Swing.lua
 Resources.lua
 Minimap.lua
 BlizzardUI.lua
+MacroBuilder.lua
 Config.lua
 Welcome.lua

@@ -18,6 +18,8 @@ local function onClick(button)
         ns.Config:Open()
     elseif IsShiftKeyDown() then
         ns.RunTest()
+    elseif IsControlKeyDown() then
+        ns.MacroBuilder:Toggle()
     else
         ns.Report:ToggleJournal()
     end
@@ -40,7 +42,7 @@ local function fillTooltip(tt)
         end
     end
     tt:AddLine(" ")
-    tt:AddLine(L["Click: journal   Right-click: settings   Shift-click: test"], 0.6, 0.8, 1)
+    tt:AddLine(L["Click: journal   Right-click: settings   Shift-click: test   Ctrl-click: macros"], 0.6, 0.8, 1)
 end
 
 function MinimapButton:Init()

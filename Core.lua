@@ -884,6 +884,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.XPTracker:Init()
     ns.QuestProgress:Init()
     ns.BlizzardUI:Init()
+    ns.MacroBuilder:Init()
     if ns.Config then ns.Config:Init() end
     if ns.Welcome then ns.Welcome:Init() end
 end)
@@ -932,6 +933,8 @@ SlashCmdList.WOMBATLOG = function(msg)
     elseif cmd == "trace" then
         ns.trace = not ns.trace
         ns.Print("event trace " .. (ns.trace and "on - hits, casts and swings print to chat" or "off"))
+    elseif cmd == "macro" or cmd == "macros" then
+        ns.MacroBuilder:Toggle()
     elseif cmd == "journal" or cmd == "history" then
         ns.Report:ToggleJournal()
     elseif cmd == "session" then
@@ -945,6 +948,6 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.Profiles.Reset()
         ns.Print(L["profile '%s' reset to defaults."]:format(ns.Profiles.Current()))
     else
-        ns.Print(L["/wl - settings, /wl welcome - welcome screen, /wl test - preview fight, /wl journal - fights & records, /wl session [reset], /wl unlock | lock - move, /wl reset - reset profile"])
+        ns.Print(L["/wl - settings, /wl welcome - welcome screen, /wl test - preview fight, /wl journal - fights & records, /wl macro - macro builder, /wl session [reset], /wl unlock | lock - move, /wl reset - reset profile"])
     end
 end

@@ -1694,7 +1694,19 @@ end
 local function BuildMinimap(p)
     p:Header("Minimap button")
     p:Checkbox("Show minimap button", "minimap.enabled")
-    p:Note("Click: journal. Right-click: settings. Shift-click: test fight. Drag it along the minimap edge. WombatLog is also listed in the addon compartment.")
+    p:Note("Click: journal. Right-click: settings. Shift-click: test fight. Ctrl-click: macro builder. Drag it along the minimap edge. WombatLog is also listed in the addon compartment.")
+end
+
+local function BuildMacroBuilder(p)
+    p:Header("Macro builder")
+    p:Note("Build macros from blocks instead of typing them: pick a command, add conditions such as Shift, @mouseover or in combat as chips, and drag spells from your spellbook or items from your bags into the slots. Existing macros open as blocks, too.")
+    p:Note("While you build, the character count, a check of spells and conditions and a live view of what each line would do right now (hold Shift, change your target) stay in sight. Save writes the macro straight into the game's macros, general or for this character.")
+    p:Button("Open macro builder", function()
+        if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
+        if Config.panel:IsShown() and not Config.category then Config.panel:Hide() end
+        ns.MacroBuilder:Open()
+    end)
+    p:Note("Also with /wl macro, Ctrl-click on the minimap button or the \"Builder\" button in the game's macro window.")
 end
 
 local function BuildCustomSounds(p)
@@ -1896,6 +1908,7 @@ local TABS = {
         { "Bars", BuildBlizzardBars },
         { "Animations", BuildBlizzardAnimations },
     } },
+    { "Macro builder", BuildMacroBuilder },
     { "Custom sounds", BuildCustomSounds },
     { "Minimap button", BuildMinimap },
     { "Language", BuildLanguage },

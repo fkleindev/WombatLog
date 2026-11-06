@@ -65,6 +65,16 @@ combat starts and fades out a few seconds after it ends.
   personal records and session stats.
 - **Session tracker** for leveling: XP per hour, time and kills to the next level,
   kills, deaths and money.
+- **Macro builder:** build macros from blocks instead of typing them. Each line is a
+  command (/cast, /use, /castsequence, /target, /startattack and more) with its
+  parts, each part a row of condition chips (Shift, @mouseover, @focus, enemy, in
+  combat, "or" groups) and a slot you drag spells from your spellbook or items from
+  your bags into. Existing macros open as blocks, a counter keeps an eye on the 255
+  characters, a check flags unknown spells and conditions, and each line shows live
+  what it would do right now (hold Shift, change your target). Saving writes the
+  macro straight into the game's macros, general or for this character, ready to
+  drag onto a bar. `/wl macro`, Ctrl-click on the minimap button or the "Builder"
+  button in the game's macro window.
 - **Minimap button** and an addon compartment entry.
 - **Blizzard UI:** hide Blizzard's own XP bar while you level, and give the action
   bars a modern look: flat buttons with rounded corners, your own border, background
@@ -98,6 +108,7 @@ Every extra feature can be turned off on its own in the settings.
 | `/wl welcome` | Opens the welcome screen: every feature with a switch, and the language |
 | `/wl test` | Runs a fake fight (with a crit streak, a sample record and a proc) so you can see everything outside combat |
 | `/wl journal` | Opens the journal: fight history, records, session |
+| `/wl macro` | Opens the macro builder |
 | `/wl session` / `/wl session reset` | Shows or resets the current session |
 | `/wl unlock` / `/wl lock` | Lets you drag the window to a new place |
 | `/wl reset` | Resets the current profile to defaults |
@@ -181,7 +192,9 @@ sub-tabs along the top.
   files after a restart, `/reload` is not enough) and add each file by name. They
   then show up as "Custom: ..." wherever you pick a sound. Updating WombatLog can
   replace the addon folder, so keep a copy of your sounds.
-- **Minimap button:** show or hide it.
+- **Macro builder:** what it does and a button that opens it.
+- **Minimap button:** show or hide it. Click: journal, right-click: settings,
+  Shift-click: test fight, Ctrl-click: macro builder.
 - **Language:** "Automatic" (your game language, English if there is no translation
   for it) or any installed language. It applies to all characters and takes effect
   after a reload.
@@ -385,6 +398,7 @@ As a result:
 | `Swing.lua` | Swing timer lane inside the log window |
 | `Resources.lua` | Personal resource display |
 | `Minimap.lua` | Minimap button and addon compartment entry |
+| `MacroBuilder.lua` | The macro builder: macros from blocks, live preview, checks and saving |
 | `BlizzardUI.lua` | Changes to Blizzard's UI: hiding its XP bar, modern action buttons and bars |
 | `Config.lua` | The settings panel |
 | `Welcome.lua` | Welcome screen on each character's first login |
