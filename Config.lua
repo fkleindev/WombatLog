@@ -1489,7 +1489,9 @@ local function BuildQuestGeneral(p)
     p:Checkbox("Hide the game's quest progress text", "questProgress.hideBlizzardText")
     p:Checkbox("Always show quests with a time limit", "questProgress.timedQuests", 2)
     p:Button("Test timer", function() ns.QuestProgress:TestTimer() end)
+    p:Checkbox("Always show the focused quest", "questProgress.focusedQuest", 2)
     p:Note("The progress is read from your quest log on every client, so it works in every language. Bonus objectives that fill a bar show their percent (Retail). The game's text is the yellow \"Kobold Vermin slain: 3/10\" in the middle of the screen; its other messages still show. A quest with a time limit keeps its card on top until it is done, with the time left and a bar that runs empty.")
+    p:Note("The focused quest is the one you follow, with the arrow and waypoint: its card stays up, under the ones with a time limit. Clients without a focused quest take the first quest in the quest tracker.")
 
     PositionBlock(p, "Unlock (drag the card to move it)", function() return ns.QuestProgress end,
         resetXY("questProgress"), function()
@@ -1556,6 +1558,83 @@ local function BuildQuestSound(p)
     }, ns.Alerts.SoundOptions, 2)
     p:Dropdown("Sound channel", "questProgress.channel", SOUND_CHANNELS)
     p:Note("When a quest gets complete, only the completion sound plays.")
+end
+
+local function BuildQuestItems(p)
+    p:Header("Quest items")
+    p:Note("Items a quest in your log still asks for but that aren't quest items themselves (cloth, ore, meat for a turn-in) get a small quest mark in your bags, so you don't sell them by accident.")
+    p:Checkbox("Mark items needed for quests", "questItems.enabled")
+    p:Checkbox("Ask before selling them", "questItems.sellGuard", 2)
+    p:Checkbox("Show the quest in the item's tooltip", "questItems.tooltip")
+    p:Note("At a merchant, a right-click on a marked item asks first. If one is sold anyway, e.g. dragged onto the merchant, you're offered to buy it back. Items stay marked until the quest is turned in or abandoned. Works in the game's bags, Bagnon, AdiBags and Baganator; the tooltip and the buy-back offer work with any bag addon.")
+end
+
+local SPARKLE_STYLES = {
+    { text = "Sparks", value = "sparkle" },
+    { text = "Glow", value = "glow" },
+    { text = "Icon and arrow", value = "icon" },
+    { text = "Beam of light", value = "beam" },
+}
+
+local function BuildSparkleGeneral(p)
+    p:Header("Sparkles")
+    p:Note("Things to click for a quest glittered in Classic; on Forever they don't any more. Two ways to get it back: the game's own sparkle, and an effect of WombatLog's that you can adjust.")
+    p:Checkbox("The game's own sparkle", "sparkle.native")
+    p:Note("Marks quest objects and quest loot at any distance, like in Classic, but only knows on and off. Graphics presets switch it off; WombatLog switches it back on. Switching it off only takes effect after restarting the game. On clients that have the sparkle anyway this changes nothing.")
+
+    p:Header("Own effect")
+    p:Checkbox("Effect on the object in front of you", "sparkle.enabled")
+    p:Button("Test", function() ns.Sparkle:Test() end, 2, -2, 100)
+    p:Checkbox("Quest objects", "sparkle.quest")
+    p:Checkbox("Corpses with loot", "sparkle.loot", 2)
+    p:Checkbox("Herbs", "sparkle.herb")
+    p:Checkbox("Ore veins", "sparkle.ore", 2)
+    p:Checkbox("Only out of combat", "sparkle.hideInCombat")
+    p:Note("Uses the game's interaction target: the one object nearest in front of you, up to about 15 yards. It is dim until you can reach it, and grey when the game refuses it (skill too low). Switching the effect on also turns on the game's \"Enable Interact Key\" and its icons on objects; their old values come back when the effect is off. Whether a corpse holds a quest item can't be known before you open it: the game's own sparkle shows that. Settings can't change in combat, so new objects only light up after the fight.")
+end
+
+local SPARKLE_PRESETS = {
+    { text = "Subtle", value = "subtle" },
+    { text = "Normal", value = "normal" },
+    { text = "Strong", value = "strong" },
+    { text = "Custom", value = "custom" },
+}
+
+local function BuildSparkleLook(p)
+    p:Header("Look")
+    p:Dropdown("Style", "sparkle.style", SPARKLE_STYLES)
+    p:Button("Test", function() ns.Sparkle:Test() end, 2, -12, 100)
+    p:Dropdown("Intensity", {
+        get = function()
+            local S = ns.db.sparkle
+            local function same(x, y) return math.abs(x - y) < 0.001 end
+            for key, v in pairs(ns.Sparkle.PRESETS) do
+                if same(S.size, v[1]) and same(S.alpha, v[2]) and same(S.speed, v[3]) and same(S.count, v[4]) then
+                    return key
+                end
+            end
+            return "custom"
+        end,
+        set = function(key)
+            local v = ns.Sparkle.PRESETS[key]
+            if not v then return end
+            local S = ns.db.sparkle
+            S.size, S.alpha, S.speed, S.count = v[1], v[2], v[3], v[4]
+            ns.ApplyAll(true)
+        end,
+    }, SPARKLE_PRESETS)
+    p:Slider("Size", "sparkle.size", 0.5, 2, 0.05, times)
+    p:Slider("Opacity", "sparkle.alpha", 0.1, 1, 0.05, pct, 2)
+    p:Slider("Speed", "sparkle.speed", 0.3, 2.5, 0.1, times)
+    p:Slider("Sparks", "sparkle.count", 3, 16, 1, nil, 2)
+    p:Slider("Height above the object", "sparkle.offset", -100, 40, 1, px)
+
+    p:Header("Colors")
+    p:Color("Quest objects", "sparkle.colors.quest")
+    p:Color("Corpses with loot", "sparkle.colors.loot", 2)
+    p:Color("Herbs", "sparkle.colors.herb")
+    p:Color("Ore veins", "sparkle.colors.ore", 2)
+    p:Note("Each press of Test shows the next kind of object in the middle of the screen. \"Sparks\" only applies to the sparks style.")
 end
 
 ---------------------------------------------------------------------------
@@ -1874,6 +1953,8 @@ local OVERVIEW = {
     { "Kill alerts", "killAlert.enabled", function() ns.KillAlert:Test() end },
     { "XP tracker", "xpTracker.enabled", function() ns.XPTracker:Test() end },
     { "Quest progress", "questProgress.enabled", function() ns.QuestProgress:Test() end },
+    { "Quest items", "questItems.enabled" },
+    { "Sparkles", "sparkle.enabled", function() ns.Sparkle:Test() end },
     { "Session", "session.enabled" },
     { "Resource display", "resources.enabled", function() ns.Resources:Test() end },
     { "Minimap button", "minimap.enabled" },
@@ -1965,6 +2046,11 @@ local TABS = {
         { "Look", BuildQuestLook },
         { "Bars", BuildQuestBars },
         { "Sound", BuildQuestSound },
+    } },
+    { "Quest items", BuildQuestItems },
+    { "Sparkles", {
+        { "General", BuildSparkleGeneral },
+        { "Look", BuildSparkleLook },
     } },
     { "Session", BuildSession },
     { group = "Interface" },

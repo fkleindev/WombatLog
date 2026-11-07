@@ -61,7 +61,26 @@ combat starts and fades out a few seconds after it ends.
   fight is over, and can replace the game's yellow "Kobold Vermin slain: 3/10".
   A quest with a time limit keeps its card on top until it is done, with the time
   left next to its name and a bar that runs empty, yellow in the last minute and
-  pulsing red in the last 15 seconds.
+  pulsing red in the last 15 seconds. Optionally the quest you follow (the focused one
+  with the arrow, or the first in the quest tracker where there is none) keeps its
+  card up too, under those.
+- **Quest items:** items a quest in your log still asks for but that aren't quest
+  items themselves (cloth, ore, meat for a turn-in) get a small quest mark in your
+  bags, and their tooltip names the quest and your progress. At a merchant a
+  right-click on one asks before it is sold; if one is sold anyway (dragged onto the
+  merchant, or from a bag addon), you're offered to buy it back. Works in the game's
+  bags, Bagnon, AdiBags and Baganator; the tooltip and the buy-back offer work with
+  any bag addon.
+- **Sparkles:** quest objects glitter again on Forever, as they did in Classic. The
+  game's own sparkle (a hidden setting there) is kept on, also after a graphics preset
+  switches it off. On top of that, the object in front of you (quest object, corpse
+  with loot, herb or ore vein, each on its own) can get an effect of WombatLog's:
+  sparks, a glow, an icon with an arrow or a beam of light, with a subtle, normal or
+  strong preset, size, opacity, speed, number of sparks and a color per kind. It is
+  dim until you can reach the object and grey when your skill is too low. It uses
+  the game's interaction target (about 15 yards) and switches on its "Enable Interact
+  Key"; the old values come back when the effect is off. The idea comes from the
+  Forever addons that do the same, such as Forever Loot Sparkles.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
@@ -178,10 +197,14 @@ and lights the setting up.
 - **Quest progress:** *General* (on/off, free or under the XP tracker, display time,
   quests at once, bars, dim the other objectives, "Quest complete!" banner, wait until
   the fight is over, hide the game's quest progress text, always show quests with a
-  time limit, position), *Look* (width, scale,
+  time limit, always show the focused quest, position), *Look* (width, scale,
   background opacity, colors, text size, font, outline), *Bars* (thickness,
   color, texture, background, segments, border, fill speed, spark, gloss, light,
   glow) and *Sound* (on progress, on completion, channel).
+- **Quest items:** on/off, ask before selling, the quest in the tooltip.
+- **Sparkles:** *General* (the game's own sparkle, own effect on/off, quest objects,
+  corpses with loot, herbs, ore veins, only out of combat) and *Look* (style,
+  intensity preset, size, opacity, speed, sparks, height, a color per kind).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
 - **Resource display:** *General* (on/off, position, when it shows, fade times, opacity),
@@ -321,6 +344,8 @@ effort: whatever the client keeps secret is left out.
 | `QUEST_LOG_UPDATE`, `QUEST_WATCH_UPDATE`, `C_QuestLog` / `GetQuestLogTitle`, `GetQuestLogLeaderBoard` | Quest progress: the objectives read again and compared after every change |
 | `C_QuestLog.GetTimeAllowed` / `GetQuestTimers`, `GetQuestIndexForTimer` | Quest progress: the time left on quests with a time limit |
 | `UI_INFO_MESSAGE` | Hiding the game's quest progress text (optional) |
+| `outlineModeShowLootEffectWhenDisabled`, `SoftTarget*` CVars, `PLAYER_SOFT_INTERACT_CHANGED`, `C_NamePlate`, `SetUnitCursorTexture`, `UnitIsInInteractRange`, `CanLootUnit` | Sparkles: the game's sparkle, the interaction target, what it is and whether it is in reach |
+| `C_Container`, `BAG_UPDATE_DELAYED`, `MERCHANT_SHOW` / `_CLOSED`, `GetBuybackItemLink`, `BuybackItem` | Quest items: marks in the bags, asking before a sale, buying back |
 | `PLAYER_MONEY`, `PLAYER_DEAD` | Session money and deaths |
 | `PLAYER_REGEN_DISABLED` / `_ENABLED` | Showing and hiding the window |
 
@@ -408,6 +433,8 @@ As a result:
 | `KillAlert.lua` | Kill and quest alerts (XP, XP bar, multi-kills) |
 | `XPTracker.lua` | XP tracker that is always shown and grows when XP comes in |
 | `QuestProgress.lua` | Quest progress cards: all objectives, the changed one lit, bars for counts |
+| `Sparkle.lua` | Sparkles: the game's own sparkle kept on, and an effect on the interaction target |
+| `QuestItems.lua` | Quest marks in the bags for items your quests need, sell question, tooltip |
 | `Report.lua` | Fight summary card and the journal window |
 | `Swing.lua` | Swing timer lane inside the log window |
 | `Resources.lua` | Personal resource display |

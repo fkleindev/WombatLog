@@ -87,6 +87,10 @@ local function logEntry(i)
     end
 end
 
+-- for QuestItems, which reads the same log
+QuestProgress.NumLogEntries = numLogEntries
+QuestProgress.LogEntry = logEntry
+
 -- "3/10 Kobold Vermin slain" (Retail) or "Kobold Vermin slain: 3/10" (Classic) without
 -- the count, which the card shows on its own.
 local function stripCount(text)
@@ -183,6 +187,10 @@ local timers = {}        -- questID -> { expires = GetTime() it runs out, total 
 local timerTotals = {}   -- Classic: questID -> the most time ever left
 local sampleTimer        -- the "Test timer" card's
 
+-- The quests seen in the log: questID -> { id, title, ... }. Also the ones under a
+-- collapsed header (Classic), which the log itself doesn't list.
+function QuestProgress.Known() return known end
+
 -- The time limits of the quests in the log. A timer that only moved by rounding keeps
 -- its old end, so the countdown doesn't jitter.
 local function readTimers()
@@ -215,6 +223,24 @@ local function readTimers()
         end
     end
     timers = list
+end
+
+-- The quest you follow, whose card stays up while the option is on: the focused one
+-- (Retail: the one with the arrow and waypoint). Clients without that know only the
+-- quests watched in the tracker; there it is the first of them.
+local function focusedQuest()
+    local cfg = ns.db.questProgress
+    if not (cfg.enabled and cfg.focusedQuest) then return nil end
+    local id
+    if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
+        id = Safe(C_SuperTrack.GetSuperTrackedQuestID())
+    elseif C_QuestLog and C_QuestLog.GetQuestIDForQuestWatchIndex then
+        id = Safe(C_QuestLog.GetQuestIDForQuestWatchIndex(1))
+    elseif GetQuestIndexForWatch then
+        local index = Safe(GetQuestIndexForWatch(1))
+        id = index and logEntry(index)
+    end
+    if type(id) == "number" and id > 0 and known[id] then return id end
 end
 
 -- The timer a quest's card shows, or nil.
@@ -386,7 +412,7 @@ end
 -- Cards
 ---------------------------------------------------------------------------
 
-local cards = {} -- shown: the ones with a timer first, then newest first
+local cards = {} -- shown: the ones with a timer first, then the focused quest, then newest first
 local pool = {}
 
 local function formatTime(left)
@@ -397,15 +423,16 @@ local function formatTime(left)
     return string.format("%d:%02d", math.floor(s / 60), s % 60)
 end
 
--- Timer cards to the top, each part keeping its order.
+-- Timer cards to the top, then the focused quest, each part keeping its order.
 local function sortCards()
-    local pinned, rest = {}, {}
+    local timed, focus, rest = {}, {}, {}
     for _, c in ipairs(cards) do
-        local list = c.timer and pinned or rest
+        local list = c.timer and timed or c.focus and focus or rest
         list[#list + 1] = c
     end
     wipe(cards)
-    for _, c in ipairs(pinned) do cards[#cards + 1] = c end
+    for _, c in ipairs(timed) do cards[#cards + 1] = c end
+    for _, c in ipairs(focus) do cards[#cards + 1] = c end
     for _, c in ipairs(rest) do cards[#cards + 1] = c end
 end
 
@@ -652,21 +679,22 @@ end
 local function release(card)
     card:Hide()
     card.burst:Hide()
-    card.timer = nil
+    card.timer, card.focus = nil, nil
     card.tbar.glow:Hide()
     for _, r in ipairs(card.rows) do r.bar.glow:Hide() end
     pool[#pool + 1] = card
 end
 
--- Lets go of the oldest cards without a timer until at most max of them are left.
+-- Lets go of the oldest cards that aren't pinned (timer, focused quest) until at most
+-- max of them are left.
 local function trim(max)
     local n = 0
     for _, c in ipairs(cards) do
-        if not c.timer then n = n + 1 end
+        if not (c.timer or c.focus) then n = n + 1 end
     end
     for i = #cards, 1, -1 do
         if n <= max then break end
-        if not cards[i].timer then
+        if not (cards[i].timer or cards[i].focus) then
             release(table.remove(cards, i))
             n = n - 1
         end
@@ -706,6 +734,7 @@ function QuestProgress:ShowQuest(q, changes, completed, sample)
     end
     table.insert(cards, 1, card)
     card.timer = activeTimer(q.id)
+    card.focus = q.id == focusedQuest() or nil
     sortCards()
     trim(math.max(1, math.min(MAX_CARDS, cfg.maxQuests)))
     card.sample = sample
@@ -746,7 +775,7 @@ function QuestProgress:Step(dt)
         c.age = c.age + dt
         c.shownAge = c.shownAge + dt
         local a = math.min(1, c.shownAge / FADE_IN)
-        local steady = (c.sample and self.unlocked) or c.timer
+        local steady = (c.sample and self.unlocked) or c.timer or c.focus
         if not steady and c.age > life then a = math.min(a, 1 - (c.age - life) / FADE_OUT) end
         if a <= 0 then
             release(table.remove(cards, i))
@@ -784,11 +813,21 @@ end
 -- Quests with a time limit
 ---------------------------------------------------------------------------
 
--- Pins a card for every quest with a timer running, and lets go of the ones whose
--- timer is gone (turned in, given up, failed, or the option turned off).
+-- Pins a card for every quest with a timer running and for the focused quest, and
+-- lets go of the ones that lost it (turned in, given up, failed, focus moved on, or
+-- the option turned off): they fade after the display time.
 function QuestProgress:UpdatePins()
     if not self.holder then return end
     local changed = false
+    local focus = focusedQuest()
+    for _, c in ipairs(cards) do
+        local f = c.id == focus or nil
+        if f ~= c.focus then
+            c.focus = f
+            if not f then c.age = 0 end
+            changed = true
+        end
+    end
     for _, c in ipairs(cards) do
         local t = activeTimer(c.id)
         if t ~= c.timer then
@@ -818,6 +857,13 @@ function QuestProgress:UpdatePins()
             if not shown then self:ShowQuest(known[id], {}, false) end
         end
     end
+    if focus and not self.unlocked then
+        local shown = false
+        for _, c in ipairs(cards) do
+            if c.id == focus then shown = true break end
+        end
+        if not shown then self:ShowQuest(known[focus], {}, false) end
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -844,10 +890,10 @@ function QuestProgress:Report(updates)
     local cfg = ns.db and ns.db.questProgress
     if not cfg or not cfg.enabled or not self.holder or self.unlocked then return end
     if cfg.delayInCombat and Safe(UnitAffectingCombat("player")) then
-        -- a quest against the clock shows right away
-        local now = {}
+        -- a quest against the clock, or the one you follow, shows right away
+        local now, focus = {}, focusedQuest()
         for i = #updates, 1, -1 do
-            if activeTimer(updates[i].q.id) then table.insert(now, 1, table.remove(updates, i)) end
+            if activeTimer(updates[i].q.id) or updates[i].q.id == focus then table.insert(now, 1, table.remove(updates, i)) end
         end
         if #now > 0 then self:ShowUpdates(now) end
         for _, u in ipairs(updates) do
@@ -1074,6 +1120,8 @@ end
 
 ns.Listen("QUEST_LOG_UPDATE", requestScan)
 ns.Listen("QUEST_WATCH_UPDATE", requestScan)
+ns.Listen("QUEST_WATCH_LIST_CHANGED", requestScan)
+ns.Listen("SUPER_TRACKING_CHANGED", requestScan)
 ns.Listen("UNIT_QUEST_LOG_CHANGED", requestScan, "player")
 
 -- a quest taken (again) starts over: its first read only goes in

@@ -220,6 +220,7 @@ ns.defaults.questProgress = {
     delayInCombat = false,          -- hold the cards back until the fight is over
     hideBlizzardText = false,       -- the game's yellow "Kobold Vermin slain: 3/10"
     timedQuests = true,             -- quests with a time limit keep their card up, on top
+    focusedQuest = false,           -- the quest you follow keeps its card up
     scale = 1, width = 260, textSize = 13, bgOpacity = 0.6,
     font = "", outline = "OUTLINE", -- "" font = the log window's
     highlightColor = { 1.00, 0.82, 0.18 },
@@ -233,6 +234,30 @@ ns.defaults.questProgress = {
         height = 6, texture = "blizzard", bgOpacity = 0.5, border = true,
         segments = true,            -- one segment per item, up to 20
         speed = 4, spark = true, gloss = false, gainFlash = true, glow = true,
+    },
+}
+
+-- items your quests still need that aren't quest items: marked in the bags
+ns.defaults.questItems = {
+    enabled = true,
+    sellGuard = true,               -- at a merchant, ask before one is sold
+    tooltip = true,                 -- the quest in the item's tooltip
+}
+
+-- quest objects glitter again (Forever): the game's own sparkle and an effect of ours
+ns.defaults.sparkle = {
+    native = true,                  -- the game's hidden loot sparkle
+    enabled = true,                 -- our effect on the interaction target
+    quest = true, loot = true, herb = true, ore = true,
+    hideInCombat = true,
+    style = "sparkle",              -- "sparkle" | "glow" | "icon" | "beam"
+    size = 1, alpha = 0.9, speed = 1, count = 8, -- the "normal" preset
+    offset = -45,                   -- px from the nameplate down to the object
+    colors = {
+        quest = { 1.00, 0.86, 0.45 },
+        loot = { 0.85, 0.92, 1.00 },
+        herb = { 0.45, 1.00, 0.45 },
+        ore = { 1.00, 0.62, 0.30 },
     },
 }
 
@@ -504,6 +529,8 @@ function ns.ApplyAll(refreshPanel)
     ns.KillAlert:Apply()
     ns.XPTracker:Apply()
     ns.QuestProgress:Apply()
+    ns.QuestItems:Apply()
+    ns.Sparkle:Apply()
     ns.BlizzardUI:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
@@ -885,6 +912,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.KillAlert:Init()
     ns.XPTracker:Init()
     ns.QuestProgress:Init()
+    ns.QuestItems:Init()
     ns.BlizzardUI:Init()
     ns.MacroBuilder:Init()
     if ns.Config then ns.Config:Init() end
