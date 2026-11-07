@@ -27,6 +27,37 @@ local function comboPoints()
     end
     return cp
 end
+-- The game's own cast bar: PlayerCastingBarFrame on the newer UIs, CastingBarFrame on
+-- the older ones. It shows itself on every cast, so while it is hidden it is put away
+-- again right when it shows. Turned back, it simply shows on the next cast.
+local blizzCastHidden = false
+local blizzCastHooked = {}
+
+local function blizzardCastBars()
+    local list = {}
+    for _, name in ipairs({ "PlayerCastingBarFrame", "CastingBarFrame" }) do
+        local f = _G[name]
+        if f and f.HookScript then list[#list + 1] = f end
+    end
+    return list
+end
+
+local function applyBlizzardCastBar()
+    local R = ns.db.resources
+    local hide = (R.enabled and R.castbar.hideBlizzard) and true or false
+    if hide == blizzCastHidden then return end
+    blizzCastHidden = hide
+    for _, f in ipairs(blizzardCastBars()) do
+        if not blizzCastHooked[f] then
+            blizzCastHooked[f] = true
+            f:HookScript("OnShow", function(self)
+                if blizzCastHidden then self:Hide() end
+            end)
+        end
+        if hide then f:Hide() end
+    end
+end
+
 local ORDER = { "health", "power", "druidMana", "combo", "castbar" }
 
 -- The saved bar order, top to bottom, with unknown or doubled keys dropped and
@@ -808,6 +839,7 @@ function Resources:Apply()
     Layout()
     self:Update()
     self:UpdateVisibility()
+    applyBlizzardCastBar()
 end
 
 function Resources:SetPreview(on)

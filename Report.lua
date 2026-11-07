@@ -168,11 +168,23 @@ local function CreateSummary()
         cfg.y = math.floor(cy - UIParent:GetHeight() * s / 2 + 0.5)
         Report:Apply()
     end)
+    -- unlocked: a blue overlay, and the card stays until it is locked again
+    f.overlay = f:CreateTexture(nil, "BACKGROUND", nil, -2)
+    f.overlay:SetPoint("TOPLEFT", -4, 4)
+    f.overlay:SetPoint("BOTTOMRIGHT", 4, -4)
+    f.overlay:SetColorTexture(0.2, 0.6, 1, 0.15)
+    f.overlay:Hide()
+    f.overlayText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    f.overlayText:SetPoint("BOTTOM", f, "TOP", 0, 6)
+    f.overlayText:SetText(L["WombatLog fight summary - drag to move"])
+    f.overlayText:Hide()
+
     f:SetScript("OnClick", function(self, button)
         if self.dragged then
             self.dragged = false
             return
         end
+        if Report.unlocked then return end
         if button == "RightButton" then
             Report:HideSummary()
         else
@@ -281,7 +293,7 @@ function Report:ShowSummary(snap)
     f.fadeTarget = ns.db.position.alpha
     if self.summaryTimer then self.summaryTimer:Cancel() end
     self.summaryTimer = nil
-    if cfg.duration > 0 then
+    if cfg.duration > 0 and not self.unlocked then
         self.summaryTimer = C_Timer.NewTimer(cfg.duration, function()
             self.summaryTimer = nil
             self:HideSummary()
@@ -298,6 +310,22 @@ function Report:HideSummary()
     -- a card on its way out no longer takes clicks or shows its tooltip
     f:EnableMouse(false)
     if GameTooltip:IsOwned(f) then GameTooltip:Hide() end
+end
+
+-- Settings: unlocked, the card shows the last fight (or a sample) until it is locked
+-- again, so it can be dragged in peace.
+function Report:SetLocked(locked)
+    self.unlocked = not locked or nil
+    local f = self.summary
+    if not f then return end
+    f.overlay:SetShown(not locked)
+    f.overlayText:SetShown(not locked)
+    if locked then
+        self:HideSummary()
+    else
+        self:TestSummary()
+    end
+    if ns.Config then ns.Config:RefreshAll() end
 end
 
 -- Settings button: last fight, or a sample if there is none yet.

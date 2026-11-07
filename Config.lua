@@ -141,21 +141,41 @@ local function NewPage(parent, top, left, right, bottom)
 end
 
 -- col 2 places w beside the previous widget; dy nudges it down within that row.
+-- The widget remembers where it sits on the page, for the search to scroll to it.
 function Page:Add(w, h, col, dy)
     if col == 2 then
-        w:SetPoint("TOPLEFT", self.child, "TOPLEFT", COL2_X, self.rowY + (dy or 0))
+        w.pageY = self.rowY + (dy or 0)
+        w:SetPoint("TOPLEFT", self.child, "TOPLEFT", COL2_X, w.pageY)
         self.y = math.min(self.y, self.rowY - h)
     else
         self.rowY = self.y
+        w.pageY = self.y
         w:SetPoint("TOPLEFT", self.child, "TOPLEFT", 16, self.y)
         self.y = self.y - h
     end
+    w.pageX = col == 2 and COL2_X or 16
+    w.pageH = h
     self.child:SetHeight(-self.y + 20)
 end
 
 local function register(w)
     widgets[#widgets + 1] = w
     return w
+end
+
+---------------------------------------------------------------------------
+-- Search index: every labeled widget of the panel's pages, with where it is
+---------------------------------------------------------------------------
+
+local searchIndex = {}
+local indexing -- { tab, sub, where, page } while the panel's pages are built
+
+local function index(w, label)
+    if not indexing or type(label) ~= "string" then return end
+    searchIndex[#searchIndex + 1] = {
+        text = L[label], tab = indexing.tab, sub = indexing.sub, where = indexing.where,
+        page = indexing.page, widget = w,
+    }
 end
 
 function Page:Header(text)
@@ -168,6 +188,7 @@ function Page:Header(text)
     line:SetPoint("LEFT", fs, "RIGHT", 8, 0)
     line:SetPoint("RIGHT", self.child, "RIGHT", -16, 0)
     self:Add(fs, 28)
+    index(fs, text)
 end
 
 function Page:Note(text)
@@ -193,6 +214,7 @@ function Page:Checkbox(label, bind, col)
     cb.Refresh = function() cb:SetChecked(bind.get() and true or false) end
     register(cb)
     self:Add(cb, 28, col)
+    index(cb, label)
     return cb
 end
 
@@ -253,6 +275,7 @@ function Page:Slider(label, bind, minV, maxV, step, fmt, col)
     end
     register(holder)
     self:Add(holder, 50, col)
+    index(holder, label)
     return holder
 end
 
@@ -313,6 +336,7 @@ function Page:Dropdown(label, bind, options, col)
     end
     register(holder)
     self:Add(holder, 52, col)
+    index(holder, label)
     return holder
 end
 
@@ -367,6 +391,7 @@ function Page:Color(label, path, col)
     end)
     register(b)
     self:Add(b, 28, col)
+    index(b, label)
     return b
 end
 
@@ -376,6 +401,7 @@ function Page:Button(text, onClick, col, dy, width)
     b:SetText(L[text])
     b:SetScript("OnClick", onClick)
     self:Add(b, 32, col, dy)
+    if text ~= "Test" then index(b, text) end -- every feature has one
     return b
 end
 
@@ -659,6 +685,32 @@ function Page:ReminderLists()
 end
 
 ---------------------------------------------------------------------------
+-- The same "Position" block for everything that can be moved: unlock, reset, and
+-- whatever else places it (extra). module: returns the object with .unlocked and
+-- :SetLocked; reset: puts the saved position back to the default.
+---------------------------------------------------------------------------
+
+local function PositionBlock(p, unlockLabel, module, reset, extra)
+    p:Header("Position")
+    p:Checkbox(unlockLabel, {
+        get = function() return module().unlocked and true or false end,
+        set = function(v) module():SetLocked(not v) end,
+    })
+    p:Button("Reset position", function()
+        reset()
+        ns.ApplyAll(true)
+    end, 2)
+    if extra then extra() end
+end
+
+local function resetXY(key)
+    return function()
+        local S, D = ns.db[key], ns.defaults[key]
+        S.x, S.y = D.x, D.y
+    end
+end
+
+---------------------------------------------------------------------------
 -- Combat log
 ---------------------------------------------------------------------------
 
@@ -842,6 +894,11 @@ local function BuildAlertVisual(p)
     p:Slider("Min amount", "alerts.visual.minAmount", 0, 5000, 10)
     p:Slider("Display time", "alerts.visual.duration", 0.5, 3, 0.1, secs, 2)
 
+    PositionBlock(p, "Unlock (drag the alert to move it)", function() return ns.Alerts.crit end, function()
+        local V, D = ns.db.alerts.visual, ns.defaults.alerts.visual
+        V.x, V.y = D.x, D.y
+    end)
+
     p:Header("Look")
     p:Slider("Number size", "alerts.visual.size", 20, 80, 1)
     p:Slider("Scale", "alerts.visual.scale", 0.5, 2, 0.05, times, 2)
@@ -856,17 +913,7 @@ local function BuildAlertVisual(p)
     p:Dropdown("Name font", "alerts.visual.nameFont", alertFontOptions, 2)
     p:Dropdown("Outline", "alerts.visual.outline", OUTLINE_OPTIONS)
 
-    p:Header("Position")
-    p:Checkbox("Unlock (drag the alert to move it)", {
-        get = function() return ns.Alerts.crit.unlocked end,
-        set = function(v) ns.Alerts.crit:SetLocked(not v) end,
-    })
     p:Button("Test", function() ns.Alerts:Test() end)
-    p:Button("Reset position", function()
-        local V, D = ns.db.alerts.visual, ns.defaults.alerts.visual
-        V.x, V.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
 end
 
 local function BuildAlertSound(p)
@@ -920,6 +967,8 @@ local function BuildProcGeneral(p)
     }, ns.Alerts.SoundOptions)
     p:Dropdown("Sound channel", "procs.channel", SOUND_CHANNELS, 2)
     p:Button("Test", function() ns.Alerts:TestProc() end)
+
+    PositionBlock(p, "Unlock (drag the alert to move it)", function() return ns.Alerts.proc end, resetXY("procs"))
 end
 
 local function BuildProcBuffs(p)
@@ -945,18 +994,7 @@ local function BuildProcLook(p)
     p:Checkbox("Buff icon", "procs.showIcon")
     p:Checkbox("Buff name", "procs.showName", 2)
     p:Checkbox("Glow burst", "procs.glow")
-
-    p:Header("Position")
-    p:Checkbox("Unlock (drag the alert to move it)", {
-        get = function() return ns.Alerts.proc.unlocked end,
-        set = function(v) ns.Alerts.proc:SetLocked(not v) end,
-    })
-    p:Button("Test", function() ns.Alerts:TestProc() end)
-    p:Button("Reset position", function()
-        local P, D = ns.db.procs, ns.defaults.procs
-        P.x, P.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
+    p:Button("Test", function() ns.Alerts:TestProc() end, 2, -2, 100)
 end
 
 ---------------------------------------------------------------------------
@@ -998,6 +1036,13 @@ local function BuildResGeneral(p)
     p:Checkbox("Show resource display", "resources.enabled")
     p:Button("Test", function() ns.Resources:Test() end, 2, -2, 100)
 
+    PositionBlock(p, "Unlock (drag the display to move it)", function() return ns.Resources end,
+        resetXY("resources"), function()
+        local sw, sh = math.ceil(GetScreenWidth()), math.ceil(GetScreenHeight())
+        p:Slider("Horizontal position", "resources.x", -sw, sw, 1)
+        p:Slider("Vertical position", "resources.y", -sh, sh, 1, nil, 2)
+    end)
+
     p:Header("Visibility")
     p:Dropdown("Show when", "resources.visibility", {
         { text = "In combat or not full", value = "combatOrNotFull" },
@@ -1012,20 +1057,6 @@ local function BuildResGeneral(p)
 end
 
 local function BuildResLook(p)
-    p:Header("Position")
-    p:Checkbox("Unlock (drag the display to move it)", {
-        get = function() return ns.Resources.unlocked end,
-        set = function(v) ns.Resources:SetLocked(not v) end,
-    })
-    p:Button("Reset position", function()
-        local R, D = ns.db.resources, ns.defaults.resources
-        R.x, R.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
-    local sw, sh = math.ceil(GetScreenWidth()), math.ceil(GetScreenHeight())
-    p:Slider("Horizontal position", "resources.x", -sw, sw, 1)
-    p:Slider("Vertical position", "resources.y", -sh, sh, 1, nil, 2)
-
     p:Header("Look")
     p:Slider("Width", "resources.width", 80, 500, 5, px)
     p:Slider("Scale", "resources.scale", 0.5, 2.5, 0.05, times, 2)
@@ -1111,6 +1142,8 @@ local function BuildResCast(p)
     p:Slider("Text size", "resources.castbar.textSize", 7, 20, 1, nil, 2)
     p:Color("Color", "resources.castbar.color")
     p:Color("Uninterruptible", "resources.castbar.uninterruptibleColor", 2)
+    p:Checkbox("Hide the game's cast bar", "resources.castbar.hideBlizzard")
+    p:Note("Hides the game's own cast bar while the resource display is on. With the display off, it is always back.")
 end
 
 ---------------------------------------------------------------------------
@@ -1130,6 +1163,10 @@ local function BuildRemGeneral(p)
         return v == 0 and L["only when missing"] or L["%ss left"]:format(v)
     end)
     p:Note("Buff and debuff reminders are dimmed while you can't cast the spell (no mana, on cooldown, target out of range).")
+
+    PositionBlock(p, "Unlock (drag the icons to move them)", function() return ns.Reminders end, resetXY("reminders"))
+
+    p:Header("Hidden in combat")
     p:Note("On Forever and Retail the game hides auras from addons during combat. Reminders then go on from what they last saw and from your own casts: a debuff you cast counts as on the target for its normal duration, even if it was resisted or dispelled. Classic clients always see the real auras.")
     p:Note("Cooldowns can be hidden there in combat, too: a \"Usable\" reminder then disappears when you cast the spell and comes back when its normal cooldown (from the game data, without talents) is over. Whether you have enough mana, rage or energy can only be checked while the game shows it. /wl debug lists what is readable right now.")
 
@@ -1245,17 +1282,6 @@ local function BuildRemLook(p)
     p:Checkbox("Pulsing glow", "reminders.glow", 2)
     p:Checkbox("Animations (pop in with a flash, shrink away)", "reminders.animate")
     p:Button("Test", function() ns.Reminders:Test() end, 2, -2, 100)
-
-    p:Header("Position")
-    p:Checkbox("Unlock (drag the icons to move them)", {
-        get = function() return ns.Reminders.unlocked end,
-        set = function(v) ns.Reminders:SetLocked(not v) end,
-    })
-    p:Button("Reset position", function()
-        local R, D = ns.db.reminders, ns.defaults.reminders
-        R.x, R.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
 end
 
 ---------------------------------------------------------------------------
@@ -1274,6 +1300,8 @@ local function BuildKillGeneral(p)
     p:Checkbox("Mob name", "killAlert.showName")
     p:Checkbox("Multi-kill counter", "killAlert.multiKill", 2)
     p:Note("Kills come from the XP message on every client. On Classic clients the combat log also reports kills without XP. On Forever and Retail there is no such event: a kill without XP is noticed when your target dies after you hit it, so it has to be targeted.")
+
+    PositionBlock(p, "Unlock (drag the alert to move it)", function() return ns.KillAlert end, resetXY("killAlert"))
 end
 
 local function BuildKillSound(p)
@@ -1302,17 +1330,6 @@ local function BuildKillLook(p)
     p:Dropdown("Number font", "killAlert.font", alertFontOptions)
     p:Dropdown("Name font", "killAlert.nameFont", alertFontOptions, 2)
     p:Dropdown("Outline", "killAlert.outline", OUTLINE_OPTIONS)
-
-    p:Header("Position")
-    p:Checkbox("Unlock (drag the alert to move it)", {
-        get = function() return ns.KillAlert.unlocked end,
-        set = function(v) ns.KillAlert:SetLocked(not v) end,
-    })
-    p:Button("Reset position", function()
-        local K, D = ns.db.killAlert, ns.defaults.killAlert
-        K.x, K.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
 end
 
 -- The XP bar's look and effects, shared by the kill alert and the XP tracker.
@@ -1337,7 +1354,7 @@ end
 
 local function BuildKillBar(p)
     p:Header("XP bar")
-    p:Note("Your XP bar under the kill alert. Turn it on or off under General. Unlock the alert under Look to see changes live.")
+    p:Note("Your XP bar under the kill alert. Turn it on or off under General. Unlock it there, too, to see changes live.")
     p:Slider("Length", "killAlert.bar.width", 0, 500, 10, autoPx)
     p:Slider("Thickness", "killAlert.bar.height", 0, 30, 1, autoPx, 2)
     BuildXPBarLook(p, "killAlert.bar")
@@ -1386,6 +1403,13 @@ local function BuildTrackerGeneral(p)
     p:Header("Growing")
     p:Slider("Size when XP comes in", "xpTracker.popScale", 1, 2.5, 0.05, times)
     p:Slider("Stays big for", "xpTracker.popHold", 0.5, 5, 0.5, secs, 2)
+
+    PositionBlock(p, "Unlock (drag the tracker sideways to move it)", function() return ns.XPTracker end, function()
+        local T, D = ns.db.xpTracker, ns.defaults.xpTracker
+        T.x, T.offset = D.x, D.offset
+    end, function()
+        p:Slider("Distance from top edge", "xpTracker.offset", 0, 100, 1, px)
+    end)
 end
 
 local function BuildTrackerLook(p)
@@ -1401,18 +1425,6 @@ local function BuildTrackerLook(p)
     p:Slider("Text size", "xpTracker.textSize", 8, 30, 1)
     p:Dropdown("Font", "xpTracker.font", alertFontOptions, 2)
     p:Dropdown("Outline", "xpTracker.outline", OUTLINE_OPTIONS)
-
-    p:Header("Position")
-    p:Checkbox("Unlock (drag the tracker sideways to move it)", {
-        get = function() return ns.XPTracker.unlocked end,
-        set = function(v) ns.XPTracker:SetLocked(not v) end,
-    })
-    p:Button("Reset position", function()
-        local T, D = ns.db.xpTracker, ns.defaults.xpTracker
-        T.x, T.offset = D.x, D.offset
-        ns.ApplyAll(true)
-    end, 2)
-    p:Slider("Distance from top edge", "xpTracker.offset", 0, 100, 1, px)
 end
 
 local function BuildTrackerBar(p)
@@ -1468,12 +1480,8 @@ local function BuildQuestGeneral(p)
     p:Note("A card when one of your quests moves on: all its objectives, the one that just changed lit up, and a bar that fills for every \"kill X\" or \"collect X\" objective. Press Test twice to see a quest getting done.")
     p:Checkbox("Show quest progress", "questProgress.enabled")
     p:Button("Test", function() ns.QuestProgress:Test() end, 2, -2, 100)
-    p:Dropdown("Position", "questProgress.anchor", {
-        { text = "Free pop-up", value = "free" },
-        { text = "Under the XP tracker", value = "tracker" },
-    })
-    p:Slider("Display time", "questProgress.duration", 2, 15, 0.5, secs, 2)
-    p:Slider("Quests at once", "questProgress.maxQuests", 1, 5, 1)
+    p:Slider("Display time", "questProgress.duration", 2, 15, 0.5, secs)
+    p:Slider("Quests at once", "questProgress.maxQuests", 1, 5, 1, nil, 2)
     p:Checkbox("Bars for kill and collect objectives", "questProgress.bars")
     p:Checkbox("Dim the other objectives", "questProgress.dimUnchanged", 2)
     p:Checkbox("\"Quest complete!\" banner", "questProgress.completeBanner")
@@ -1482,6 +1490,15 @@ local function BuildQuestGeneral(p)
     p:Checkbox("Always show quests with a time limit", "questProgress.timedQuests", 2)
     p:Button("Test timer", function() ns.QuestProgress:TestTimer() end)
     p:Note("The progress is read from your quest log on every client, so it works in every language. Bonus objectives that fill a bar show their percent (Retail). The game's text is the yellow \"Kobold Vermin slain: 3/10\" in the middle of the screen; its other messages still show. A quest with a time limit keeps its card on top until it is done, with the time left and a bar that runs empty.")
+
+    PositionBlock(p, "Unlock (drag the card to move it)", function() return ns.QuestProgress end,
+        resetXY("questProgress"), function()
+        p:Dropdown("Position", "questProgress.anchor", {
+            { text = "Free pop-up", value = "free" },
+            { text = "Under the XP tracker", value = "tracker" },
+        })
+        p:Note("Under the XP tracker, the card follows the tracker; move the tracker instead.")
+    end)
 end
 
 local function BuildQuestLook(p)
@@ -1497,18 +1514,6 @@ local function BuildQuestLook(p)
     p:Slider("Text size", "questProgress.textSize", 8, 24, 1)
     p:Dropdown("Font", "questProgress.font", alertFontOptions, 2)
     p:Dropdown("Outline", "questProgress.outline", OUTLINE_OPTIONS)
-
-    p:Header("Position")
-    p:Checkbox("Unlock (drag the card to move it)", {
-        get = function() return ns.QuestProgress.unlocked end,
-        set = function(v) ns.QuestProgress:SetLocked(not v) end,
-    })
-    p:Button("Reset position", function()
-        local Q, D = ns.db.questProgress, ns.defaults.questProgress
-        Q.x, Q.y = D.x, D.y
-        ns.ApplyAll(true)
-    end, 2)
-    p:Note("Under the XP tracker, the card follows the tracker; move the tracker instead.")
 end
 
 local function BuildQuestBars(p)
@@ -1566,10 +1571,10 @@ local function BuildStatsSummary(p)
     end, 2)
     p:Slider("Scale", "stats.summary.scale", 0.5, 2, 0.05, times)
     p:Button("Show last fight", function() ns.Report:TestSummary() end, 2, -12)
-    p:Button("Reset position", function()
+
+    PositionBlock(p, "Unlock (drag the card to move it)", function() return ns.Report end, function()
         local S, D = ns.db.stats.summary, ns.defaults.stats.summary
         S.x, S.y = D.x, D.y
-        ns.ApplyAll(true)
     end)
 end
 
@@ -1845,16 +1850,81 @@ local function BuildProfiles(p)
     end)
 end
 
--- One sidebar tab per feature; bigger features split into sub-tabs along the top.
--- An entry is { "Name", builder } or { "Name", { { "Sub-tab", builder }, ... } }.
+---------------------------------------------------------------------------
+-- Overview: every feature with its switch, a test and a way to its settings
+---------------------------------------------------------------------------
+
+-- Everything that can be unlocked and dragged, as objects with .unlocked and :SetLocked.
+local function movables()
+    return {
+        { unlocked = not ns.locked, SetLocked = function(_, l) ns.Display:SetLocked(l) end },
+        ns.Alerts.crit, ns.Alerts.proc, ns.Reminders, ns.Report,
+        ns.KillAlert, ns.XPTracker, ns.QuestProgress, ns.Resources,
+    }
+end
+
+-- { feature, its switch, its test (or nil) }; the feature's name is its sidebar tab's.
+local OVERVIEW = {
+    { "Combat log", "behaviour.enabled", function() ns.RunTest() end },
+    { "Crit alerts", "alerts.visual.enabled", function() ns.Alerts:Test() end },
+    { "Proc alerts", "procs.enabled", function() ns.Alerts:TestProc() end },
+    { "Spell reminders", "reminders.enabled", function() ns.Reminders:Test() end },
+    { "Swing timer", "swing.enabled", function() ns.Swing:Test() end },
+    { "Fight summary", "stats.summary.enabled", function() ns.Report:TestSummary() end },
+    { "Kill alerts", "killAlert.enabled", function() ns.KillAlert:Test() end },
+    { "XP tracker", "xpTracker.enabled", function() ns.XPTracker:Test() end },
+    { "Quest progress", "questProgress.enabled", function() ns.QuestProgress:Test() end },
+    { "Session", "session.enabled" },
+    { "Resource display", "resources.enabled", function() ns.Resources:Test() end },
+    { "Minimap button", "minimap.enabled" },
+}
+
+local function BuildOverview(p)
+    p:Header("Overview")
+    p:Note("Turn features on or off, try them out, or jump to their settings. Use the search at the top right to find any setting by name.")
+    for _, f in ipairs(OVERVIEW) do
+        p:Checkbox(f[1], f[2])
+        local open = p:Button("Settings", function() Config:SelectTabByName(f[1]) end, 2, -1, 110)
+        if f[3] then
+            local test = CreateFrame("Button", nil, p.child, "UIPanelButtonTemplate")
+            test:SetSize(80, 24)
+            test:SetText(L["Test"])
+            test:SetPoint("LEFT", open, "RIGHT", 6, 0)
+            test:SetScript("OnClick", f[3])
+        end
+    end
+
+    p:Header("Position")
+    p:Checkbox("Unlock everything (drag to move)", {
+        get = function()
+            for _, m in ipairs(movables()) do
+                if m.unlocked then return true end
+            end
+            return false
+        end,
+        set = function(v)
+            for _, m in ipairs(movables()) do
+                if (m.unlocked and true or false) ~= v then m:SetLocked(not v) end
+            end
+        end,
+    })
+    p:Note("Shows everything that can be moved, each with a blue area to drag. Each feature's first page has its own Unlock and Reset position.")
+end
+
+-- The sidebar: an overview, then one tab per feature under group headings. Bigger
+-- features split into sub-tabs along the top; their first one holds the switch and
+-- the position. An entry is { "Name", builder }, { "Name", { { "Sub-tab", builder },
+-- ... } } or { group = "Heading" }.
 local TABS = {
+    { "Overview", BuildOverview },
+    { group = "Combat" },
     { "Combat log", {
+        { "General", BuildLogWindow },
         { "Layout", BuildLogLayout },
         { "Header", BuildLogHeader },
         { "Crits", BuildLogCrits },
         { "Colors", BuildLogColors },
         { "Events", BuildLogEvents },
-        { "Window", BuildLogWindow },
     } },
     { "Crit alerts", {
         { "Visual", BuildAlertVisual },
@@ -1871,6 +1941,12 @@ local TABS = {
         { "Spells", BuildRemSpells },
         { "Look", BuildRemLook },
     } },
+    { "Swing timer", BuildSwing },
+    { "Fight summary", {
+        { "Summary", BuildStatsSummary },
+        { "History & records", BuildStatsHistory },
+    } },
+    { group = "Leveling & quests" },
     { "Kill alerts", {
         { "General", BuildKillGeneral },
         { "Sound", BuildKillSound },
@@ -1890,7 +1966,8 @@ local TABS = {
         { "Bars", BuildQuestBars },
         { "Sound", BuildQuestSound },
     } },
-    { "Swing timer", BuildSwing },
+    { "Session", BuildSession },
+    { group = "Interface" },
     { "Resource display", {
         { "General", BuildResGeneral },
         { "Look", BuildResLook },
@@ -1899,20 +1976,16 @@ local TABS = {
         { "Combo points", BuildResCombo },
         { "Cast bar", BuildResCast },
     } },
-    { "Fight summary", {
-        { "Summary", BuildStatsSummary },
-        { "History & records", BuildStatsHistory },
-    } },
-    { "Session", BuildSession },
     { "Blizzard UI", {
         { "General", BuildBlizzard },
         { "Buttons", BuildBlizzardButtons },
         { "Bars", BuildBlizzardBars },
         { "Animations", BuildBlizzardAnimations },
     } },
-    { "Macro builder", BuildMacroBuilder },
-    { "Custom sounds", BuildCustomSounds },
     { "Minimap button", BuildMinimap },
+    { "Macro builder", BuildMacroBuilder },
+    { group = "General" },
+    { "Custom sounds", BuildCustomSounds },
     { "Language", BuildLanguage },
     { "Profiles", BuildProfiles },
 }
@@ -1955,6 +2028,7 @@ end
 
 -- sub: which sub-tab to show; each feature remembers its last one.
 function Config:SelectTab(index, sub)
+    if self.results then self.results:Hide() end
     for i, tab in ipairs(self.tabs) do
         local on = i == index
         Highlight(tab, on)
@@ -1968,6 +2042,184 @@ function Config:SelectTab(index, sub)
             end
         end
     end
+end
+
+function Config:SelectTabByName(name)
+    for i, tab in ipairs(self.tabs) do
+        if tab.name == name then return self:SelectTab(i) end
+    end
+end
+
+---------------------------------------------------------------------------
+-- Search: a box at the top right; typing lists the matching settings as
+-- "Feature » Sub-tab » Setting", and a click goes there and lights the setting up
+---------------------------------------------------------------------------
+
+local MAX_RESULTS = 16
+local RESULT_H = 24
+local FLASH_TIME = 1.6
+
+-- Lowercase and without color codes, for matching.
+local function plain(s)
+    return (s:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):lower())
+end
+
+function Config:Search(text)
+    local q = plain(strtrim(text or ""))
+    local box = self.results
+    if q == "" then
+        box:Hide()
+        return
+    end
+    -- settings whose name starts with the text first, then the ones containing it
+    local first, rest, seen = {}, {}, {}
+    for _, e in ipairs(searchIndex) do
+        local t = plain(e.text)
+        local key = e.where .. "\1" .. t
+        local at = not seen[key] and t:find(q, 1, true)
+        if at then
+            seen[key] = true
+            local list = at == 1 and first or rest
+            list[#list + 1] = e
+        end
+    end
+    for _, e in ipairs(rest) do first[#first + 1] = e end
+    box.found = first
+    for i = 1, MAX_RESULTS do
+        local row, e = box.rows[i], first[i]
+        row:SetShown(e and true or false)
+        if e then
+            row.entry = e
+            if e.widget then
+                row.text:SetText("|cff999999" .. e.where .. " »|r " .. e.text)
+            else
+                row.text:SetText(e.where) -- a feature or sub-tab itself
+            end
+        end
+    end
+    if #first == 0 then
+        box.footer:SetText(L["No settings found."])
+    elseif #first > MAX_RESULTS then
+        box.footer:SetText(L["%d more - type more to narrow it down."]:format(#first - MAX_RESULTS))
+    else
+        box.footer:SetText("")
+    end
+    box:Show()
+end
+
+-- Goes to a search result: its tab and sub-tab, scrolled so the setting is in sight,
+-- and lights it up for a moment.
+function Config:Jump(e)
+    self.searchBox:ClearFocus()
+    self.results:Hide()
+    self:SelectTab(e.tab, e.sub)
+    local scroll, w = e.page.scroll, e.widget
+    if not w then
+        scroll:SetVerticalScroll(0)
+        return
+    end
+    C_Timer.After(0, function()
+        local range = scroll:GetVerticalScrollRange() or 0
+        scroll:SetVerticalScroll(math.max(0, math.min(range, -w.pageY - 40)))
+        local page = e.page
+        if not page.flash then
+            page.flash = page.child:CreateTexture(nil, "BACKGROUND")
+            page.flash:SetColorTexture(1, 0.82, 0, 1)
+        end
+        local f = page.flash
+        f:ClearAllPoints()
+        f:SetPoint("TOPLEFT", page.child, "TOPLEFT", w.pageX - 6, w.pageY + 3)
+        f:SetSize(WIDGET_W + 12, w.pageH)
+        f:SetAlpha(0)
+        f:Show()
+        local t = 0
+        self.flashDriver:SetScript("OnUpdate", function(driver, dt)
+            t = t + dt
+            -- two soft pulses, then gone
+            local a = math.max(0, 1 - t / FLASH_TIME) * (0.15 - 0.15 * math.cos(t * math.pi * 2.5))
+            f:SetAlpha(a)
+            if t >= FLASH_TIME then
+                f:Hide()
+                driver:SetScript("OnUpdate", nil)
+            end
+        end)
+    end)
+end
+
+local function CreateSearch(panel)
+    local ok, box = pcall(CreateFrame, "EditBox", nil, panel, "SearchBoxTemplate")
+    if not ok or not box then
+        box = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+    end
+    box:SetSize(200, 20)
+    box:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -30, -20)
+    box:SetAutoFocus(false)
+    box:SetMaxLetters(40)
+    -- the hint while empty: the template's own, or one of ours
+    local hint = box.Instructions
+    if not hint then
+        hint = box:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+        hint:SetPoint("LEFT", 4, 0)
+    end
+    hint:SetText(L["Search settings"])
+    local function updateHint()
+        hint:SetShown(box:GetText() == "" and not box:HasFocus())
+    end
+    box:HookScript("OnTextChanged", function(self)
+        updateHint()
+        Config:Search(self:GetText())
+    end)
+    box:HookScript("OnEditFocusGained", function(self)
+        updateHint()
+        Config:Search(self:GetText())
+    end)
+    box:HookScript("OnEditFocusLost", updateHint)
+    box:SetScript("OnEscapePressed", function(self)
+        self:SetText("")
+        self:ClearFocus()
+        Config.results:Hide()
+    end)
+    box:SetScript("OnEnterPressed", function(self)
+        local found = Config.results.found
+        if Config.results:IsShown() and found and found[1] then
+            Config:Jump(found[1])
+        else
+            self:ClearFocus()
+        end
+    end)
+
+    -- the result list covers the page area
+    local r = CreateFrame("Frame", nil, panel)
+    r:SetPoint("TOPLEFT", panel, "TOPLEFT", SIDEBAR_W + 26, -50)
+    r:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -20, 8)
+    r:SetFrameLevel(panel:GetFrameLevel() + 30)
+    r:EnableMouse(true)
+    local bg = r:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.05, 0.05, 0.07, 0.97)
+    r.rows = {}
+    for i = 1, MAX_RESULTS do
+        local row = CreateFrame("Button", nil, r)
+        row:SetHeight(RESULT_H)
+        row:SetPoint("TOPLEFT", 8, -6 - (i - 1) * (RESULT_H + 2))
+        row:SetPoint("RIGHT", r, "RIGHT", -8, 0)
+        local hl = row:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints()
+        hl:SetColorTexture(1, 0.82, 0, 0.12)
+        row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        row.text:SetPoint("LEFT", 8, 0)
+        row.text:SetPoint("RIGHT", -8, 0)
+        row.text:SetJustifyH("LEFT")
+        row.text:SetWordWrap(false)
+        row:SetScript("OnClick", function(self) Config:Jump(self.entry) end)
+        r.rows[i] = row
+    end
+    r.footer = r:CreateFontString(nil, "OVERLAY", "GameFontDisable")
+    r.footer:SetPoint("TOPLEFT", 16, -10 - MAX_RESULTS * (RESULT_H + 2))
+    r:Hide()
+    Config.results = r
+    Config.searchBox = box
+    Config.flashDriver = CreateFrame("Frame", nil, panel)
 end
 
 -- A page of settings widgets in another window (the welcome screen), already shown.
@@ -1997,35 +2249,63 @@ function Config:Init()
     self.profileText:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 14, 2)
 
     self.tabs = {}
-    for i, def in ipairs(TABS) do
-        local tab = TabButton(panel, def[1])
-        tab:SetSize(SIDEBAR_W, 24)
-        tab:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -50 - (i - 1) * 27)
-        if type(def[2]) == "function" then
-            tab.page = NewPage(panel)
-            def[2](tab.page)
+    local y, i = -50, 0
+    for _, def in ipairs(TABS) do
+        if def.group then
+            -- a small heading over the tabs that belong together
+            y = y - 6
+            local h = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+            h:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, y - 2)
+            h:SetText(L[def.group])
+            h:SetTextColor(0.8, 0.68, 0.3)
+            y = y - 16
         else
-            tab.sub = 1
-            tab.subs = {}
-            tab.bar = CreateFrame("Frame", nil, panel)
-            tab.bar:SetPoint("TOPLEFT", panel, "TOPLEFT", SIDEBAR_W + 26, SUBTAB_TOP)
-            tab.bar:SetSize(PAGE_WIDTH, 24)
-            local x = 0
-            for j, sub in ipairs(def[2]) do
-                local s = TabButton(tab.bar, sub[1], "bottom")
-                local w = math.ceil(s.text:GetStringWidth()) + 22
-                s:SetSize(w, 24)
-                s:SetPoint("TOPLEFT", x, 0)
-                x = x + w + 3
-                s.page = NewPage(panel, SUBPAGE_TOP)
-                sub[2](s.page)
-                s:SetScript("OnClick", function() Config:SelectTab(i, j) end)
-                tab.subs[j] = s
+            i = i + 1
+            local tabIndex = i
+            local tab = TabButton(panel, def[1])
+            tab.name = def[1]
+            tab:SetSize(SIDEBAR_W, 20)
+            tab:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
+            y = y - 22
+            if type(def[2]) == "function" then
+                tab.page = NewPage(panel)
+                -- the overview only repeats the features: not searched
+                if def[2] ~= BuildOverview then
+                    indexing = { tab = tabIndex, where = L[def[1]], page = tab.page }
+                    index(nil, def[1])
+                end
+                def[2](tab.page)
+            else
+                tab.sub = 1
+                tab.subs = {}
+                tab.bar = CreateFrame("Frame", nil, panel)
+                tab.bar:SetPoint("TOPLEFT", panel, "TOPLEFT", SIDEBAR_W + 26, SUBTAB_TOP)
+                tab.bar:SetSize(PAGE_WIDTH, 24)
+                local x = 0
+                for j, sub in ipairs(def[2]) do
+                    local s = TabButton(tab.bar, sub[1], "bottom")
+                    local w = math.ceil(s.text:GetStringWidth()) + 22
+                    s:SetSize(w, 24)
+                    s:SetPoint("TOPLEFT", x, 0)
+                    x = x + w + 3
+                    s.page = NewPage(panel, SUBPAGE_TOP)
+                    if j == 1 then
+                        -- the feature's own name finds its first page
+                        indexing = { tab = tabIndex, sub = 1, where = L[def[1]], page = s.page }
+                        index(nil, def[1])
+                    end
+                    indexing = { tab = tabIndex, sub = j, where = L[def[1]] .. " » " .. L[sub[1]], page = s.page }
+                    sub[2](s.page)
+                    s:SetScript("OnClick", function() Config:SelectTab(tabIndex, j) end)
+                    tab.subs[j] = s
+                end
             end
+            indexing = nil
+            tab:SetScript("OnClick", function() Config:SelectTab(tabIndex) end)
+            self.tabs[tabIndex] = tab
         end
-        tab:SetScript("OnClick", function() Config:SelectTab(i) end)
-        self.tabs[i] = tab
     end
+    CreateSearch(panel)
     self:SelectTab(1)
 
     panel:SetScript("OnShow", function()
@@ -2043,6 +2323,9 @@ function Config:Init()
         if ns.Reminders.unlocked then ns.Reminders:SetLocked(true) end
         if ns.KillAlert.unlocked then ns.KillAlert:SetLocked(true) end
         if ns.XPTracker.unlocked then ns.XPTracker:SetLocked(true) end
+        if ns.QuestProgress.unlocked then ns.QuestProgress:SetLocked(true) end
+        if ns.Report.unlocked then ns.Report:SetLocked(true) end
+        if Config.results then Config.results:Hide() end
     end)
 
     if Settings and Settings.RegisterCanvasLayoutCategory then
@@ -2051,7 +2334,7 @@ function Config:Init()
     else
         -- no Settings API: run as a standalone window
         panel:SetParent(UIParent)
-        panel:SetSize(720, 600)
+        panel:SetSize(720, 620)
         panel:SetPoint("CENTER")
         panel:SetFrameStrata("DIALOG")
         panel:SetMovable(true)

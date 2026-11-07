@@ -141,7 +141,8 @@ ns.defaults.resources = {
               gap = 12,                 -- space between points (not for "bar")
               gradient = true, color2 = { 0.76, 0.24, 0.15 } }, -- last point's color with gradient
     castbar = { enabled = true, height = 18, icon = true, name = true, time = true, textSize = 12,
-                color = { 0.94, 0.79, 0.15 }, uninterruptibleColor = { 0.60, 0.60, 0.60 } },
+                color = { 0.94, 0.79, 0.15 }, uninterruptibleColor = { 0.60, 0.60, 0.60 },
+                hideBlizzard = true },     -- the game's cast bar, while the display is on
 }
 
 -- pop-up when a mob you fought dies: XP counting up, XP bar, multi-kills, sound

@@ -123,8 +123,16 @@ change settings.
 
 ## Settings
 
-Every feature has its own tab in the sidebar. Bigger features are split into
-sub-tabs along the top.
+The settings open on an **Overview**: every feature with its on/off switch, a Test
+button and a button to its settings, plus "Unlock everything" to move all of them at
+once. The sidebar groups the features under *Combat*, *Leveling & quests*, *Interface*
+and *General*. Bigger features are split into sub-tabs along the top; their first one
+holds the on/off switch and the same *Position* block everywhere (unlock, reset
+position).
+
+The **search** at the top right finds any setting by name: typing lists the matches
+as "Feature » Sub-tab » Setting", and a click (or Enter for the first one) goes there
+and lights the setting up.
 
 - **Combat log**
   - *Layout:* window width, max rows, row height and spacing, row background
@@ -140,46 +148,46 @@ sub-tabs along the top.
     counting row per DoT instead of a row per tick; the minimum amount and "only
     crits" filters then don't apply to DoT ticks), minimum amounts, "only crits"
     filters and the strict group filter.
-  - *Window:* on/off, when the window shows (only in combat or always), how long it stays
+  - *General:* on/off, when the window shows (only in combat or always), how long it stays
     after combat, fade times, clearing the log when a new fight starts, drag to
     move, X/Y position, scale, window opacity and frame layer.
-- **Crit alerts:** *Visual* (the pop-up, its look, fonts, outline and position), *Sound*, and
+- **Crit alerts:** *Visual* (the pop-up, its position, look, fonts and outline), *Sound*, and
   *Streaks & records* (see below).
-- **Proc alerts:** *General* (on/off, sound), *Buffs* (type a name or spell ID, or
-  pick from the buffs you gained recently) and *Look* (size, color, position).
+- **Proc alerts:** *General* (on/off, sound, position), *Buffs* (type a name or spell ID, or
+  pick from the buffs you gained recently) and *Look* (size, color).
 - **Spell reminders:** *General* (on/off, only in combat, how early buffs and
-  debuffs count as running out, sound), *Spells* (type a name or spell ID, choose "Usable",
+  debuffs count as running out, position, sound), *Spells* (type a name or spell ID, choose "Usable",
   "Buff", "Debuff" or "Interrupt" and optionally the key to show on the icon, or add a suggestion for your
   class; each reminder can also get its own sound or stay silent, and show only in
   combat or always). The list shows only your class's reminders, so characters
   sharing a profile don't see each other's. and *Look* (icon size, scale, spacing,
-  color, names, glow, animations, position).
-- **Kill alerts:** *General* (on/off, kills without XP, what to show, display time),
-  *Sound* (sound, channel, rising pitch for multi-kills), *Look* (text size, scale,
-  XP color, fonts, outline, position) and *XP bar* (length, thickness, texture,
+  color, names, glow, animations).
+- **Kill alerts:** *General* (on/off, kills without XP, what to show, display time,
+  position), *Sound* (sound, channel, rising pitch for multi-kills), *Look* (text size, scale,
+  XP color, fonts, outline) and *XP bar* (length, thickness, texture,
   background, segments, border, color, fill speed, and effects: spark, gloss, the
   XP just gained lighting up, glow, rested XP, percent text; off by default) and
   *Quest alert* (on/off, quest name, color, sound).
 - **XP tracker:** *General* (on/off, hide at max level, level, XP gained text, XP
-  source, exact XP when opened, open on mouse over, how big and how long it grows),
-  *Look* (length, thickness, scale, color, background opacity, kill XP color, text size, font,
-  outline, position along and distance from the top edge), *XP bar* (the same
+  source, exact XP when opened, open on mouse over, how big and how long it grows,
+  position along and distance from the top edge), *Look* (length, thickness, scale,
+  color, background opacity, kill XP color, text size, font, outline), *XP bar* (the same
   options as the kill alert's bar) and *Animation* (style, speed,
   strength, wavelength and color for the filled part, optionally stretched over the
   whole bar, and a separate one for the empty part).
 - **Quest progress:** *General* (on/off, free or under the XP tracker, display time,
   quests at once, bars, dim the other objectives, "Quest complete!" banner, wait until
   the fight is over, hide the game's quest progress text, always show quests with a
-  time limit), *Look* (width, scale,
-  background opacity, colors, text size, font, outline, position), *Bars* (thickness,
+  time limit, position), *Look* (width, scale,
+  background opacity, colors, text size, font, outline), *Bars* (thickness,
   color, texture, background, segments, border, fill speed, spark, gloss, light,
   glow) and *Sound* (on progress, on completion, channel).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
-- **Resource display:** *General* (on/off, when it shows, fade times, opacity),
-  *Look* (position, size, bar texture, gloss, border, background, bar order), and one sub-tab
+- **Resource display:** *General* (on/off, position, when it shows, fade times, opacity),
+  *Look* (size, bar texture, gloss, border, background, bar order), and one sub-tab
   each for *Health*, *Power* (with druid mana), *Combo points* and *Cast bar*.
-- **Fight summary:** *Summary* (display time, scale, position) and *History &
+- **Fight summary:** *Summary* (display time, scale, position: unlock it to drag the card) and *History &
   records* (how many fights to keep, minimum fight length, personal records).
 - **Session:** session tracker and an optional session line above the log window.
 - **Blizzard UI:** *General* (hide Blizzard's XP bar while you level; where Blizzard
@@ -259,7 +267,8 @@ A compact stack of bars under your character, styled like the rest of WombatLog:
 - **Combo points:** for rogues and druids in cat form, as a segmented bar, squares,
   circles or diamonds, in one color or a gradient from the first to the last point.
 - **Cast bar:** spell icon, name and time left. It turns grey for uninterruptible
-  casts and shows "Interrupted" in red when a cast is cut off.
+  casts and shows "Interrupted" in red when a cast is cut off. While the display is
+  on, the game's own cast bar is hidden (an option, on by default).
 
 By default it shows while you're in combat or while your health or power isn't full
 (rage counts while it's above 0), and it fades out otherwise. You can also show it

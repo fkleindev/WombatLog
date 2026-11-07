@@ -31,6 +31,7 @@ OPTION = re.compile(r'\{ text = ' + STR + r', value = [^}\n]*\}')
 # (file, regex for the table's start, regex for the texts inside it)
 TABLES = [
     ("Config.lua", r'local TABS = \{', r'\{ ' + STR + r','),
+    ("Config.lua", r'local TABS = \{', r'group = ' + STR),
     ("Config.lua", r'local KINDS = \{', r'\{ "\w+", ' + STR + r' \}'),
     ("Config.lua", r'local MODE_TEXT = \{', r'= ' + STR),
     ("Config.lua", r'p:OrderList\("Bars", [^{]*\{', r'= ' + STR),
@@ -56,6 +57,7 @@ TABLES = [
 # one-off spots: (file, regex)
 SPOTS = [
     ("Alerts.lua", r'CreateAlertFrame\("\w+", ' + STR),
+    ("Config.lua", r'PositionBlock\(p, ' + STR),
     ("Report.lua", r'lines\[[^\]]+\] = \{ ' + STR),
 ]
 
