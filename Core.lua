@@ -218,6 +218,7 @@ ns.defaults.questProgress = {
     completeBanner = true,          -- "Quest complete!" when the last objective is done
     delayInCombat = false,          -- hold the cards back until the fight is over
     hideBlizzardText = false,       -- the game's yellow "Kobold Vermin slain: 3/10"
+    timedQuests = true,             -- quests with a time limit keep their card up, on top
     scale = 1, width = 260, textSize = 13, bgOpacity = 0.6,
     font = "", outline = "OUTLINE", -- "" font = the log window's
     highlightColor = { 1.00, 0.82, 0.18 },

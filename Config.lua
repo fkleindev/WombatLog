@@ -1479,7 +1479,9 @@ local function BuildQuestGeneral(p)
     p:Checkbox("\"Quest complete!\" banner", "questProgress.completeBanner")
     p:Checkbox("Wait until the fight is over", "questProgress.delayInCombat", 2)
     p:Checkbox("Hide the game's quest progress text", "questProgress.hideBlizzardText")
-    p:Note("The progress is read from your quest log on every client, so it works in every language. Bonus objectives that fill a bar show their percent (Retail). The game's text is the yellow \"Kobold Vermin slain: 3/10\" in the middle of the screen; its other messages still show.")
+    p:Checkbox("Always show quests with a time limit", "questProgress.timedQuests", 2)
+    p:Button("Test timer", function() ns.QuestProgress:TestTimer() end)
+    p:Note("The progress is read from your quest log on every client, so it works in every language. Bonus objectives that fill a bar show their percent (Retail). The game's text is the yellow \"Kobold Vermin slain: 3/10\" in the middle of the screen; its other messages still show. A quest with a time limit keeps its card on top until it is done, with the time left and a bar that runs empty.")
 end
 
 local function BuildQuestLook(p)

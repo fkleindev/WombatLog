@@ -59,6 +59,9 @@ combat starts and fades out a few seconds after it ends.
   mark, and when the last one is done the card says "Quest complete!". Several quests
   at once stack. It pops up freely or hangs under the XP tracker, can wait until the
   fight is over, and can replace the game's yellow "Kobold Vermin slain: 3/10".
+  A quest with a time limit keeps its card on top until it is done, with the time
+  left next to its name and a bar that runs empty, yellow in the last minute and
+  pulsing red in the last 15 seconds.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
@@ -166,7 +169,8 @@ sub-tabs along the top.
   whole bar, and a separate one for the empty part).
 - **Quest progress:** *General* (on/off, free or under the XP tracker, display time,
   quests at once, bars, dim the other objectives, "Quest complete!" banner, wait until
-  the fight is over, hide the game's quest progress text), *Look* (width, scale,
+  the fight is over, hide the game's quest progress text, always show quests with a
+  time limit), *Look* (width, scale,
   background opacity, colors, text size, font, outline, position), *Bars* (thickness,
   color, texture, background, segments, border, fill speed, spark, gloss, light,
   glow) and *Sound* (on progress, on completion, channel).
@@ -306,6 +310,7 @@ effort: whatever the client keeps secret is left out.
 | `CHAT_MSG_COMBAT_XP_GAIN`, `PLAYER_XP_UPDATE` | Kills, XP per kill and per hour, XP tracker |
 | `QUEST_COMPLETE`, `QUEST_FINISHED`, `QUEST_TURNED_IN` | Quest alerts |
 | `QUEST_LOG_UPDATE`, `QUEST_WATCH_UPDATE`, `C_QuestLog` / `GetQuestLogTitle`, `GetQuestLogLeaderBoard` | Quest progress: the objectives read again and compared after every change |
+| `C_QuestLog.GetTimeAllowed` / `GetQuestTimers`, `GetQuestIndexForTimer` | Quest progress: the time left on quests with a time limit |
 | `UI_INFO_MESSAGE` | Hiding the game's quest progress text (optional) |
 | `PLAYER_MONEY`, `PLAYER_DEAD` | Session money and deaths |
 | `PLAYER_REGEN_DISABLED` / `_ENABLED` | Showing and hiding the window |

@@ -18,6 +18,14 @@ local XPBar = ns.XPBar
 --                     texts ("Kobold Vermin slain: 3/10"). Quests under a collapsed
 --                     header aren't listed there, so they are read by their ID.
 -- Anything the game hands out as a secret value is skipped for that read.
+--
+-- A quest with a time limit keeps its card up, on top of the stack, until it is turned
+-- in, given up or the time runs out: the time left next to the title and a bar under it
+-- that runs empty, yellow in the last minute and pulsing red in the last seconds.
+--   Retail            C_QuestLog.GetTimeAllowed (total and elapsed)
+--   Classic           GetQuestTimers / GetQuestIndexForTimer (only the time left: the
+--                     total is the most that was ever left, so after a reload mid-quest
+--                     the bar starts full)
 
 local MEDIA = "Interface\\AddOns\\WombatLog\\Media\\"
 local CORNER = MEDIA .. "Corner"
@@ -42,6 +50,12 @@ local POP = 0.35         -- the check mark of an objective just done pops this l
 local BURST_TIME = 0.8
 local MAX_CARDS = 5
 local SAMPLE_ID = -1
+local SAMPLE_TIMER_ID = -2
+local WARN_AT = 60       -- seconds left: the time turns yellow
+local ALERT_AT = 15      -- and red, pulsing
+local EXPIRED_HOLD = 3   -- a timer at 0:00 stays this long before its card lets go
+local WARN_COLOR = { 1.00, 0.82, 0.18 }
+local ALERT_COLOR = { 1.00, 0.27, 0.22 }
 
 ---------------------------------------------------------------------------
 -- Reading the quest log
@@ -165,6 +179,52 @@ end
 local known = {}         -- questID -> its latest snapshot
 local settleUntil = 0
 local scanPending = false
+local timers = {}        -- questID -> { expires = GetTime() it runs out, total = seconds }
+local timerTotals = {}   -- Classic: questID -> the most time ever left
+local sampleTimer        -- the "Test timer" card's
+
+-- The time limits of the quests in the log. A timer that only moved by rounding keeps
+-- its old end, so the countdown doesn't jitter.
+local function readTimers()
+    local list, now = {}, GetTime()
+    local function add(id, left, total)
+        if type(left) ~= "number" or type(total) ~= "number" or total <= 0 then return end
+        local expires = now + left
+        local old = timers[id]
+        if old and math.abs(old.expires - expires) < 1.5 then expires = old.expires end
+        list[id] = { expires = expires, total = total }
+    end
+    if C_QuestLog and C_QuestLog.GetTimeAllowed then
+        for id in pairs(known) do
+            local total, elapsed = C_QuestLog.GetTimeAllowed(id)
+            total, elapsed = Safe(total), Safe(elapsed)
+            if type(total) == "number" and type(elapsed) == "number" then
+                add(id, total - elapsed, total)
+            end
+        end
+    elseif GetQuestTimers and GetQuestIndexForTimer then
+        local secs = { GetQuestTimers() }
+        for i = 1, select("#", GetQuestTimers()) do
+            local left = tonumber(Safe(secs[i]))
+            local index = Safe(GetQuestIndexForTimer(i))
+            local id = index and logEntry(index)
+            if id and left then
+                timerTotals[id] = math.max(timerTotals[id] or 0, left)
+                add(id, left, timerTotals[id])
+            end
+        end
+    end
+    timers = list
+end
+
+-- The timer a quest's card shows, or nil.
+local function activeTimer(id)
+    if id == SAMPLE_TIMER_ID then return sampleTimer end
+    local cfg = ns.db.questProgress
+    if not (cfg.enabled and cfg.timedQuests) then return nil end
+    local t = timers[id]
+    if t and t.expires > GetTime() - EXPIRED_HOLD then return t end
+end
 
 function QuestProgress:Scan()
     scanPending = false
@@ -199,7 +259,9 @@ function QuestProgress:Scan()
             end
         end
     end
+    readTimers()
     if #updates > 0 then self:Report(updates) end
+    self:UpdatePins()
 end
 
 local function requestScan()
@@ -278,6 +340,10 @@ local function CreateCard(holder)
     c.title = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     c.title:SetJustifyH("LEFT")
     c.title:SetWordWrap(false)
+    c.time = c:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    c.time:SetJustifyH("RIGHT")
+    c.tbar = XPBar.Create(c)
+    c.TB = {}
     c.rows = {}
     return c
 end
@@ -320,8 +386,28 @@ end
 -- Cards
 ---------------------------------------------------------------------------
 
-local cards = {} -- shown, newest first
+local cards = {} -- shown: the ones with a timer first, then newest first
 local pool = {}
+
+local function formatTime(left)
+    local s = math.ceil(left)
+    if s >= 3600 then
+        return string.format("%d:%02d:%02d", math.floor(s / 3600), math.floor(s / 60) % 60, s % 60)
+    end
+    return string.format("%d:%02d", math.floor(s / 60), s % 60)
+end
+
+-- Timer cards to the top, each part keeping its order.
+local function sortCards()
+    local pinned, rest = {}, {}
+    for _, c in ipairs(cards) do
+        local list = c.timer and pinned or rest
+        list[#list + 1] = c
+    end
+    wipe(cards)
+    for _, c in ipairs(pinned) do cards[#cards + 1] = c end
+    for _, c in ipairs(rest) do cards[#cards + 1] = c end
+end
 
 local function fraction(o, have)
     if o.need and o.need > 0 and have then return math.max(0, math.min(1, have / o.need)) end
@@ -400,8 +486,31 @@ function QuestProgress:Fill(card)
     card.title:SetText(card.titleText or "")
     card.title:ClearAllPoints()
     card.title:SetPoint("LEFT", card.icon, "RIGHT", 4, 0)
-    card.title:SetWidth(W - PAD * 2 - size - 6)
+    local t = card.timer
+    local timeW = 0
+    card.time:SetShown(t and true or false)
+    card.tbar:SetShown(t and true or false)
+    card.tbar.glow:Hide()
+    if t then
+        -- room for the longest time this timer shows
+        ns.SetFont(card.time, font, size + 1, smallOutline)
+        card.time:SetText(t.total >= 3600 and "00:00:00" or "00:00")
+        timeW = math.ceil(card.time:GetStringWidth()) + 6
+        card.timeStr = nil
+        card.time:ClearAllPoints()
+        card.time:SetPoint("RIGHT", card, "TOPRIGHT", -PAD, -(y + (size + 2) / 2))
+    end
+    card.title:SetWidth(W - PAD * 2 - size - 6 - timeW)
     y = y + lineH + 3
+    if t then
+        local B, cb = card.TB, cfg.bar
+        for k, v in pairs(cb) do B[k] = v end
+        B.segments, B.rested, B.percent, B.gainFlash, B.glow = 0, false, false, false, false
+        XPBar.Apply(card.tbar, B, W - PAD * 2, cb.height, cfg.barColor, font, smallOutline)
+        card.tbar:ClearAllPoints()
+        card.tbar:SetPoint("TOPLEFT", card, "TOPLEFT", PAD, -y)
+        y = y + cb.height + 5
+    end
 
     for i, s in ipairs(card.objs) do
         local r = card.rows[i] or CreateRow(card)
@@ -504,6 +613,30 @@ function QuestProgress:RenderCard(card)
             XPBar.Render(r.bar, r.B, s.value, s.from, s.changeAge or math.huge, 0, lit and hc or nil)
         end
     end
+    local t = card.timer
+    if t then
+        local now = GetTime()
+        local left = math.max(0, t.expires - now)
+        local s = formatTime(left)
+        if s ~= card.timeStr then
+            card.time:SetText(s)
+            card.timeStr = s
+        end
+        local col, a
+        if left < ALERT_AT then
+            col, a = ALERT_COLOR, 0.55 + 0.45 * math.abs(math.cos(now * math.pi * 1.5))
+        elseif left < WARN_AT then
+            col, a = WARN_COLOR, 1
+        else
+            col, a = nil, 1
+        end
+        if col then card.time:SetTextColor(col[1], col[2], col[3]) else card.time:SetTextColor(1, 1, 1) end
+        card.time:SetAlpha(a)
+        card.tbar.color = col or cfg.barColor
+        local v = t.total > 0 and math.min(1, left / t.total) or 0
+        XPBar.Render(card.tbar, card.TB, v, v, math.huge, 0, nil)
+        card.tbar:SetAlpha(a)
+    end
     if card.burstT then
         local p = math.min(1, card.burstT / BURST_TIME)
         local e = 1 - (1 - p) * (1 - p)
@@ -519,8 +652,25 @@ end
 local function release(card)
     card:Hide()
     card.burst:Hide()
+    card.timer = nil
+    card.tbar.glow:Hide()
     for _, r in ipairs(card.rows) do r.bar.glow:Hide() end
     pool[#pool + 1] = card
+end
+
+-- Lets go of the oldest cards without a timer until at most max of them are left.
+local function trim(max)
+    local n = 0
+    for _, c in ipairs(cards) do
+        if not c.timer then n = n + 1 end
+    end
+    for i = #cards, 1, -1 do
+        if n <= max then break end
+        if not cards[i].timer then
+            release(table.remove(cards, i))
+            n = n - 1
+        end
+    end
 end
 
 -- Places the cards under each other (they glide there) and sizes the holder to them.
@@ -555,8 +705,9 @@ function QuestProgress:ShowQuest(q, changes, completed, sample)
         card:SetAlpha(0)
     end
     table.insert(cards, 1, card)
-    local max = math.max(1, math.min(MAX_CARDS, cfg.maxQuests))
-    while #cards > max do release(table.remove(cards)) end
+    card.timer = activeTimer(q.id)
+    sortCards()
+    trim(math.max(1, math.min(MAX_CARDS, cfg.maxQuests)))
     card.sample = sample
     card.age = 0
     card.titleText = q.title
@@ -578,12 +729,24 @@ function QuestProgress:Step(dt)
     local life = cfg.duration
     local speed = cfg.bar.speed
     local gone = false
+    local now = GetTime()
+    for _, c in ipairs(cards) do
+        if c.timer and c.timer.expires < now - EXPIRED_HOLD then
+            -- ran out: the card goes like any other
+            if c.id == SAMPLE_TIMER_ID then sampleTimer = nil end
+            c.timer = nil
+            c.age = 0
+            self:Fill(c)
+            gone = true
+        end
+    end
+    if gone then sortCards() end
     for i = #cards, 1, -1 do
         local c = cards[i]
         c.age = c.age + dt
         c.shownAge = c.shownAge + dt
         local a = math.min(1, c.shownAge / FADE_IN)
-        local steady = c.sample and self.unlocked
+        local steady = (c.sample and self.unlocked) or c.timer
         if not steady and c.age > life then a = math.min(a, 1 - (c.age - life) / FADE_OUT) end
         if a <= 0 then
             release(table.remove(cards, i))
@@ -618,6 +781,46 @@ function QuestProgress:Step(dt)
 end
 
 ---------------------------------------------------------------------------
+-- Quests with a time limit
+---------------------------------------------------------------------------
+
+-- Pins a card for every quest with a timer running, and lets go of the ones whose
+-- timer is gone (turned in, given up, failed, or the option turned off).
+function QuestProgress:UpdatePins()
+    if not self.holder then return end
+    local changed = false
+    for _, c in ipairs(cards) do
+        local t = activeTimer(c.id)
+        if t ~= c.timer then
+            local relayout = (t == nil) ~= (c.timer == nil)
+                or (t and c.timer and (t.total >= 3600) ~= (c.timer.total >= 3600))
+            c.timer = t
+            if not t then c.age = 0 end -- fades after the display time
+            if relayout then
+                self:Fill(c)
+                changed = true
+            end
+        end
+    end
+    if changed then
+        sortCards()
+        trim(math.max(1, math.min(MAX_CARDS, ns.db.questProgress.maxQuests)))
+        self:Layout()
+    end
+    local now = GetTime()
+    for id in pairs(timers) do
+        local t = activeTimer(id)
+        if t and t.expires > now and known[id] then
+            local shown = false
+            for _, c in ipairs(cards) do
+                if c.id == id then shown = true break end
+            end
+            if not shown then self:ShowQuest(known[id], {}, false) end
+        end
+    end
+end
+
+---------------------------------------------------------------------------
 -- Progress coming in
 ---------------------------------------------------------------------------
 
@@ -641,6 +844,12 @@ function QuestProgress:Report(updates)
     local cfg = ns.db and ns.db.questProgress
     if not cfg or not cfg.enabled or not self.holder or self.unlocked then return end
     if cfg.delayInCombat and Safe(UnitAffectingCombat("player")) then
+        -- a quest against the clock shows right away
+        local now = {}
+        for i = #updates, 1, -1 do
+            if activeTimer(updates[i].q.id) then table.insert(now, 1, table.remove(updates, i)) end
+        end
+        if #now > 0 then self:ShowUpdates(now) end
         for _, u in ipairs(updates) do
             local d = delayed[u.q.id]
             if d then
@@ -779,9 +988,16 @@ function QuestProgress:Apply()
             if not cards[i].sample then release(table.remove(cards, i)) end
         end
     end
-    while #cards > math.max(1, math.min(MAX_CARDS, cfg.maxQuests)) do release(table.remove(cards)) end
+    for _, c in ipairs(cards) do
+        local t = activeTimer(c.id)
+        if c.timer and not t then c.age = 0 end
+        c.timer = t
+    end
+    sortCards()
+    trim(math.max(1, math.min(MAX_CARDS, cfg.maxQuests)))
     for _, c in ipairs(cards) do self:Fill(c) end
     self:Layout()
+    self:UpdatePins()
 end
 
 local function sampleQuest(step)
@@ -821,6 +1037,16 @@ function QuestProgress:Test()
     end
 end
 
+-- Settings button: a sample quest against the clock, from yellow to red to run out.
+function QuestProgress:TestTimer()
+    if self.unlocked then self:SetLocked(true) end
+    sampleTimer = { expires = GetTime() + 25, total = 90 }
+    self:ShowQuest({
+        id = SAMPLE_TIMER_ID, title = L["Escort the Caravan"], complete = false,
+        objectives = { { text = L["Caravan escorted"], done = false } },
+    }, {}, false)
+end
+
 function QuestProgress:SetLocked(locked)
     self.unlocked = not locked or nil
     local h = self.holder
@@ -854,13 +1080,13 @@ ns.Listen("UNIT_QUEST_LOG_CHANGED", requestScan, "player")
 ns.Listen("QUEST_ACCEPTED", function(...)
     local n = select("#", ...)
     local id = n > 0 and Safe((select(n, ...))) -- (questID) or (logIndex, questID)
-    if id then known[id] = nil end
+    if id then known[id], timerTotals[id] = nil, nil end
     requestScan()
 end)
 
 local function forget(id)
     id = Safe(id)
-    if id then known[id] = nil end
+    if id then known[id], timerTotals[id] = nil, nil end
 end
 ns.Listen("QUEST_REMOVED", forget)
 ns.Listen("QUEST_TURNED_IN", forget)
