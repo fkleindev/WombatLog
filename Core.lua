@@ -261,6 +261,20 @@ ns.defaults.sparkle = {
     },
 }
 
+-- a mark on nameplates: in range of your spell or not; enemies and allies each have their own
+ns.defaults.rangeIndicator = {
+    enabled = false,
+    hostile = true, friendly = true,
+    friendlyPlayersOnly = true,     -- allies: only players, not friendly NPCs
+    combatOnly = false,
+    show = "both",                  -- "both" | "out" (only out of range) | "in" (only in range)
+    spells = {},                    -- [class] = { hostile = "585" | "Smite" | "none", friendly = ... }; nil = automatic
+    style = "dot",                  -- "dot" | "icon" (the spell's icon, grey out of range)
+    size = 10, alpha = 1, glow = false,
+    side = "left", dx = -4, dy = 0, -- where on the plate's health bar
+    inColor = { 0.30, 1.00, 0.35 }, outColor = { 1.00, 0.25, 0.20 },
+}
+
 ns.defaults.session = { enabled = true, headerLine = true }
 ns.defaults.minimap = { enabled = true, angle = 200 }
 
@@ -531,6 +545,7 @@ function ns.ApplyAll(refreshPanel)
     ns.QuestProgress:Apply()
     ns.QuestItems:Apply()
     ns.Sparkle:Apply()
+    ns.RangeIndicator:Apply()
     ns.BlizzardUI:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
@@ -913,6 +928,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.XPTracker:Init()
     ns.QuestProgress:Init()
     ns.QuestItems:Init()
+    ns.RangeIndicator:Init()
     ns.BlizzardUI:Init()
     ns.MacroBuilder:Init()
     if ns.Config then ns.Config:Init() end
@@ -960,6 +976,7 @@ SlashCmdList.WOMBATLOG = function(msg)
             .. (count > 0 and (": " .. table.concat(missing, " | ", 1, math.min(count, 5))) or ""))
         ns.Resources:Debug()
         ns.Reminders:Debug()
+        ns.RangeIndicator:Debug()
     elseif cmd == "trace" then
         ns.trace = not ns.trace
         ns.Print("event trace " .. (ns.trace and "on - hits, casts and swings print to chat" or "off"))

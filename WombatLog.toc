@@ -38,6 +38,7 @@ XPTracker.lua
 QuestProgress.lua
 QuestItems.lua
 Sparkle.lua
+RangeIndicator.lua
 Report.lua
 Swing.lua
 Resources.lua

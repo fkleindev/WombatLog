@@ -1285,6 +1285,102 @@ local function BuildRemLook(p)
 end
 
 ---------------------------------------------------------------------------
+-- Range indicator
+---------------------------------------------------------------------------
+
+local function BuildRangeGeneral(p)
+    p:Header("Range indicator")
+    p:Note("A small mark on nameplates shows whether they are in range of your spell: green in range, red out of range. Enemies and allies each have their own spell (Spells tab), so a priest can check Smite on mobs and Flash Heal on the group.")
+    p:Checkbox("Enable range indicator", "rangeIndicator.enabled")
+    p:Button("Test", function() ns.RangeIndicator:Test() end, 2, -2, 100)
+    p:Checkbox("Enemies", "rangeIndicator.hostile")
+    p:Checkbox("Allies", "rangeIndicator.friendly", 2)
+    p:Checkbox("Allies: only players", "rangeIndicator.friendlyPlayersOnly")
+    p:Checkbox("Only in combat", "rangeIndicator.combatOnly", 2)
+    p:Dropdown("Show", "rangeIndicator.show", {
+        { text = "In and out of range", value = "both" },
+        { text = "Only out of range", value = "out" },
+        { text = "Only in range", value = "in" },
+    })
+    p:Note("Allies only have nameplates while the game shows friendly nameplates (Shift+V, or Options > Nameplates). In dungeons and raids the game doesn't hand friendly nameplates to addons, so allies get no mark there. When the game won't tell the range (some clients keep it secret in combat), the plate gets no mark rather than a wrong one. /wl debug shows what the game says about your target right now.")
+end
+
+local function BuildRangeSpells(p)
+    p:Header("Spells")
+    p:Note("\"Automatic\" takes the first spell of your class you know, such as Smite for enemies and Flash Heal for allies. Pick another one here, or type any spell you know below. The choice is saved per class.")
+    local enemyDropdown, allyDropdown
+    local function choices(side)
+        return function()
+            local R = ns.RangeIndicator
+            local auto = R.AutoSpell(side)
+            local list = {
+                { text = L["Automatic: %s"]:format(auto or L["none"]), value = "auto", raw = true },
+                { text = "Off", value = "none" },
+            }
+            local pick, seen = R.Pick(side), false
+            for _, c in ipairs(R.Choices()) do
+                list[#list + 1] = { text = c.name, value = c.value, raw = true }
+                if c.value == pick then seen = true end
+            end
+            if pick and pick ~= "none" and not seen then
+                list[#list + 1] = { text = R.Describe(pick), value = pick, raw = true }
+            end
+            return list
+        end
+    end
+    local function bind(side)
+        return {
+            get = function() return ns.RangeIndicator.Pick(side) or "auto" end,
+            set = function(v) ns.RangeIndicator.SetPick(side, v) end,
+        }
+    end
+    enemyDropdown = p:Dropdown("Spell for enemies", bind("hostile"), choices("hostile"))
+    allyDropdown = p:Dropdown("Spell for allies", bind("friendly"), choices("friendly"), 2)
+
+    p:Header("Other spell")
+    local box = p:EditBox("Spell name or spell ID")
+    local function use(side)
+        local text = strtrim(box:GetText() or "")
+        if text == "" then return end
+        ns.RangeIndicator.SetPick(side, text)
+        box:SetText("")
+        box:ClearFocus()
+        enemyDropdown.Refresh()
+        allyDropdown.Refresh()
+    end
+    p:Button("Use for enemies", function() use("hostile") end, nil, nil, 150)
+    p:Button("Use for allies", function() use("friendly") end, 2, nil, 150)
+    p:Note("By name, only spells in your spellbook are found. A spell without a range (one that only works on yourself) gives no mark.")
+end
+
+local RANGE_SIDES = {
+    { text = "Left of the health bar", value = "left" },
+    { text = "Right of the health bar", value = "right" },
+    { text = "Above the health bar", value = "top" },
+    { text = "Below the health bar", value = "bottom" },
+}
+
+local function BuildRangeLook(p)
+    p:Header("Look")
+    p:Dropdown("Style", "rangeIndicator.style", {
+        { text = "Dot", value = "dot" },
+        { text = "Spell icon", value = "icon" },
+    })
+    p:Button("Test", function() ns.RangeIndicator:Test() end, 2, -12, 100)
+    p:Slider("Size", "rangeIndicator.size", 4, 32, 1, px)
+    p:Slider("Opacity", "rangeIndicator.alpha", 0.1, 1, 0.05, pct, 2)
+    p:Checkbox("Glow", "rangeIndicator.glow")
+    p:Color("In range", "rangeIndicator.inColor")
+    p:Color("Out of range", "rangeIndicator.outColor", 2)
+
+    p:Header("Position")
+    p:Dropdown("Where", "rangeIndicator.side", RANGE_SIDES)
+    p:Slider("Horizontal offset", "rangeIndicator.dx", -60, 60, 1, px)
+    p:Slider("Vertical offset", "rangeIndicator.dy", -40, 40, 1, px, 2)
+    p:Note("With other nameplate addons the mark sits on the nameplate's frame instead of the health bar; move it with the offsets.")
+end
+
+---------------------------------------------------------------------------
 -- Kill alerts
 ---------------------------------------------------------------------------
 
@@ -1948,6 +2044,7 @@ local OVERVIEW = {
     { "Crit alerts", "alerts.visual.enabled", function() ns.Alerts:Test() end },
     { "Proc alerts", "procs.enabled", function() ns.Alerts:TestProc() end },
     { "Spell reminders", "reminders.enabled", function() ns.Reminders:Test() end },
+    { "Range indicator", "rangeIndicator.enabled", function() ns.RangeIndicator:Test() end },
     { "Swing timer", "swing.enabled", function() ns.Swing:Test() end },
     { "Fight summary", "stats.summary.enabled", function() ns.Report:TestSummary() end },
     { "Kill alerts", "killAlert.enabled", function() ns.KillAlert:Test() end },
@@ -2021,6 +2118,11 @@ local TABS = {
         { "General", BuildRemGeneral },
         { "Spells", BuildRemSpells },
         { "Look", BuildRemLook },
+    } },
+    { "Range indicator", {
+        { "General", BuildRangeGeneral },
+        { "Spells", BuildRangeSpells },
+        { "Look", BuildRangeLook },
     } },
     { "Swing timer", BuildSwing },
     { "Fight summary", {

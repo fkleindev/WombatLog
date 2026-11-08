@@ -35,6 +35,13 @@ combat starts and fades out a few seconds after it ends.
   casts. Each reminder can show the key to press and play its own sound;
   WombatLog brings a set of soft sounds made for this (soft bell, double ping,
   pluck, marimba, glass, ready, wood block).
+- **Range indicator:** a small dot (or the spell's icon) on nameplates shows whether
+  they are in range of your spell, green in range and red out of range. Enemies and
+  allies each get their own spell, picked automatically for your class or chosen by
+  you, so a priest checks Smite on mobs and Flash Heal on the group. Only a frame of
+  its own hangs on the plate, so it works next to other nameplate addons. Friendly
+  nameplates need to be switched on in the game (Shift+V), and in dungeons and raids
+  the game doesn't hand them to addons.
 - **Personal resource display** under your character: health, power, druid mana,
   combo points and a cast bar.
 - **Kill alerts:** a rewarding pop-up when a mob you fought dies, with the XP you got
@@ -181,6 +188,11 @@ and lights the setting up.
   combat or always). The list shows only your class's reminders, so characters
   sharing a profile don't see each other's. and *Look* (icon size, scale, spacing,
   color, names, glow, animations).
+- **Range indicator:** *General* (on/off, enemies, allies, allies only players, only
+  in combat, show in and out of range or only one of them), *Spells* (the spell for
+  enemies and for allies: automatic, off, one of your class's spells or any spell you
+  type; saved per class) and *Look* (dot or spell icon, size, opacity, glow, colors,
+  where on the plate and offsets).
 - **Kill alerts:** *General* (on/off, kills without XP, what to show, display time,
   position), *Sound* (sound, channel, rising pitch for multi-kills), *Look* (text size, scale,
   XP color, fonts, outline) and *XP bar* (length, thickness, texture,

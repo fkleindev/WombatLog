@@ -16,6 +16,7 @@ Your combat events show up in a transparent, borderless window that fades in whe
 - **Crit alerts:** a pop-up over your character and a sound, with crit streaks ("x3 CRIT STREAK") and personal records ("NEW RECORD!").
 - **Proc alerts** for buffs you pick, such as Clearcasting.
 - **Spell reminders:** icons that light up when a spell is usable (Riposte, Overpower, Execute), a buff or debuff is missing or running out, or your target casts something you can interrupt.
+- **Range indicator:** a dot or the spell's icon on nameplates, green in range of your spell and red out of range. Enemies and allies each get their own spell, so healers see who they can reach. Works next to other nameplate addons.
 - **Kill and quest alerts:** XP counting up, "LEVEL UP!", multi-kill counter and a rising sound.
 - **XP tracker:** a small XP bar hanging from the top edge of the screen that grows downward, with a glow, when you get XP and shows where it came from ("+342 XP · Defias Thug"). Mouse over it for your exact XP. The bar can move with waves, stripes, a rainbow, sparkles and more.
 - **Quest progress:** a card with all objectives of a quest when it moves on. The changed one lights up with a "+1", "kill X" and "collect X" objectives get a filling bar, and the last one done brings "Quest complete!". Quests with a time limit stay on top with a countdown and a bar that runs empty, and the quest you follow can stay up too. Works in every language, stacks several quests, and can replace the game's yellow progress text.
