@@ -50,6 +50,75 @@ function BlizzardUI:UpdateXPBar()
 end
 
 ---------------------------------------------------------------------------
+-- Quest tracker
+---------------------------------------------------------------------------
+
+-- The game's list of watched quests: QuestWatchFrame (Classic Era, TBC), WatchFrame
+-- (Wrath to Mists) or ObjectiveTrackerFrame (Retail). The game shows it again by
+-- itself whenever the watched quests change, so it is hidden again on every show.
+-- On Retail it holds secure buttons for quest items, which can't be hidden in combat:
+-- there it only goes invisible until the fight is over.
+local trackers = {}
+local trackerHidden = false
+local trackerPending = false
+
+local function findTrackers()
+    for _, name in ipairs({ "ObjectiveTrackerFrame", "WatchFrame", "QuestWatchFrame" }) do
+        local f = _G[name]
+        if type(f) == "table" and f.Hide then trackers[#trackers + 1] = f end
+    end
+end
+
+local function wantTrackerHidden()
+    return ns.db.blizzard.hideQuestTracker
+end
+
+local function hideTracker(f)
+    if InCombatLockdown() then
+        f:SetAlpha(0)
+        trackerPending = true
+    else
+        f:Hide()
+    end
+end
+
+function BlizzardUI:UpdateQuestTracker()
+    if wantTrackerHidden() then
+        trackerHidden = true
+        for _, f in ipairs(trackers) do
+            if f:IsShown() then hideTracker(f) end
+        end
+    elseif trackerHidden then
+        if InCombatLockdown() then
+            trackerPending = true
+            return
+        end
+        trackerHidden = false
+        for _, f in ipairs(trackers) do
+            f:SetAlpha(1)
+            f:Show()
+        end
+        -- let the game decide again whether there is anything to show
+        if QuestWatch_Update then pcall(QuestWatch_Update) end
+        if WatchFrame_Update then pcall(WatchFrame_Update) end
+        if ObjectiveTrackerFrame and ObjectiveTrackerFrame.Update then
+            pcall(ObjectiveTrackerFrame.Update, ObjectiveTrackerFrame)
+        elseif ObjectiveTracker_Update then
+            pcall(ObjectiveTracker_Update)
+        end
+    end
+end
+
+local function initQuestTracker()
+    findTrackers()
+    for _, f in ipairs(trackers) do
+        f:HookScript("OnShow", function(self)
+            if wantTrackerHidden() then hideTracker(self) end
+        end)
+    end
+end
+
+---------------------------------------------------------------------------
 -- Helpers
 ---------------------------------------------------------------------------
 
@@ -795,7 +864,12 @@ function BlizzardUI:Init()
     ns.Listen("PLAYER_LEVEL_UP", function() C_Timer.After(1, update) end)
     ns.Listen("PLAYER_REGEN_ENABLED", function()
         if self.pending then self:ApplyActionBars() end
+        if trackerPending then
+            trackerPending = false
+            self:UpdateQuestTracker()
+        end
     end)
+    initQuestTracker()
     self:HookBarLayouts()
     -- the bars' first layout can come after login
     ns.Listen("PLAYER_ENTERING_WORLD", function() C_Timer.After(1, function() self:ApplyArt() end) end)
@@ -806,5 +880,6 @@ end
 function BlizzardUI:Apply()
     if not self.ready then return end
     self:UpdateXPBar()
+    self:UpdateQuestTracker()
     self:ApplyActionBars()
 end

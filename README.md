@@ -72,12 +72,16 @@ combat starts and fades out a few seconds after it ends.
   with the arrow, or the first in the quest tracker where there is none) keeps its
   card up too, under those.
 - **Quest items:** items a quest in your log still asks for but that aren't quest
-  items themselves (cloth, ore, meat for a turn-in) get a small quest mark in your
-  bags, and their tooltip names the quest and your progress. At a merchant a
+  items themselves (cloth, ore, meat for a turn-in) get a glow around their slot and a
+  quest icon in your bags (colour, pulse and icon size adjustable), and their tooltip names the quest and your progress. At a merchant a
   right-click on one asks before it is sold; if one is sold anyway (dragged onto the
   merchant, or from a bag addon), you're offered to buy it back. Works in the game's
   bags, Bagnon, AdiBags and Baganator; the tooltip and the buy-back offer work with
   any bag addon.
+- **Bag slots:** bags show on their icon how many slots they have, in the colour of
+  their kind, and special bags (herbs, soul shards, leather, enchanting, quivers, ammo
+  pouches, ...) a small icon of what they take. In the bags, on the bag bar and on the
+  bank's bag slots. Works in the game's bags, Bagnon, AdiBags and Baganator.
 - **Sparkles:** quest objects glitter again on Forever, as they did in Classic. The
   game's own sparkle (a hidden setting there) is kept on, also after a graphics preset
   switches it off. On top of that, the object in front of you (quest object, corpse
@@ -105,7 +109,7 @@ combat starts and fades out a few seconds after it ends.
   drag onto a bar. `/wl macro`, Ctrl-click on the minimap button or the "Builder"
   button in the game's macro window.
 - **Minimap button** and an addon compartment entry.
-- **Blizzard UI:** hide Blizzard's own XP bar while you level, and give the action
+- **Blizzard UI:** hide Blizzard's own XP bar while you level and its quest tracker, and give the action
   bars a modern look: flat buttons with rounded corners, your own border, background
   and state colors, a panel behind each bar, soft hover, press and "ready"
   animations, no gryphons or bar art, and key bindings and macro names that can be
@@ -213,7 +217,9 @@ and lights the setting up.
   background opacity, colors, text size, font, outline), *Bars* (thickness,
   color, texture, background, segments, border, fill speed, spark, gloss, light,
   glow) and *Sound* (on progress, on completion, channel).
-- **Quest items:** on/off, ask before selling, the quest in the tooltip.
+- **Quest items:** on/off, glow and/or icon, glow colour and pulse, icon size, ask before selling, the quest in the tooltip.
+- **Bag slots:** on/off, also on the bag bar and the bank, number of slots, icon for
+  special bags, number in the kind's colour, size.
 - **Sparkles:** *General* (the game's own sparkle, own effect on/off, quest objects,
   corpses with loot, herbs, ore veins, only out of combat) and *Look* (style,
   intensity preset, size, opacity, speed, sparks, height, a color per kind).
@@ -226,7 +232,7 @@ and lights the setting up.
   records* (how many fights to keep, minimum fight length, personal records).
 - **Session:** session tracker and an optional session line above the log window.
 - **Blizzard UI:** *General* (hide Blizzard's XP bar while you level; where Blizzard
-  shows your reputation in the same spot at max level, it stays; modern action
+  shows your reputation in the same spot at max level, it stays; hide the quest tracker; modern action
   buttons, turning them off needs a reload; the same look for the bag bar and the
   micro menu; hide the bar art; show or hide key bindings and macro names), *Buttons* (corner radius up to round, icon zoom, border
   thickness, color and opacity, background, shadow, and the mouse-over, pressed and
@@ -358,6 +364,7 @@ effort: whatever the client keeps secret is left out.
 | `UI_INFO_MESSAGE` | Hiding the game's quest progress text (optional) |
 | `outlineModeShowLootEffectWhenDisabled`, `SoftTarget*` CVars, `PLAYER_SOFT_INTERACT_CHANGED`, `C_NamePlate`, `SetUnitCursorTexture`, `UnitIsInInteractRange`, `CanLootUnit` | Sparkles: the game's sparkle, the interaction target, what it is and whether it is in reach |
 | `C_Container`, `BAG_UPDATE_DELAYED`, `MERCHANT_SHOW` / `_CLOSED`, `GetBuybackItemLink`, `BuybackItem` | Quest items: marks in the bags, asking before a sale, buying back |
+| `GetItemInfoInstant` (item subclass), `C_TooltipInfo.GetHyperlink` / a hidden tooltip, `CONTAINER_SLOTS`, `GetInventoryItemLink` | Bag slots: kind of bag and its number of slots |
 | `PLAYER_MONEY`, `PLAYER_DEAD` | Session money and deaths |
 | `PLAYER_REGEN_DISABLED` / `_ENABLED` | Showing and hiding the window |
 
@@ -447,6 +454,8 @@ As a result:
 | `QuestProgress.lua` | Quest progress cards: all objectives, the changed one lit, bars for counts |
 | `Sparkle.lua` | Sparkles: the game's own sparkle kept on, and an effect on the interaction target |
 | `QuestItems.lua` | Quest marks in the bags for items your quests need, sell question, tooltip |
+| `BagButtons.lua` | The bag item buttons (game's bags, Bagnon, AdiBags, Baganator) for the features that draw on them |
+| `BagSlots.lua` | Number of slots and kind of bag on bag items |
 | `Report.lua` | Fight summary card and the journal window |
 | `Swing.lua` | Swing timer lane inside the log window |
 | `Resources.lua` | Personal resource display |

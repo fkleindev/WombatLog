@@ -13,13 +13,20 @@ local L = ns.L
 --
 -- What a quest asks for comes from its objectives of the type "item": by item ID where
 -- the client gives it (Retail), otherwise by the item's name ("Linen Cloth: 3/10"),
--- which is the same text as the item's own in every language. Real quest items (the
--- item class "Quest") are left alone; the game marks those itself and won't buy them.
+-- which is the item's own name in every language, though some quests put it in the
+-- plural ("Okraschoten" for the item "Okraschote"). Real quest items (the item class
+-- "Quest") are left alone on Retail, whose bags mark those themselves; the Classic
+-- clients don't, and some of their turn-in items are of that class (Okra), so there
+-- they're marked like the rest.
 --
--- Bags: the game's own (single bags and the combined bag), Bagnon, AdiBags and
--- Baganator. The tooltip line and the buy-back offer work with any bag addon.
+-- Bags: those BagButtons covers, and Baganator. The tooltip line and the buy-back offer
+-- work with any bag addon.
 
 local QUEST_ICON = "Interface\\GossipFrame\\AvailableQuestIcon"
+local GLOW = "Interface\\Buttons\\UI-ActionButton-Border"
+local GLOW_SCALE = 1.85  -- the glow texture's square is that much larger than its ring
+local SKIP_QUEST_CLASS = ns.isRetail
+local PLURAL = 2         -- letters a quest's name for an item may add or drop
 local QUEST_CLASS = Enum and Enum.ItemClass and Enum.ItemClass.Questitem or 12
 local SCAN_DELAY = 0.2
 local ALLOW_TIME = 2     -- seconds after "Sell anyway" in which a sale isn't questioned
@@ -36,7 +43,7 @@ local byID, byName = {}, {}  -- itemID / lowercase name -> { { title, have, need
 local merchantOpen = false
 local allowUntil = 0
 local carried = {}           -- at a merchant: itemID -> how many marked ones are in the bags
-local refreshPending, scanPending = false, false
+local scanPending = false
 
 ---------------------------------------------------------------------------
 -- What the quests ask for
@@ -132,14 +139,21 @@ function QuestItems.Needed(link)
     if type(link) ~= "string" then return nil end
     local id = linkID(link)
     if not id then return nil end
-    local class = select(6, itemInstant(id))
-    if class == QUEST_CLASS then return nil end
+    if SKIP_QUEST_CLASS and select(6, itemInstant(id)) == QUEST_CLASS then return nil end
     if byID[id] then return byID[id] end
     local name = link:match("%[(.-)%]")
     if not name then return nil end
     -- crafting reagents on Retail carry their quality star inside the brackets
-    name = strtrim((name:gsub("|A.-|a", ""):gsub("|T.-|t", "")))
-    return byName[name:lower()]
+    name = strtrim((name:gsub("|A.-|a", ""):gsub("|T.-|t", ""))):lower()
+    if byName[name] then return byName[name] end
+    -- the quest names it in the plural, or the other way round
+    for key, entries in pairs(byName) do
+        local short, long = name, key
+        if #short > #long then short, long = long, short end
+        if #short >= 4 and #long - #short <= PLURAL and long:sub(1, #short) == short then
+            return entries
+        end
+    end
 end
 
 -- "Cloth for the Guard (3/10)", one per quest.
@@ -288,29 +302,71 @@ local function guard(button, bag, slot, on)
     g:Show()
 end
 
-local function markTexture(button)
-    local t = button.wlQuestMark
-    if not t then
-        t = button:CreateTexture(nil, "OVERLAY", nil, 7)
-        t:SetTexture(QUEST_ICON)
-        t:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
-        button.wlQuestMark = t
+local function buttonWidth(button)
+    local w = button and button:GetWidth()
+    return (w and w > 0) and w or 37
+end
+
+-- The mark, made on host (the button itself, or a frame Baganator keeps on it) and
+-- fitted to button: a glow around the slot and the quest icon, as the settings say.
+local function markFrame(host, button)
+    local m = host.wlQuestMark
+    if not m then
+        m = CreateFrame("Frame", nil, host)
+        m:SetAllPoints(button)
+        local glow = m:CreateTexture(nil, "OVERLAY", nil, 6)
+        glow:SetTexture(GLOW)
+        glow:SetBlendMode("ADD")
+        glow:SetPoint("CENTER", button, "CENTER")
+        m.glow = glow
+        local icon = m:CreateTexture(nil, "OVERLAY", nil, 7)
+        icon:SetTexture(QUEST_ICON)
+        icon:SetPoint("TOPLEFT", button, "TOPLEFT", 1, -1)
+        m.icon = icon
+        local pulse = glow:CreateAnimationGroup()
+        pulse:SetLooping("BOUNCE")
+        local a = pulse:CreateAnimation("Alpha")
+        a:SetFromAlpha(1)
+        a:SetToAlpha(0.25)
+        a:SetDuration(0.7)
+        a:SetSmoothing("IN_OUT")
+        m.pulse = pulse
+        host.wlQuestMark = m
     end
-    local w = button:GetWidth()
-    local size = math.floor(((w and w > 0) and w or 37) * 0.42 + 0.5)
-    t:SetSize(size, size)
-    return t
+    local cfg = ns.db.questItems
+    local w = buttonWidth(button)
+    local style = cfg.style or "both"
+    m:SetFrameLevel(button:GetFrameLevel() + 4)
+    if style ~= "icon" then
+        local c = cfg.color
+        m.glow:SetSize(w * GLOW_SCALE, w * GLOW_SCALE)
+        m.glow:SetVertexColor(c.r, c.g, c.b)
+        m.glow:Show()
+        if cfg.pulse then
+            if not m.pulse:IsPlaying() then m.pulse:Play() end
+        else
+            m.pulse:Stop()
+            m.glow:SetAlpha(1)
+        end
+    else
+        m.pulse:Stop()
+        m.glow:Hide()
+    end
+    local size = math.floor(w * 0.42 * (cfg.iconScale or 1) + 0.5)
+    m.icon:SetSize(size, size)
+    m.icon:SetShown(style ~= "border")
+    m:Show()
+    return m
 end
 
 -- Marks one bag button. bag and slot: where it sits in your bags (nil when the bag
 -- addon shows something else, e.g. another character's bags); link: what it shows.
 local function mark(button, bag, slot, link)
     local cfg = ns.db.questItems
-    link = Safe(link)
     if not link and bag and slot then link = Safe(slotLink(bag, slot)) end
     local needed = cfg.enabled and link and QuestItems.Needed(link)
     if needed then
-        markTexture(button):Show()
+        markFrame(button, button)
     elseif button.wlQuestMark then
         button.wlQuestMark:Hide()
     end
@@ -320,96 +376,40 @@ local function mark(button, bag, slot, link)
     guard(button, bag, slot, live and merchantOpen and cfg.sellGuard and not InCombatLockdown())
 end
 
-local function blizzardButtons(fn)
-    local function frame(f)
-        if not f or not f:IsShown() then return end
-        if f.EnumerateValidItems then
-            for _, b in f:EnumerateValidItems() do
-                fn(b, b.GetBagID and b:GetBagID() or f:GetID(), b:GetID())
+-- Baganator: a corner widget of our own. Baganator puts it in a corner of the item
+-- button; the glow hangs from it around that whole button.
+local function hookBaganator()
+    ns.BagButtons.Baganator(L["Needed for a quest (WombatLog)"], "wombatlog_questitems",
+        function(corner, details)
+            local cfg = ns.db.questItems
+            local needed = cfg.enabled and details and QuestItems.Needed(details.itemLink) and true or false
+            local button = corner:GetParent()
+            if needed and button and button.GetWidth then
+                local ok, m = pcall(markFrame, corner, button)
+                if ok then m.icon:Hide() end -- the corner itself shows it
+                corner.icon:SetShown(cfg.style ~= "border")
+                local size = math.floor(15 * (cfg.iconScale or 1) + 0.5)
+                corner:SetSize(size, size)
+            elseif corner.wlQuestMark then
+                corner.wlQuestMark:Hide()
             end
-        else
-            local name = f:GetName()
-            for j = 1, f.size or 0 do
-                local b = name and _G[name .. "Item" .. j]
-                if b then fn(b, f:GetID(), b:GetID()) end
-            end
-        end
-    end
-    frame(ContainerFrameCombinedBags)
-    for i = 1, NUM_CONTAINER_FRAMES or 13 do frame(_G["ContainerFrame" .. i]) end
-end
-
--- Bag addons, once all addons are loaded. Each in a pcall: a newer version that
--- changed its insides only loses the marks, not the rest of the addon.
-local addonButtons = {} -- Bagnon and AdiBags buttons seen: button -> true
-local baganator = false
-
-local function hookBagAddons()
-    -- Bagnon (and the other Wildpants bags): their item class
-    for _, name in ipairs({ "Bagnon", "Combuctor" }) do
-        local A = _G[name]
-        if type(A) == "table" and type(A.Item) == "table" and A.Item.Update then
-            pcall(hooksecurefunc, A.Item, "Update", function(b)
-                addonButtons[b] = "wildpants"
-                local info = b.info
-                local link = info and (info.hyperlink or info.link)
-                local bag = b.GetBag and b:GetBag()
-                if type(bag) ~= "number" then bag = nil end
-                mark(b, bag, bag and b:GetID(), link)
-            end)
-        end
-    end
-    -- AdiBags: tells everyone with AceEvent when a button changes
-    local AceEvent = LibStub and LibStub("AceEvent-3.0", true)
-    if AceEvent and C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("AdiBags")
-        or AceEvent and IsAddOnLoaded and IsAddOnLoaded("AdiBags") then
-        local listener = {}
-        AceEvent:Embed(listener)
-        listener:RegisterMessage("AdiBags_UpdateButton", function(_, b)
-            if type(b) ~= "table" or not b.bag then return end
-            addonButtons[b] = "adibags"
-            mark(b, b.bag, b.slot)
-        end)
-    end
-    -- Baganator: a corner widget of its own
-    local API = Baganator and Baganator.API
-    if API and API.RegisterCornerWidget then
-        baganator = pcall(API.RegisterCornerWidget, L["Needed for a quest (WombatLog)"], "wombatlog_questitems",
-            function(corner, details)
-                return ns.db.questItems.enabled and details and QuestItems.Needed(details.itemLink) and true or false
-            end,
-            function()
-                local f = CreateFrame("Frame")
-                f:SetSize(15, 15)
-                local t = f:CreateTexture(nil, "OVERLAY")
-                t:SetAllPoints()
-                t:SetTexture(QUEST_ICON)
-                f.padding = 0
-                return f
-            end,
-            { corner = "top_left", priority = 1 })
-    end
+            return needed
+        end,
+        function()
+            local f = CreateFrame("Frame")
+            f:SetSize(15, 15)
+            local t = f:CreateTexture(nil, "OVERLAY")
+            t:SetAllPoints()
+            t:SetTexture(QUEST_ICON)
+            f.icon = t
+            f.padding = 0
+            return f
+        end,
+        { corner = "top_left", priority = 1 })
 end
 
 function QuestItems:Refresh()
-    if refreshPending then return end
-    refreshPending = true
-    C_Timer.After(0, function()
-        refreshPending = false
-        blizzardButtons(mark)
-        for b, kind in pairs(addonButtons) do
-            if b:IsVisible() then
-                if kind == "adibags" then
-                    if b.bag then mark(b, b.bag, b.slot) end
-                elseif b.Update then
-                    pcall(b.Update, b)
-                end
-            end
-        end
-        if baganator and Baganator.API.RequestItemButtonsRefresh then
-            pcall(Baganator.API.RequestItemButtonsRefresh)
-        end
-    end)
+    ns.BagButtons.Refresh()
 end
 
 ---------------------------------------------------------------------------
@@ -448,15 +448,7 @@ end
 
 function QuestItems:Init()
     hookTooltips()
-    if ContainerFrame_Update then
-        hooksecurefunc("ContainerFrame_Update", function() QuestItems:Refresh() end)
-    end
-    local frames = { ContainerFrameCombinedBags }
-    for i = 1, NUM_CONTAINER_FRAMES or 13 do frames[#frames + 1] = _G["ContainerFrame" .. i] end
-    for _, f in pairs(frames) do
-        if f.UpdateItems then hooksecurefunc(f, "UpdateItems", function() QuestItems:Refresh() end) end
-        f:HookScript("OnShow", function() QuestItems:Refresh() end)
-    end
+    ns.BagButtons.Register(mark)
     requestScan()
 end
 
@@ -464,13 +456,12 @@ function QuestItems:Apply()
     self:Refresh()
 end
 
-ns.Listen("PLAYER_LOGIN", hookBagAddons)
+ns.Listen("PLAYER_LOGIN", hookBaganator)
 ns.Listen("QUEST_LOG_UPDATE", requestScan)
 ns.Listen("QUEST_ACCEPTED", requestScan)
 ns.Listen("QUEST_REMOVED", requestScan)
 ns.Listen("QUEST_TURNED_IN", requestScan)
 ns.Listen("BAG_UPDATE_DELAYED", function()
-    QuestItems:Refresh()
     -- the buy-back list catches up a moment after the bags
     if merchantOpen then C_Timer.After(0.3, checkSold) end
 end)

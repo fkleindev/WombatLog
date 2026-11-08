@@ -36,7 +36,9 @@ XPBar.lua
 KillAlert.lua
 XPTracker.lua
 QuestProgress.lua
+BagButtons.lua
 QuestItems.lua
+BagSlots.lua
 Sparkle.lua
 RangeIndicator.lua
 Report.lua

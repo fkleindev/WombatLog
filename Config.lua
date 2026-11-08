@@ -1662,7 +1662,27 @@ local function BuildQuestItems(p)
     p:Checkbox("Mark items needed for quests", "questItems.enabled")
     p:Checkbox("Ask before selling them", "questItems.sellGuard", 2)
     p:Checkbox("Show the quest in the item's tooltip", "questItems.tooltip")
+    p:Dropdown("Mark", "questItems.style", {
+        { text = "Glow and quest icon", value = "both" },
+        { text = "Glow around the slot", value = "border" },
+        { text = "Quest icon only", value = "icon" },
+    })
+    p:Color("Glow color", "questItems.color", 2)
+    p:Slider("Icon size", "questItems.iconScale", 0.6, 2, 0.1, times)
+    p:Checkbox("Let the glow pulse", "questItems.pulse", 2)
     p:Note("At a merchant, a right-click on a marked item asks first. If one is sold anyway, e.g. dragged onto the merchant, you're offered to buy it back. Items stay marked until the quest is turned in or abandoned. Works in the game's bags, Bagnon, AdiBags and Baganator; the tooltip and the buy-back offer work with any bag addon.")
+end
+
+local function BuildBagSlots(p)
+    p:Header("Bag slots")
+    p:Note("Bags show on their icon how many slots they have, and special bags (herbs, soul shards, leather, quivers, ...) a small icon of what they take. In the bags, and if you like on the bag bar and the bank's bag slots.")
+    p:Checkbox("Show bag slots on bags", "bagSlots.enabled")
+    p:Checkbox("Also on the bag bar and the bank", "bagSlots.bagBar", 2)
+    p:Checkbox("Number of slots", "bagSlots.count")
+    p:Checkbox("Icon for special bags", "bagSlots.typeIcon", 2)
+    p:Checkbox("Number in the bag type's color", "bagSlots.colorByType")
+    p:Slider("Size", "bagSlots.size", 0.6, 1.6, 0.1, times, 2)
+    p:Note("Works in the game's bags, Bagnon, AdiBags and Baganator. In Baganator the number and the icon are corner widgets you can move in its settings.")
 end
 
 local SPARKLE_STYLES = {
@@ -1784,6 +1804,10 @@ local function BuildBlizzard(p)
     p:Header("XP bar")
     p:Checkbox("Hide Blizzard's XP bar", "blizzard.hideXPBar")
     p:Note("While you level. Where Blizzard shows your reputation in the same spot at max level, it stays.")
+
+    p:Header("Quest tracker")
+    p:Checkbox("Hide Blizzard's quest tracker", "blizzard.hideQuestTracker")
+    p:Note("The game's list of watched quests, e.g. when the quest progress cards show you enough. Quests stay watched; turn it back on and the list is there again.")
 
     -- the modern look can't be taken back without a reload
     local function modernBind(key)
@@ -2054,6 +2078,7 @@ local OVERVIEW = {
     { "Sparkles", "sparkle.enabled", function() ns.Sparkle:Test() end },
     { "Session", "session.enabled" },
     { "Resource display", "resources.enabled", function() ns.Resources:Test() end },
+    { "Bag slots", "bagSlots.enabled" },
     { "Minimap button", "minimap.enabled" },
 }
 
@@ -2170,6 +2195,7 @@ local TABS = {
         { "Bars", BuildBlizzardBars },
         { "Animations", BuildBlizzardAnimations },
     } },
+    { "Bag slots", BuildBagSlots },
     { "Minimap button", BuildMinimap },
     { "Macro builder", BuildMacroBuilder },
     { group = "General" },

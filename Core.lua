@@ -242,6 +242,20 @@ ns.defaults.questItems = {
     enabled = true,
     sellGuard = true,               -- at a merchant, ask before one is sold
     tooltip = true,                 -- the quest in the item's tooltip
+    style = "both",                 -- "both" | "border" | "icon"
+    color = { r = 1, g = 0.82, b = 0 }, -- the glow around the slot
+    pulse = false,                  -- the glow fades in and out
+    iconScale = 1.3,                -- the quest icon, against its old size
+}
+
+-- bags as items: their number of slots and what kind of bag on their icon
+ns.defaults.bagSlots = {
+    enabled = true,
+    count = true,                   -- the number of slots
+    typeIcon = true,                -- special bags: an icon of what they take
+    colorByType = true,             -- the number in the kind's colour
+    bagBar = true,                  -- also on the bag bar and the bank's bag slots
+    size = 1,
 }
 
 -- quest objects glitter again (Forever): the game's own sparkle and an effect of ours
@@ -281,6 +295,7 @@ ns.defaults.minimap = { enabled = true, angle = 200 }
 -- changes to Blizzard's own UI; the defaults leave it as it is
 ns.defaults.blizzard = {
     hideXPBar = false,          -- while you level, where the spot also holds the reputation
+    hideQuestTracker = false,   -- the game's list of watched quests
     actionBars = {
         enabled = false,        -- flat buttons with a thin border
         hideArt = false,        -- the gryphons and the bar's background
@@ -544,6 +559,7 @@ function ns.ApplyAll(refreshPanel)
     ns.XPTracker:Apply()
     ns.QuestProgress:Apply()
     ns.QuestItems:Apply()
+    ns.BagSlots:Apply()
     ns.Sparkle:Apply()
     ns.RangeIndicator:Apply()
     ns.BlizzardUI:Apply()
@@ -927,7 +943,9 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.KillAlert:Init()
     ns.XPTracker:Init()
     ns.QuestProgress:Init()
+    ns.BagButtons:Init()
     ns.QuestItems:Init()
+    ns.BagSlots:Init()
     ns.RangeIndicator:Init()
     ns.BlizzardUI:Init()
     ns.MacroBuilder:Init()
