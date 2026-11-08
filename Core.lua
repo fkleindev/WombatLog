@@ -243,7 +243,7 @@ ns.defaults.questItems = {
     sellGuard = true,               -- at a merchant, ask before one is sold
     tooltip = true,                 -- the quest in the item's tooltip
     style = "both",                 -- "both" | "border" | "icon"
-    color = { r = 1, g = 0.82, b = 0 }, -- the glow around the slot
+    color = { 1, 0.82, 0 },         -- the glow around the slot
     pulse = false,                  -- the glow fades in and out
     iconScale = 1.3,                -- the quest icon, against its old size
 }

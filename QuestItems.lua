@@ -340,7 +340,7 @@ local function markFrame(host, button)
     if style ~= "icon" then
         local c = cfg.color
         m.glow:SetSize(w * GLOW_SCALE, w * GLOW_SCALE)
-        m.glow:SetVertexColor(c.r, c.g, c.b)
+        m.glow:SetVertexColor(c[1], c[2], c[3])
         m.glow:Show()
         if cfg.pulse then
             if not m.pulse:IsPlaying() then m.pulse:Play() end
