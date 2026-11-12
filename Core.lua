@@ -289,6 +289,19 @@ ns.defaults.rangeIndicator = {
     inColor = { 0.30, 1.00, 0.35 }, outColor = { 1.00, 0.25, 0.20 },
 }
 
+-- a ring at the mouse cursor that runs down during the global cooldown
+ns.defaults.gcd = {
+    enabled = false,
+    combatOnly = false,
+    size = 40, thickness = "normal", alpha = 1,  -- thickness: "thin" | "normal" | "thick"
+    fill = false,                   -- false: the ring runs empty; true: it fills up
+    background = true,              -- the full ring, faint, behind it
+    color = { 1, 1, 1 },
+    queue = true,                   -- other color in the spell queue window
+    queueColor = { 0.30, 1.00, 0.35 },
+    dx = 0, dy = 0,                 -- offset from the cursor
+}
+
 ns.defaults.session = { enabled = true, headerLine = true }
 ns.defaults.minimap = { enabled = true, angle = 200 }
 
@@ -562,6 +575,7 @@ function ns.ApplyAll(refreshPanel)
     ns.BagSlots:Apply()
     ns.Sparkle:Apply()
     ns.RangeIndicator:Apply()
+    ns.GCD:Apply()
     ns.BlizzardUI:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
@@ -947,6 +961,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.QuestItems:Init()
     ns.BagSlots:Init()
     ns.RangeIndicator:Init()
+    ns.GCD:Init()
     ns.BlizzardUI:Init()
     ns.MacroBuilder:Init()
     if ns.Config then ns.Config:Init() end
@@ -995,6 +1010,7 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.Resources:Debug()
         ns.Reminders:Debug()
         ns.RangeIndicator:Debug()
+        ns.GCD:Debug()
     elseif cmd == "trace" then
         ns.trace = not ns.trace
         ns.Print("event trace " .. (ns.trace and "on - hits, casts and swings print to chat" or "off"))

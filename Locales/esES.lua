@@ -920,4 +920,18 @@ ns.RegisterLocale("esES", "Español", {
     ["Horizontal offset"] = "Desplazamiento horizontal",
     ["Vertical offset"] = "Desplazamiento vertical",
     ["With other nameplate addons the mark sits on the nameplate's frame instead of the health bar; move it with the offsets."] = "Con otros addons de placas de nombre, la marca se coloca en el marco de la placa en lugar de la barra de salud; muévela con los desplazamientos.",
+    -- global cooldown
+    ["Global cooldown"] = "Tiempo de reutilización global",
+    ["A ring at your mouse cursor that runs down while the global cooldown keeps you from casting, and only shows then. In its last moments the game already takes your next spell (the spell queue window): the ring changes color, so press the next key now."] = "Un anillo en el cursor del ratón que se vacía mientras el tiempo de reutilización global te impide lanzar hechizos, y solo se ve entonces. En sus últimos instantes el juego ya acepta tu siguiente hechizo (la ventana de cola de hechizos): el anillo cambia de color, así que pulsa ya la siguiente tecla.",
+    ["Show global cooldown ring"] = "Mostrar anillo del tiempo de reutilización global",
+    ["Color in the spell queue window"] = "Color en la ventana de cola de hechizos",
+    ["Direction"] = "Dirección",
+    ["Faint full ring behind it"] = "Anillo completo tenue detrás",
+    ["Ring"] = "Anillo",
+    ["Spell queue window"] = "Ventana de cola de hechizos",
+    ["The spell queue window is the game's setting (SpellQueueWindow, 400 ms unless changed). Forever and Retail may keep the global cooldown secret in combat; then your casts start the ring with its last known length, and spells without a global cooldown can start it too. /wl debug shows what the game says right now."] = "La ventana de cola de hechizos es un ajuste del juego (SpellQueueWindow, 400 ms si no se ha cambiado). Forever y Retail pueden mantener en secreto el tiempo de reutilización global en combate; entonces tus hechizos inician el anillo con su última duración conocida, y también pueden iniciarlo hechizos sin tiempo de reutilización global. /wl debug muestra lo que dice el juego ahora mismo.",
+    ["Thin"] = "Fino",
+    ["Thick"] = "Grueso",
+    ["Runs empty"] = "Se vacía",
+    ["Fills up"] = "Se llena",
 })

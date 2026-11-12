@@ -25,6 +25,7 @@ Your combat events show up in a transparent, borderless window that fades in whe
 - **Sparkles:** quest objects glitter again on Forever. The game's own sparkle stays on, even after a graphics preset turns it off, and the object in front of you (quest object, corpse with loot, herb, ore vein) can get sparks, a glow, an icon with an arrow or a beam of light, from subtle to strong, in your colors.
 - **Personal resource display:** health, power, druid mana, combo points and a cast bar under your character. Bars in any order, and combo points as a bar, squares, circles or diamonds.
 - **Swing timer** for main hand, off hand and ranged.
+- **Global cooldown ring** at the mouse cursor: it runs down during the global cooldown and changes color when the game already takes your next spell.
 - **Fight summary and journal:** fight history, personal records and session stats.
 - **Session tracker** for leveling: XP per hour, time and kills to the next level.
 - **Custom sounds:** drop your own .ogg or .mp3 files into the addon's `Media\Custom` folder and pick them for any alert.

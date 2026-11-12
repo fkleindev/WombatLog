@@ -920,4 +920,18 @@ ns.RegisterLocale("deDE", "Deutsch", {
     ["Horizontal offset"] = "Horizontaler Versatz",
     ["Vertical offset"] = "Vertikaler Versatz",
     ["With other nameplate addons the mark sits on the nameplate's frame instead of the health bar; move it with the offsets."] = "Mit anderen Namensplaketten-Addons sitzt die Markierung am Rahmen der Plakette statt an der Lebensleiste; verschiebe sie mit dem Versatz.",
+    -- global cooldown
+    ["Global cooldown"] = "Globale Abklingzeit",
+    ["A ring at your mouse cursor that runs down while the global cooldown keeps you from casting, and only shows then. In its last moments the game already takes your next spell (the spell queue window): the ring changes color, so press the next key now."] = "Ein Ring am Mauszeiger, der abläuft, solange dich die globale Abklingzeit am Zaubern hindert, und nur dann zu sehen ist. In den letzten Augenblicken nimmt das Spiel deinen nächsten Zauber schon an (das Zauber-Warteschlangenfenster): Der Ring wechselt die Farbe, drück jetzt die nächste Taste.",
+    ["Show global cooldown ring"] = "Ring der globalen Abklingzeit anzeigen",
+    ["Color in the spell queue window"] = "Farbe im Zauber-Warteschlangenfenster",
+    ["Direction"] = "Richtung",
+    ["Faint full ring behind it"] = "Blasser voller Ring dahinter",
+    ["Ring"] = "Ring",
+    ["Spell queue window"] = "Zauber-Warteschlangenfenster",
+    ["The spell queue window is the game's setting (SpellQueueWindow, 400 ms unless changed). Forever and Retail may keep the global cooldown secret in combat; then your casts start the ring with its last known length, and spells without a global cooldown can start it too. /wl debug shows what the game says right now."] = "Das Zauber-Warteschlangenfenster ist eine Einstellung des Spiels (SpellQueueWindow, 400 ms, wenn nicht geändert). Forever und Retail halten die globale Abklingzeit im Kampf eventuell geheim; dann starten deine Zauber den Ring mit seiner zuletzt bekannten Länge, und auch Zauber ohne globale Abklingzeit können ihn starten. /wl debug zeigt, was das Spiel gerade sagt.",
+    ["Thin"] = "Dünn",
+    ["Thick"] = "Dick",
+    ["Runs empty"] = "Läuft leer",
+    ["Fills up"] = "Füllt sich",
 })

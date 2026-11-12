@@ -43,6 +43,7 @@ Sparkle.lua
 RangeIndicator.lua
 Report.lua
 Swing.lua
+GCD.lua
 Resources.lua
 Minimap.lua
 BlizzardUI.lua

@@ -94,6 +94,9 @@ combat starts and fades out a few seconds after it ends.
   Forever addons that do the same, such as Forever Loot Sparkles.
 - **Swing timer** built into the log window, for main hand, off hand and ranged
   auto-attacks.
+- **Global cooldown ring** at the mouse cursor that runs down during the global
+  cooldown and changes color in the spell queue window, when the game already takes
+  your next spell.
 - **Fight summary** after each fight, plus a **journal** with your fight history,
   personal records and session stats.
 - **Session tracker** for leveling: XP per hour, time and kills to the next level,
@@ -225,6 +228,9 @@ and lights the setting up.
   intensity preset, size, opacity, speed, sparks, height, a color per kind).
 - **Swing timer:** on/off, off-hand and ranged bars, time left, lane height and
   colors.
+- **Global cooldown:** on/off, only in combat, color in the spell queue window, size,
+  opacity, thickness, runs empty or fills up, faint ring behind it, colors and the
+  offset from the cursor.
 - **Resource display:** *General* (on/off, position, when it shows, fade times, opacity),
   *Look* (size, bar texture, gloss, border, background, bar order), and one sub-tab
   each for *Health*, *Power* (with druid mana), *Combo points* and *Cast bar*.
@@ -295,6 +301,16 @@ auto-attack: main hand, off hand (when dual wielding) and ranged (Auto Shot, wan
 When several run at the same time they share the lane, so the feed below never
 shifts. Durations come from your current weapon speed. The lane moves, scales and
 fades with the log window; turning the swing timer off removes it from the window.
+
+## Global cooldown
+
+A ring at the mouse cursor that shows only while the global cooldown runs and runs
+down with it. In its last moments the game already accepts your next spell (the spell
+queue window, the game's `SpellQueueWindow` setting, 400 ms by default): the ring
+changes color, so the next key press isn't lost. The time comes from the global
+cooldown's own spell (61304). Forever and Retail may keep it secret in combat; then
+your own casts start the ring with the last length the game told, 1.5 seconds until
+it told one.
 
 ## Personal resource display
 
@@ -458,6 +474,7 @@ As a result:
 | `BagSlots.lua` | Number of slots and kind of bag on bag items |
 | `Report.lua` | Fight summary card and the journal window |
 | `Swing.lua` | Swing timer lane inside the log window |
+| `GCD.lua` | Global cooldown ring at the mouse cursor |
 | `Resources.lua` | Personal resource display |
 | `Minimap.lua` | Minimap button and addon compartment entry |
 | `MacroBuilder.lua` | The macro builder: macros from blocks, live preview, checks and saving |
@@ -468,6 +485,7 @@ As a result:
 | `Media/Glow.tga` | Radial glow used by the crit alert |
 | `Media/Corner.tga` | Quarter disc for the XP tracker's rounded corners |
 | `Media/Round00-50.tga` | Rounded squares (corner radius 0-50 % of the side) for the modern action buttons |
+| `Media/Ring10-30.tga` | Rings (10, 20 and 30 % of the radius wide) for the global cooldown ring |
 | `Media/Diamond.tga` | Diamond mask for diamond-shaped combo points |
 | `Media/Sounds/*.ogg` | Alert sounds (crit, streak, record, proc) |
 | `tools/gen_spelldata.py` | Regenerates the `SpellData_*.lua` files from each client's game data via wago.tools (`--all`, or `--flavor forever\|vanilla\|tbc\|mists\|retail [--build x.y.z.n]`) |

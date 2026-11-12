@@ -1019,6 +1019,40 @@ local function BuildSwing(p)
 end
 
 ---------------------------------------------------------------------------
+-- Global cooldown
+---------------------------------------------------------------------------
+
+local function BuildGCD(p)
+    p:Header("Global cooldown")
+    p:Note("A ring at your mouse cursor that runs down while the global cooldown keeps you from casting, and only shows then. In its last moments the game already takes your next spell (the spell queue window): the ring changes color, so press the next key now.")
+    p:Checkbox("Show global cooldown ring", "gcd.enabled")
+    p:Button("Test", function() ns.GCD:Test() end, 2, -2, 100)
+    p:Checkbox("Only in combat", "gcd.combatOnly")
+    p:Checkbox("Color in the spell queue window", "gcd.queue", 2)
+
+    p:Header("Look")
+    p:Slider("Size", "gcd.size", 16, 128, 1, px)
+    p:Slider("Opacity", "gcd.alpha", 0.1, 1, 0.05, pct, 2)
+    p:Dropdown("Thickness", "gcd.thickness", {
+        { text = "Thin", value = "thin" },
+        { text = "Normal", value = "normal" },
+        { text = "Thick", value = "thick" },
+    })
+    p:Dropdown("Direction", "gcd.fill", {
+        { text = "Runs empty", value = false },
+        { text = "Fills up", value = true },
+    }, 2)
+    p:Checkbox("Faint full ring behind it", "gcd.background")
+    p:Color("Ring", "gcd.color")
+    p:Color("Spell queue window", "gcd.queueColor", 2)
+
+    p:Header("Position")
+    p:Slider("Horizontal offset", "gcd.dx", -100, 100, 1, px)
+    p:Slider("Vertical offset", "gcd.dy", -100, 100, 1, px, 2)
+    p:Note("The spell queue window is the game's setting (SpellQueueWindow, 400 ms unless changed). Forever and Retail may keep the global cooldown secret in combat; then your casts start the ring with its last known length, and spells without a global cooldown can start it too. /wl debug shows what the game says right now.")
+end
+
+---------------------------------------------------------------------------
 -- Resource display
 ---------------------------------------------------------------------------
 
@@ -2070,6 +2104,7 @@ local OVERVIEW = {
     { "Spell reminders", "reminders.enabled", function() ns.Reminders:Test() end },
     { "Range indicator", "rangeIndicator.enabled", function() ns.RangeIndicator:Test() end },
     { "Swing timer", "swing.enabled", function() ns.Swing:Test() end },
+    { "Global cooldown", "gcd.enabled", function() ns.GCD:Test() end },
     { "Fight summary", "stats.summary.enabled", function() ns.Report:TestSummary() end },
     { "Kill alerts", "killAlert.enabled", function() ns.KillAlert:Test() end },
     { "XP tracker", "xpTracker.enabled", function() ns.XPTracker:Test() end },
@@ -2150,6 +2185,7 @@ local TABS = {
         { "Look", BuildRangeLook },
     } },
     { "Swing timer", BuildSwing },
+    { "Global cooldown", BuildGCD },
     { "Fight summary", {
         { "Summary", BuildStatsSummary },
         { "History & records", BuildStatsHistory },

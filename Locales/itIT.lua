@@ -920,4 +920,18 @@ ns.RegisterLocale("itIT", "Italiano", {
     ["Horizontal offset"] = "Spostamento orizzontale",
     ["Vertical offset"] = "Spostamento verticale",
     ["With other nameplate addons the mark sits on the nameplate's frame instead of the health bar; move it with the offsets."] = "Con altri addon di targhette il segno si trova sulla cornice della targhetta invece che sulla barra della salute; spostalo con gli spostamenti.",
+    -- global cooldown
+    ["Global cooldown"] = "Tempo di recupero globale",
+    ["A ring at your mouse cursor that runs down while the global cooldown keeps you from casting, and only shows then. In its last moments the game already takes your next spell (the spell queue window): the ring changes color, so press the next key now."] = "Un anello sul cursore del mouse che si svuota mentre il tempo di recupero globale ti impedisce di lanciare incantesimi, e compare solo allora. Negli ultimi istanti il gioco accetta già il tuo prossimo incantesimo (la finestra di coda degli incantesimi): l'anello cambia colore, premi subito il tasto successivo.",
+    ["Show global cooldown ring"] = "Mostra l'anello del tempo di recupero globale",
+    ["Color in the spell queue window"] = "Colore nella finestra di coda degli incantesimi",
+    ["Direction"] = "Direzione",
+    ["Faint full ring behind it"] = "Anello completo tenue dietro",
+    ["Ring"] = "Anello",
+    ["Spell queue window"] = "Finestra di coda degli incantesimi",
+    ["The spell queue window is the game's setting (SpellQueueWindow, 400 ms unless changed). Forever and Retail may keep the global cooldown secret in combat; then your casts start the ring with its last known length, and spells without a global cooldown can start it too. /wl debug shows what the game says right now."] = "La finestra di coda degli incantesimi è un'impostazione del gioco (SpellQueueWindow, 400 ms se non modificata). Forever e Retail possono tenere segreto il tempo di recupero globale in combattimento; allora i tuoi incantesimi avviano l'anello con l'ultima durata nota, e possono avviarlo anche incantesimi senza tempo di recupero globale. /wl debug mostra cosa dice il gioco in questo momento.",
+    ["Thin"] = "Sottile",
+    ["Thick"] = "Spesso",
+    ["Runs empty"] = "Si svuota",
+    ["Fills up"] = "Si riempie",
 })

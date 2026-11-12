@@ -920,4 +920,18 @@ ns.RegisterLocale("frFR", "Français", {
     ["Horizontal offset"] = "Décalage horizontal",
     ["Vertical offset"] = "Décalage vertical",
     ["With other nameplate addons the mark sits on the nameplate's frame instead of the health bar; move it with the offsets."] = "Avec d'autres addons de barres d'info, la marque se place sur le cadre de la barre d'info au lieu de la barre de vie ; déplacez-la avec les décalages.",
+    -- global cooldown
+    ["Global cooldown"] = "Temps de recharge global",
+    ["A ring at your mouse cursor that runs down while the global cooldown keeps you from casting, and only shows then. In its last moments the game already takes your next spell (the spell queue window): the ring changes color, so press the next key now."] = "Un anneau au curseur de la souris qui se vide tant que le temps de recharge global vous empêche de lancer un sort, et n'apparaît qu'à ce moment. Dans ses derniers instants, le jeu accepte déjà votre sort suivant (la fenêtre de file d'attente des sorts) : l'anneau change de couleur, appuyez maintenant sur la touche suivante.",
+    ["Show global cooldown ring"] = "Afficher l'anneau du temps de recharge global",
+    ["Color in the spell queue window"] = "Couleur dans la fenêtre de file d'attente",
+    ["Direction"] = "Sens",
+    ["Faint full ring behind it"] = "Anneau complet discret derrière",
+    ["Ring"] = "Anneau",
+    ["Spell queue window"] = "Fenêtre de file d'attente des sorts",
+    ["The spell queue window is the game's setting (SpellQueueWindow, 400 ms unless changed). Forever and Retail may keep the global cooldown secret in combat; then your casts start the ring with its last known length, and spells without a global cooldown can start it too. /wl debug shows what the game says right now."] = "La fenêtre de file d'attente des sorts est un réglage du jeu (SpellQueueWindow, 400 ms sauf modification). Forever et Retail peuvent garder secret le temps de recharge global en combat ; vos sorts lancent alors l'anneau avec sa dernière durée connue, et des sorts sans temps de recharge global peuvent aussi le lancer. /wl debug montre ce que le jeu indique en ce moment.",
+    ["Thin"] = "Fin",
+    ["Thick"] = "Épais",
+    ["Runs empty"] = "Se vide",
+    ["Fills up"] = "Se remplit",
 })

@@ -49,6 +49,27 @@ def gen_textures():
     for pct in range(0, 51, 5):
         write_tga(os.path.join(MEDIA, f"Round{pct:02d}.tga"), 64, 64, rounded_square(64, pct / 100))
 
+    gen_rings()
+
+
+# Ring10/20/30: rings whose width is 10, 20 or 30 % of the radius (global cooldown
+# ring at the cursor: its swipe, track and the queue window's color)
+RINGS = (10, 20, 30)
+
+
+def gen_rings():
+    for pct in RINGS:
+        write_tga(os.path.join(MEDIA, f"Ring{pct}.tga"), 128, 128, ring(128, pct / 100))
+
+
+def ring(n, width):
+    """Antialiased alpha of a ring touching the edges of an n x n square, width * radius wide."""
+    y, x = np.mgrid[0:n, 0:n] + 0.5
+    d = np.hypot(x - n / 2, y - n / 2)
+    outer = n / 2 - 1
+    inner = outer * (1 - width)
+    return np.clip(np.minimum(outer - d, d - inner) + 0.5, 0, 1) * 255
+
 
 def rounded_square(n, radius):
     """Antialiased alpha of an n x n square whose corners are rounded by radius * n."""
@@ -338,7 +359,7 @@ def main():
     for path in (gen_chime(), gen_coin(), gen_impact(), gen_record(), gen_proc(), *gen_extras(), *gen_streaks()):
         data, rate = sf.read(path)
         print(f"{os.path.basename(path)}: {len(data) / rate:.2f}s, {rate} Hz, peak {np.max(np.abs(data)):.2f}")
-    print("textures: Gradient.tga, Glow.tga, Corner.tga, Round00-50.tga")
+    print("textures: Gradient.tga, Glow.tga, Corner.tga, Round00-50.tga, Ring10-30.tga")
 
 
 if __name__ == "__main__":
