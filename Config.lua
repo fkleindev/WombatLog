@@ -1137,6 +1137,8 @@ local function BuildResPower(p)
     p:Dropdown("Left text", "resources.power.textLeft", TEXT_MODES)
     p:Dropdown("Right text", "resources.power.textRight", TEXT_MODES, 2)
     p:Slider("Text size", "resources.power.textSize", 7, 20, 1)
+    p:Checkbox("Mark the cost of the spell you cast", "resources.power.costMark")
+    p:Color("Cost color", "resources.power.costColor", 2)
 
     p:Header("Druid mana")
     p:Checkbox("Mana bar in bear and cat form", "resources.druidMana.enabled")
@@ -1657,6 +1659,8 @@ local function BuildQuestBars(p)
     p:Checkbox("One segment per item (up to 20)", "questProgress.bar.segments")
     p:Checkbox("Thin border", "questProgress.bar.border", 2)
     p:Slider("Fill speed", "questProgress.bar.speed", 1, 20, 1)
+    p:Checkbox("Hide a bar once it's full", "questProgress.bar.hideFull")
+    p:Slider("Hide after", "questProgress.bar.hideDelay", 0.5, 5, 0.5, secs, 2)
 
     p:Header("Effects")
     p:Checkbox("Spark at the fill's edge", "questProgress.bar.spark")
@@ -1929,6 +1933,102 @@ local function BuildBlizzardAnimations(p)
     p:Note("The icon dips in and springs back when you use the button, by click or key.")
     p:Checkbox("Flash when ready", path .. "cooldown")
     p:Note("A short flash when a cooldown ends. The global cooldown doesn't count.")
+end
+
+local function BuildUnitFrames(p)
+    local path = "blizzard.unitFrames."
+    p:Header("Unit frames")
+    p:Note("A modern look for your own frame, your pet's and your target's. Blizzard's frames keep working underneath: clicks, the right-click menu, auras, the target's cast bar and their place (Edit Mode on Retail) stay.")
+    p:Checkbox("Modern unit frames", path .. "enabled")
+    p:Dropdown("Portrait", path .. "portrait", {
+        { text = "Round", value = "round" },
+        { text = "Square", value = "square" },
+        { text = "None", value = "none" },
+    })
+    p:Slider("Square corner radius", path .. "portraitRadius", 0, 45, 5, percentOf, 2)
+
+    p:Header("Texts")
+    p:Checkbox("Names", path .. "names")
+    p:Slider("Text size", path .. "textSize", 7, 18, 1, nil, 2)
+    p:Dropdown("Health text", path .. "healthText", TEXT_MODES)
+    p:Dropdown("Power text", path .. "powerText", TEXT_MODES, 2)
+    p:Note("The power text needs a power bar at least 7 px high.")
+
+    for _, u in ipairs({ { "player", "Player" }, { "target", "Target" }, { "targettarget", "Target of target" },
+                         { "focus", "Focus" }, { "pet", "Pet" } }) do
+        local up = path .. u[1] .. "."
+        p:Header(u[2])
+        p:Checkbox("Show", up .. "enabled")
+        p:Slider("Bar width", up .. "width", 50, 260, 2, px)
+        p:Slider("Portrait size", up .. "portraitSize", 16, 90, 1, px, 2)
+        p:Slider("Health height", up .. "healthHeight", 4, 40, 1, px)
+        p:Slider("Power height", up .. "powerHeight", 0, 24, 1, px, 2)
+        p:Slider("Horizontal offset", up .. "x", -150, 150, 1, px)
+        p:Slider("Vertical offset", up .. "y", -100, 100, 1, px, 2)
+    end
+    p:Note("Classic Era has no focus frame.")
+    p:Note("The offsets move the new look within Blizzard's frame; move the frame itself the way you always do (Edit Mode on Retail). A power height of 0 leaves the power bar out.")
+end
+
+local function BuildUnitFrameLook(p)
+    local path = "blizzard.unitFrames."
+    p:Note("These options need \"Modern unit frames\" on the Unit frames tab.")
+    p:Header("Bars")
+    p:Dropdown("Bar texture", path .. "texture", ns.Resources.TextureOptions)
+    p:Dropdown("Health color", path .. "healthColor", {
+        { text = "Class (players), reaction (others)", value = "class" },
+        { text = "Reaction", value = "reaction" },
+        { text = "Green", value = "green" },
+        { text = "Custom color", value = "custom" },
+    }, 2)
+    p:Color("Custom color", path .. "customColor")
+
+    p:Header("Panel")
+    p:Slider("Corner radius", path .. "radius", 0, 12, 1, px)
+    p:Color("Color", path .. "bgColor", 2)
+    p:Slider("Opacity", path .. "bgOpacity", 0, 1, 0.05, pct)
+    p:Checkbox("Shadow", path .. "shadow", 2)
+    p:Slider("Shadow opacity", path .. "shadowOpacity", 0, 1, 0.05, pct)
+
+    p:Header("Border")
+    p:Checkbox("Border", path .. "border")
+    p:Slider("Thickness", path .. "borderSize", 1, 4, 1, px, 2)
+    p:Color("Color", path .. "borderColor")
+    p:Slider("Opacity", path .. "borderOpacity", 0, 1, 0.05, pct, 2)
+end
+
+local function BuildUnitFrameEffects(p)
+    local path = "blizzard.unitFrames."
+    p:Note("These options need \"Modern unit frames\" on the Unit frames tab.")
+    p:Header("Elite and rare")
+    p:Checkbox("Dragon ornament", path .. "elite.enabled")
+    p:Checkbox("Glint running over it", path .. "elite.shine", 2)
+    p:Checkbox("Glow behind rare and boss ornaments", path .. "elite.glow")
+    p:Note("Elite, rare and boss units get wings around their portrait in their own color, and the portrait's border takes it too. Rare elites get the rare color with an elite border.")
+    p:Dropdown("Ornament for yourself", path .. "elite.self", {
+        { text = "None", value = "none" },
+        { text = "Elite", value = "elite" },
+        { text = "Rare", value = "rare" },
+        { text = "Rare elite", value = "rareelite" },
+        { text = "Boss", value = "boss" },
+    })
+    p:Note("Your own frame wears the ornament you pick here, in that kind's color, even with the ornament for others turned off.")
+    p:Color("Elite", path .. "elite.eliteColor")
+    p:Color("Rare", path .. "elite.rareColor", 2)
+    p:Color("Rare elite", path .. "elite.rareEliteColor")
+    p:Color("Boss", path .. "elite.bossColor", 2)
+
+    p:Header("Animations")
+    p:Checkbox("Damage trail", path .. "anim.damage")
+    p:Checkbox("Heal flash", path .. "anim.heal", 2)
+    p:Note("Lost health stays a moment as a bright piece, then runs after the bar; health gained flashes green.")
+    p:Checkbox("Low health", path .. "anim.lowHealth")
+    p:Slider("Below", path .. "anim.lowAt", 0.1, 0.6, 0.05, pct, 2)
+    p:Note("The border and a glow pulse red while health is below this.")
+    p:Checkbox("New target slides in", path .. "anim.targetChange")
+    p:Checkbox("Glow in combat", path .. "anim.combat", 2)
+    p:Checkbox("Shake when hit", path .. "anim.hit")
+    p:Note("In combat Forever and Retail may keep health secret: the bars stay right, the damage trail and the heal flash wait until it's readable again, and low health is worked out by the game where it can.")
 end
 
 local function BuildMinimap(p)
@@ -2230,6 +2330,9 @@ local TABS = {
         { "Buttons", BuildBlizzardButtons },
         { "Bars", BuildBlizzardBars },
         { "Animations", BuildBlizzardAnimations },
+        { "Unit frames", BuildUnitFrames },
+        { "Frame look", BuildUnitFrameLook },
+        { "Frame effects", BuildUnitFrameEffects },
     } },
     { "Bag slots", BuildBagSlots },
     { "Minimap button", BuildMinimap },

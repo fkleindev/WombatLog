@@ -136,18 +136,19 @@ end
 ---------------------------------------------------------------------------
 
 local percentCurve
-local function healthPercentSecret()
+local function healthPercentSecret(unit)
     if not UnitHealthPercent then return nil end
     if not percentCurve and C_CurveUtil and C_CurveUtil.CreateCurve then
         percentCurve = C_CurveUtil.CreateCurve()
         percentCurve:AddPoint(0, 0)
         percentCurve:AddPoint(1, 100)
     end
-    local ok, v = pcall(UnitHealthPercent, "player", false, percentCurve)
+    local ok, v = pcall(UnitHealthPercent, unit or "player", false, percentCurve)
     return ok and v or nil
 end
 
-local function setText(fs, mode, cur, max, isHealth)
+-- unit: whose health percent to ask for when it's secret (the player by default)
+local function setText(fs, mode, cur, max, isHealth, unit)
     if mode == "none" or cur == nil then
         fs:SetText("")
         return
@@ -179,11 +180,12 @@ local function setText(fs, mode, cur, max, isHealth)
         end
         if not ok then ok = pcall(fs.SetFormattedText, fs, "%d", cur) end
     elseif mode == "percent" and isHealth then
-        local p = healthPercentSecret()
+        local p = healthPercentSecret(unit)
         if p ~= nil then ok = pcall(fs.SetFormattedText, fs, "%.0f%%", p) end
     end
     if not ok then fs:SetText("") end
 end
+Resources.SetText = setText -- also used by the unit frames
 
 ---------------------------------------------------------------------------
 -- Bars
@@ -647,6 +649,7 @@ end
 ---------------------------------------------------------------------------
 
 Resources.cast = { active = false }
+local Cost = {} -- the spell cost marks (below)
 
 local function castInfo(channel)
     local name, icon, startMS, endMS, notInterruptible, _
@@ -679,6 +682,7 @@ function Resources:StartCast(channel, test)
     b:SetStatusBarColor(color[1], color[2], color[3], 1)
     b.icon:SetTexture(icon or 134400)
     b.left:SetText(C.name and name or "")
+    if test then self:MarkCast(nil, nil, true) end
     Layout()
     self:UpdateVisibility()
 end
@@ -686,6 +690,7 @@ end
 function Resources:EndCast()
     local c = self.cast
     if c.holdUntil and GetTime() < c.holdUntil then return end
+    if Cost.test then self:EndMark() end
     c.active = false
     Layout()
     self:UpdateVisibility()
@@ -736,6 +741,180 @@ local function castOnUpdate()
 end
 
 ---------------------------------------------------------------------------
+-- Spell cost: while you cast, the part of the power bar the spell will take
+-- shimmers and pulses; spells without a cast time (and channels, which pay up
+-- front) flash the part they just took. The marks are status bars against the
+-- same maximum as the bar and hang at the end of its fill, so their width and
+-- place come from the game even when power is secret.
+---------------------------------------------------------------------------
+
+local SHINE = "Interface\\AddOns\\WombatLog\\Media\\Shine"
+local FADE_IN, FADE_OUT, FLASH = 0.15, 0.2, 0.45
+local PREVIEW_COST = 0.12
+local getPowerCost = (C_Spell and C_Spell.GetSpellPowerCost) or GetSpellPowerCost
+
+-- One mark: an additive fill and a glint running over it.
+local function makeMark(clip)
+    local m = CreateFrame("StatusBar", nil, clip)
+    m:SetStatusBarTexture(WHITE)
+    m.fill = m:GetStatusBarTexture()
+    m.fill:SetBlendMode("ADD")
+    m.shine = m:CreateTexture(nil, "OVERLAY")
+    m.shine:SetTexture(SHINE, "REPEAT", "CLAMP")
+    m.shine:SetBlendMode("ADD")
+    m.shine:SetAllPoints(m.fill)
+    m:Hide()
+    return m
+end
+
+local costOnUpdate
+
+-- Marks for bar b, clipped to it (a cost bigger than what's left doesn't hang out
+-- on the left), with the bar's texts lifted above them.
+local function costLayer(b)
+    local clip = CreateFrame("Frame", nil, b)
+    clip:SetAllPoints()
+    clip:SetClipsChildren(true)
+    clip:SetFrameLevel(b:GetFrameLevel() + 1)
+    clip.cast, clip.flash = makeMark(clip), makeMark(clip)
+    clip:SetScript("OnUpdate", costOnUpdate)
+    clip:Hide()
+    local top = CreateFrame("Frame", nil, b)
+    top:SetAllPoints()
+    top:SetFrameLevel(b:GetFrameLevel() + 2)
+    b.left:SetParent(top)
+    b.right:SetParent(top)
+    b.cost = clip
+end
+
+-- Which shown bar spellID takes from, what it costs there and that bar's maximum.
+local function findCost(spellID)
+    if not spellID or not getPowerCost then return nil end
+    local ok, costs = pcall(getPowerCost, spellID)
+    costs = ok and ns.SafeTable(costs)
+    if not costs then return nil end
+    local bars = Resources.bars
+    for _, c in ipairs(costs) do
+        local pt, n = Safe(c.type), Safe(c.cost)
+        local needsAura = Safe(c.requiredAuraID)
+        if n and n > 0 and not (needsAura and needsAura ~= 0 and Safe(c.hasRequiredAura) == false) then
+            local key = (pt == powerType() and "power") or (pt == MANA and "druidMana") or nil
+            if key and bars[key]:IsShown() then return key, n, UnitPowerMax("player", pt), pt end
+        end
+    end
+end
+
+-- Puts mark m of bar `key` up: "cast" ends at the fill's edge and reaches left,
+-- "flash" starts there (or at `at`, a plain value) and reaches right.
+local function placeMark(m, key, cost, max, mode, at)
+    local R, b = ns.db.resources, Resources.bars[key]
+    m:SetMinMaxValues(0, max)
+    m:SetValue(cost)
+    m:SetSize(R.width, R[key].height)
+    m:SetReverseFill(mode == "cast")
+    m:ClearAllPoints()
+    if at then
+        m:SetPoint("LEFT", b, "LEFT", R.width * math.min(1, math.max(0, at / max)), 0)
+    else
+        m:SetPoint(mode == "cast" and "RIGHT" or "LEFT", b:GetStatusBarTexture(), "RIGHT", 0, 0)
+    end
+    m.start, m.fadeFrom = GetTime(), nil
+    m.fill:SetVertexColor(1, 1, 1, 0)
+    m.shine:SetVertexColor(1, 1, 1, 0)
+    m:Show()
+    b.cost:Show()
+end
+
+local function enabled()
+    return ns.db and Resources.frame and ns.db.resources.power.costMark
+end
+
+function Resources:MarkCast(guid, spellID, test)
+    self:EndMark(true)
+    if not enabled() then return end
+    local key, cost, max
+    if test then
+        key, cost, max = "power", PREVIEW_COST, 1
+    else
+        key, cost, max = findCost(spellID)
+    end
+    Cost.guid, Cost.spellID, Cost.test, Cost.endedAt = guid, spellID, test, nil
+    if not key then return end
+    Cost.key = key
+    placeMark(self.bars[key].cost.cast, key, cost, max, "cast")
+end
+
+-- The cast is over (done or not): its mark fades. now skips the fade.
+function Resources:EndMark(now)
+    local key = Cost.key
+    Cost.key, Cost.test = nil, nil
+    Cost.endedAt = GetTime()
+    local m = key and self.bars[key].cost.cast
+    if not (m and m:IsShown()) then return end
+    if now then m:Hide() else m.fadeFrom = m.fadeFrom or GetTime() end
+end
+
+-- An instant spell (or a channel) went off: flash what it took once the power
+-- has gone down, or after a moment when no power update comes.
+function Resources:MarkInstant(spellID)
+    if not enabled() then return end
+    local key, cost, max, pt = findCost(spellID)
+    if not key then return end
+    local cur = UnitPower("player", pt)
+    Cost.pending = { key = key, cost = cost, max = max, pt = pt, at = GetTime(),
+                     before = not isSecret(cur) and cur or nil }
+end
+
+-- force: flash even if the power hasn't visibly gone down (it may have before the
+-- spell's event, or regeneration covered it)
+function Resources:FlashPending(force)
+    local p = Cost.pending
+    if not p then return end
+    if GetTime() - p.at > 1 then Cost.pending = nil return end -- the display was hidden meanwhile
+    local cur = UnitPower("player", p.pt)
+    -- a regeneration tick right after the spell isn't the payment yet
+    if not force and p.before and not isSecret(cur) and cur >= p.before then return end
+    Cost.pending = nil
+    if not self.bars[p.key]:IsShown() then return end
+    -- plain values: right where the bar is headed, so a gliding fill runs through
+    -- the flash instead of dragging it along
+    local at = not isSecret(cur) and not isSecret(p.max) and p.max > 0 and cur or nil
+    placeMark(self.bars[p.key].cost.flash, p.key, p.cost, p.max, "flash", at)
+end
+
+local function animate(m, now, color)
+    if not m:IsShown() then return false end
+    local t, a, glint = now - m.start, 0, 0
+    if m == m:GetParent().flash then
+        local left = 1 - t / FLASH
+        if left <= 0 then m:Hide() return false end
+        a, glint = 0.9 * left * left, left
+    else
+        -- fade in, pulse, and fade out once the cast is over
+        local fadeIn, out = math.min(1, t / FADE_IN), 1
+        if m.fadeFrom then
+            out = 1 - (now - m.fadeFrom) / FADE_OUT
+            if out <= 0 then m:Hide() return false end
+        end
+        a = (0.5 + 0.22 * math.sin(t * 2 * math.pi * 1.4)) * fadeIn * out
+        glint = 0.8 * fadeIn * out
+    end
+    m.fill:SetVertexColor(color[1], color[2], color[3], a)
+    m.shine:SetVertexColor(color[1], color[2], color[3], glint)
+    -- the glint runs right to left, about 1.3 times a second
+    local off = (t * 1.3) % 1
+    m.shine:SetTexCoord(off, off + 1, 0, 1)
+    return true
+end
+
+function costOnUpdate(self)
+    local now, color = GetTime(), ns.db.resources.power.costColor
+    local a = animate(self.cast, now, color)
+    local b = animate(self.flash, now, color)
+    if not (a or b) then self:Hide() end
+end
+
+---------------------------------------------------------------------------
 -- Frame
 ---------------------------------------------------------------------------
 
@@ -770,6 +949,8 @@ local function OnUpdate(self, dt)
         end
     end
     castOnUpdate()
+    -- an instant's cost flashes even when no power update follows
+    if Cost.pending and GetTime() - Cost.pending.at > 0.3 then Resources:FlashPending(true) end
     -- out of combat, re-check twice a second: no event fires once you're full again
     self.recheck = (self.recheck or 0) + dt
     if self.recheck >= 0.5 then
@@ -819,6 +1000,8 @@ function Resources:Init()
     cb.icon = cb:CreateTexture(nil, "ARTWORK")
     cb.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     cb.icon:SetPoint("RIGHT", cb, "LEFT", -3, 0)
+    costLayer(self.bars.power)
+    costLayer(self.bars.druidMana)
     self:Apply()
 end
 
@@ -851,6 +1034,7 @@ function Resources:SetPreview(on)
         self.cast.test = nil
         self:EndCast()
     end
+    if not on and Cost.test then self:EndMark(true) end
     self:Apply()
 end
 
@@ -921,5 +1105,42 @@ end
 for _, ev in ipairs({ "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_FAILED" }) do
     ns.Listen(ev, function()
         if Resources.frame and not Resources.cast.test then Resources:InterruptCast() end
+    end, "player")
+end
+
+-- spell cost marks
+local function sameCast(guid, spellID)
+    if guid and Cost.guid then return guid == Cost.guid end
+    return spellID == nil or spellID == Cost.spellID
+end
+
+ns.Listen("UNIT_SPELLCAST_START", function(_, guid, spellID)
+    if Resources.frame then Resources:MarkCast(Safe(guid), Safe(spellID)) end
+end, "player")
+for _, ev in ipairs({ "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_INTERRUPTED" }) do
+    ns.Listen(ev, function(_, guid, spellID)
+        if Cost.key and not Cost.test and sameCast(Safe(guid), Safe(spellID)) then Resources:EndMark() end
+    end, "player")
+end
+ns.Listen("UNIT_SPELLCAST_FAILED", function(_, guid)
+    if not Cost.key or Cost.test then return end
+    -- a re-press during a running cast fails the new attempt, not the cast
+    guid = Safe(guid)
+    if (guid and guid == Cost.guid) or (not guid and not castInfo(false)) then Resources:EndMark() end
+end, "player")
+ns.Listen("UNIT_SPELLCAST_SUCCEEDED", function(_, guid, spellID)
+    if not Resources.frame then return end
+    guid, spellID = Safe(guid), Safe(spellID)
+    -- the cast with the mark went through (before or after its STOP)
+    local recent = Cost.key or (Cost.endedAt and GetTime() - Cost.endedAt < 0.5)
+    if (guid and guid == Cost.guid) or (not guid and spellID and spellID == Cost.spellID and recent) then
+        Resources:EndMark()
+        return
+    end
+    Resources:MarkInstant(spellID)
+end, "player")
+for _, ev in ipairs({ "UNIT_POWER_FREQUENT", "UNIT_POWER_UPDATE" }) do
+    ns.Listen(ev, function()
+        if Cost.pending and Resources.frame then Resources:FlashPending() end
     end, "player")
 end

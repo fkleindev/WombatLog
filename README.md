@@ -43,7 +43,8 @@ combat starts and fades out a few seconds after it ends.
   nameplates need to be switched on in the game (Shift+V), and in dungeons and raids
   the game doesn't hand them to addons.
 - **Personal resource display** under your character: health, power, druid mana,
-  combo points and a cast bar.
+  combo points and a cast bar. While you cast, the power the spell will take
+  shimmers on the bar.
 - **Kill alerts:** a rewarding pop-up when a mob you fought dies, with the XP you got
   counting up, "LEVEL UP!", a multi-kill counter and a sound that rises with each
   kill in a row (your XP bar can fill under it, too). Quests you turn in get the same
@@ -63,8 +64,9 @@ combat starts and fades out a few seconds after it ends.
   its objectives. The one that just changed lights up with a "+1", and every "kill X"
   or "collect X" objective has a bar that fills from the old count to the new one
   (bonus objectives show their percent on Retail). Objectives just done get a check
-  mark, and when the last one is done the card says "Quest complete!". Several quests
-  at once stack. It pops up freely or hangs under the XP tracker, can wait until the
+  mark, and a full bar folds away after a moment to save room (objectives that were
+  already done show without one). When the last one is done the card says "Quest
+  complete!". Several quests at once stack. It pops up freely or hangs under the XP tracker, can wait until the
   fight is over, and can replace the game's yellow "Kobold Vermin slain: 3/10".
   A quest with a time limit keeps its card on top until it is done, with the time
   left next to its name and a bar that runs empty, yellow in the last minute and
@@ -118,6 +120,14 @@ combat starts and fades out a few seconds after it ends.
   animations, no gryphons or bar art, and key bindings and macro names that can be
   hidden. The bag bar and the micro menu (spellbook, talents and so on) can get the
   same look. All off by default.
+- **Modern unit frames** for you, your pet, your target, its target and your focus
+  (not on Classic Era, which has none): a round, square or no
+  portrait with a level badge, slim bars on a rounded panel, the name and health in
+  the bar. Elite, rare and boss units get a dragon ornament around their portrait in
+  their own color, with a glint running over it, and you can give yourself one too. Lost health trails behind the bar,
+  heals flash green, low health pulses red, a new target slides in, the frame glows
+  in combat and the portrait shakes when hit. Blizzard's frames keep working
+  underneath (clicks, menus, auras, Edit Mode). Off by default.
 - The header shows live DPS and HPS, a fight timer, damage dealt and taken, and the
   biggest hit of the fight.
 - A **welcome screen** on each character's first login: every feature with a short
@@ -218,7 +228,7 @@ and lights the setting up.
   the fight is over, hide the game's quest progress text, always show quests with a
   time limit, always show the focused quest, position), *Look* (width, scale,
   background opacity, colors, text size, font, outline), *Bars* (thickness,
-  color, texture, background, segments, border, fill speed, spark, gloss, light,
+  color, texture, background, segments, border, fill speed, hide full bars, spark, gloss, light,
   glow) and *Sound* (on progress, on completion, channel).
 - **Quest items:** on/off, glow and/or icon, glow colour and pulse, icon size, ask before selling, the quest in the tooltip.
 - **Bag slots:** on/off, also on the bag bar and the bank, number of slots, icon for
@@ -245,7 +255,12 @@ and lights the setting up.
   active colors), *Bars* (a panel behind each bar with padding, corner radius,
   color, border and shadow) and *Animations* (fading mouse-over light, the icon
   dipping in on use, a flash when a cooldown ends). Buttons, Bars and Animations
-  need the modern action buttons.
+  need the modern action buttons. *Unit frames* (on/off, portrait style, texts, and
+  for the player, target, target of target, focus and pet: on/off, bar width, portrait size, bar heights and
+  an offset), *Frame look* (bar texture, health color, panel, border, shadow) and
+  *Frame effects* (the elite ornament with its glint, glow and colors, an ornament
+  for yourself, and every
+  animation on its own).
 - **Custom sounds:** your own sounds for every sound list. Put `.ogg` or `.mp3` files
   into `Interface\AddOns\WombatLog\Media\Custom\`, restart the game (it only sees new
   files after a restart, `/reload` is not enough) and add each file by name. They
@@ -319,7 +334,10 @@ A compact stack of bars under your character, styled like the rest of WombatLog:
 - **Health:** class color or your own color, with optional text on the left and
   right: value, value/max, percent or missing.
 - **Power:** mana, rage, energy or focus, colored by type, with the same text
-  options.
+  options. While you cast, the part of the bar the spell will take pulses and a
+  glint runs over it; when the cast ends it fades. Spells without a cast time (and
+  channels, which pay at the start) briefly flash the part they took. Works for the
+  druid mana bar too, in your own color, and can be turned off.
 - **Druid mana:** a thin mana bar while you're in bear or cat form.
 - **Combo points:** for rogues and druids in cat form, as a segmented bar, squares,
   circles or diamonds, in one color or a gradient from the first to the last point.
@@ -479,6 +497,7 @@ As a result:
 | `Minimap.lua` | Minimap button and addon compartment entry |
 | `MacroBuilder.lua` | The macro builder: macros from blocks, live preview, checks and saving |
 | `BlizzardUI.lua` | Changes to Blizzard's UI: hiding its XP bar, modern action buttons and bars |
+| `UnitFrames.lua` | Modern player, pet, target, target of target and focus frames over Blizzard's |
 | `Config.lua` | The settings panel |
 | `Welcome.lua` | Welcome screen on each character's first login |
 | `Media/Gradient.tga` | White-to-transparent texture used for the row backgrounds |

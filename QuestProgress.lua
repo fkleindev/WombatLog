@@ -47,6 +47,8 @@ local FLASH = 0.8        -- the changed objective's row flashes this long
 local DELTA_HOLD = 1.5   -- the "+1" stays this long, then fades
 local DELTA_FADE = 0.5
 local POP = 0.35         -- the check mark of an objective just done pops this long
+local BAR_FADE = 0.2     -- a full bar fades out this long (once its time is up)...
+local BAR_SHRINK = 0.3   -- ...and its row closes up over this, starting halfway through the fade
 local BURST_TIME = 0.8
 local MAX_CARDS = 5
 local SAMPLE_ID = -1
@@ -445,6 +447,31 @@ local function hasBar(o)
     return ns.db.questProgress.bars and (o.percent or (o.need and o.need > 1)) or false
 end
 
+-- How much of an objective's bar is open: 1 shown, 0 folded away (full bars go
+-- once they've been full a moment, when that option is on).
+local function barOpen(s)
+    return (ns.db.questProgress.bar.hideFull and s.barK) or 1
+end
+
+-- Stacks the card's rows under its header, each as tall as its bar is open, and
+-- sizes the card to them.
+local function placeRows(card)
+    local y = card.rowsY
+    for i, s in ipairs(card.objs) do
+        local r = card.rows[i]
+        local k = barOpen(s)
+        r:ClearAllPoints()
+        r:SetPoint("TOPLEFT", card, "TOPLEFT", PAD - 3, -y)
+        local h = r.lineH + r.barH * k
+        r:SetHeight(h)
+        r.bar:SetShown(s.bar and k > 0)
+        if not (s.bar and k > 0) then r.bar.glow:Hide() end
+        y = y + h + 1
+    end
+    card.height = y + PAD - 1
+    card:SetHeight(card.height)
+end
+
 local function countText(o)
     if o.percent then return (o.have or 0) .. "%" end
     if o.need and o.need > 1 and o.have then return o.have .. "/" .. o.need end
@@ -459,9 +486,12 @@ local function takeObjectives(card, q, changes)
         local before = changes[i]
         if not s then
             local start = before and fraction(o, before) or (o.done and not o.need and 1 or fraction(o, o.have))
-            s = { value = start }
+            -- full before this card came up: its bar isn't shown at all
+            s = { value = start, barK = (o.done and not before) and 0 or 1 }
             card.objs[i] = s
         end
+        -- no longer done (an item went): the bar comes back
+        if not o.done then s.barK, s.fullAge, s.collapseT = 1, nil, nil end
         if before then
             s.from = s.value
             s.changeAge = 0
@@ -543,8 +573,6 @@ function QuestProgress:Fill(card)
         local r = card.rows[i] or CreateRow(card)
         card.rows[i] = r
         r:Show()
-        r:ClearAllPoints()
-        r:SetPoint("TOPLEFT", card, "TOPLEFT", PAD - 3, -y)
         r:SetWidth(rowW)
         ns.SetFont(r.label, font, size, smallOutline)
         ns.SetFont(r.count, font, size, smallOutline)
@@ -570,9 +598,8 @@ function QuestProgress:Fill(card)
         end
         r.label:SetWidth(math.max(20, rowW - 16 - 3 - countW - deltaW - 6))
 
-        local h = lineH
+        r.lineH, r.barH = lineH, 0
         s.bar = hasBar(s)
-        r.bar:SetShown(s.bar)
         if s.bar then
             local B, cb = r.B, cfg.bar
             for k, v in pairs(cb) do B[k] = v end
@@ -581,19 +608,15 @@ function QuestProgress:Fill(card)
             XPBar.Apply(r.bar, B, rowW - 19, cb.height, s.done and cfg.doneColor or cfg.barColor, font, smallOutline)
             r.bar:ClearAllPoints()
             r.bar:SetPoint("TOPLEFT", r, "TOPLEFT", 16, -lineH)
-            h = lineH + cb.height + 3
-        else
-            r.bar.glow:Hide()
+            r.barH = cb.height + 3
         end
-        r:SetHeight(h)
-        y = y + h + 1
     end
     for i = #card.objs + 1, #card.rows do
         card.rows[i]:Hide()
         card.rows[i].bar.glow:Hide()
     end
-    card.height = y + PAD - 1
-    card:SetHeight(card.height)
+    card.rowsY = y
+    placeRows(card)
     self:RenderCard(card)
 end
 
@@ -636,7 +659,12 @@ function QuestProgress:RenderCard(card)
             r.check:SetSize(cs, cs)
         end
 
-        if s.bar then
+        if s.bar and s.collapseT then
+            -- on its way out: fading, without the glow
+            r.bar:SetAlpha(math.max(0, 1 - s.collapseT / BAR_FADE))
+            r.bar.glow:Hide()
+        elseif s.bar and barOpen(s) > 0 then
+            r.bar:SetAlpha(1)
             XPBar.Render(r.bar, r.B, s.value, s.from, s.changeAge or math.huge, 0, lit and hc or nil)
         end
     end
@@ -787,10 +815,24 @@ function QuestProgress:Step(dt)
                 c.curY = math.abs(d) < 0.5 and c.y or c.curY + d * math.min(1, dt * MOVE_SPEED)
                 c:SetPoint("TOP", self.holder, "TOP", 0, -c.curY)
             end
+            local folding = false
             for _, s in ipairs(c.objs) do
                 if s.value ~= s.target then
                     local d = s.target - s.value
                     s.value = math.abs(d) < 0.002 and s.target or s.value + d * math.min(1, dt * speed)
+                end
+                -- a bar that has filled up waits a moment, then folds away
+                if s.bar and s.done and s.barK > 0 and cfg.bar.hideFull and s.value == s.target then
+                    if s.collapseT then
+                        s.collapseT = s.collapseT + dt
+                        local p = math.max(0, math.min(1, (s.collapseT - BAR_FADE / 2) / BAR_SHRINK))
+                        s.barK = 1 - p * p * (3 - 2 * p)
+                        if p >= 1 then s.barK, s.collapseT = 0, nil end
+                        folding = true
+                    else
+                        s.fullAge = (s.fullAge or 0) + dt
+                        if s.fullAge >= cfg.bar.hideDelay then s.collapseT = 0 end
+                    end
                 end
                 if s.changeAge then s.changeAge = s.changeAge + dt end
                 if s.deltaAge then s.deltaAge = s.deltaAge + dt end
@@ -802,6 +844,10 @@ function QuestProgress:Step(dt)
             if c.burstT then
                 c.burstT = c.burstT + dt
                 if c.burstT > BURST_TIME then c.burstT = nil end
+            end
+            if folding then
+                placeRows(c)
+                gone = true -- the cards under it close up
             end
             self:RenderCard(c)
         end

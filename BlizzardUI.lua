@@ -210,6 +210,13 @@ local function tintAll(list, c, a)
     for _, t in ipairs(list) do tint(t, c, a) end
 end
 
+-- shared with the unit frames
+BlizzardUI.RoundTexture = roundTexture
+BlizzardUI.NewRoundRect = newRoundRect
+BlizzardUI.LayoutRoundRect = layoutRoundRect
+BlizzardUI.NewStrips = newStrips
+BlizzardUI.LayoutStrips = layoutStrips
+
 ---------------------------------------------------------------------------
 -- Action buttons
 ---------------------------------------------------------------------------

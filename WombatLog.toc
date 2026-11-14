@@ -47,6 +47,7 @@ GCD.lua
 Resources.lua
 Minimap.lua
 BlizzardUI.lua
+UnitFrames.lua
 MacroBuilder.lua
 Config.lua
 Welcome.lua

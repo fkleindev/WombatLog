@@ -134,7 +134,8 @@ ns.defaults.resources = {
     health = { enabled = true, height = 20, classColor = false, color = { 0.00, 0.54, 0.11 },
                textLeft = "valuemax", textRight = "percent", textSize = 14 },
     power = { enabled = true, height = 18, typeColor = true, color = { 0.20, 0.50, 1.00 },
-              textLeft = "valuemax", textRight = "percent", textSize = 12, countForVisibility = true },
+              textLeft = "valuemax", textRight = "percent", textSize = 12, countForVisibility = true,
+              costMark = true, costColor = { 1.00, 1.00, 1.00 } }, -- what the spell you cast will take
     druidMana = { enabled = true, height = 3, color = { 0.00, 0.55, 1.00 } },
     combo = { enabled = true, height = 6, onlyWhenActive = false, ticks = true, color = { 1.00, 0.82, 0.18 },
               style = "squares",        -- "bar" | "squares" | "circles" | "diamonds"
@@ -234,6 +235,7 @@ ns.defaults.questProgress = {
         height = 6, texture = "blizzard", bgOpacity = 0.5, border = true,
         segments = true,            -- one segment per item, up to 20
         speed = 4, spark = true, gloss = false, gainFlash = true, glow = true,
+        hideFull = true, hideDelay = 1.5, -- a full bar folds away after this, to save room
     },
 }
 
@@ -337,6 +339,40 @@ ns.defaults.blizzard = {
             hover = false,                -- the hover light fades in and out
             press = false,                -- the icon dips in when the button is used (click or key)
             cooldown = false,             -- a flash when a cooldown longer than the global one ends
+        },
+    },
+    -- modern player, pet and target frames drawn over Blizzard's (which keep working)
+    unitFrames = {
+        enabled = false,
+        portrait = "round",               -- "round" | "square" | "none"
+        portraitRadius = 20,              -- % of the side, for "square"
+        texture = "flat",
+        radius = 4,                       -- px, the panel behind the bars
+        border = true, borderSize = 1, borderColor = { 0, 0, 0 }, borderOpacity = 1,
+        bgColor = { 0, 0, 0 }, bgOpacity = 0.55,
+        shadow = true, shadowOpacity = 0.5,
+        healthColor = "class",            -- "class" | "reaction" | "green" | "custom"
+        customColor = { 0.20, 0.80, 0.30 },
+        names = true, healthText = "percent", powerText = "none", textSize = 11,
+        player = { enabled = true, width = 140, healthHeight = 20, powerHeight = 8, portraitSize = 52, x = 0, y = 0 },
+        pet = { enabled = true, width = 72, healthHeight = 11, powerHeight = 5, portraitSize = 32, x = 0, y = 0 },
+        target = { enabled = true, width = 140, healthHeight = 20, powerHeight = 8, portraitSize = 52, x = 0, y = 0 },
+        targettarget = { enabled = true, width = 66, healthHeight = 10, powerHeight = 4, portraitSize = 28, x = 0, y = 0 },
+        focus = { enabled = true, width = 120, healthHeight = 18, powerHeight = 7, portraitSize = 46, x = 0, y = 0 },
+        -- a dragon ornament around the portrait of elite, rare and boss units
+        elite = {
+            enabled = true, shine = true, glow = true,
+            self = "none",                -- your own frame: "none" | "elite" | "rare" | "rareelite" | "boss"
+            eliteColor = { 1.00, 0.78, 0.25 }, rareColor = { 0.78, 0.85, 1.00 },
+            rareEliteColor = { 0.60, 0.80, 1.00 }, bossColor = { 1.00, 0.30, 0.20 },
+        },
+        anim = {
+            damage = true,                -- lost health stays a moment, then runs after the bar
+            heal = true,                  -- the part healed flashes
+            lowHealth = true, lowAt = 0.3, -- the border pulses red below this
+            targetChange = true,          -- a new target slides and fades in
+            combat = true,                -- a soft glow while the unit is in combat
+            hit = true,                   -- the portrait shakes and flashes red when hit
         },
     },
 }
@@ -577,6 +613,7 @@ function ns.ApplyAll(refreshPanel)
     ns.RangeIndicator:Apply()
     ns.GCD:Apply()
     ns.BlizzardUI:Apply()
+    ns.UnitFrames:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
 
@@ -963,6 +1000,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.RangeIndicator:Init()
     ns.GCD:Init()
     ns.BlizzardUI:Init()
+    ns.UnitFrames:Init()
     ns.MacroBuilder:Init()
     if ns.Config then ns.Config:Init() end
     if ns.Welcome then ns.Welcome:Init() end
@@ -1011,6 +1049,7 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.Reminders:Debug()
         ns.RangeIndicator:Debug()
         ns.GCD:Debug()
+        ns.UnitFrames:Debug()
     elseif cmd == "trace" then
         ns.trace = not ns.trace
         ns.Print("event trace " .. (ns.trace and "on - hits, casts and swings print to chat" or "off"))

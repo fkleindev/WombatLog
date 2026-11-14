@@ -49,7 +49,50 @@ def gen_textures():
     for pct in range(0, 51, 5):
         write_tga(os.path.join(MEDIA, f"Round{pct:02d}.tga"), 64, 64, rounded_square(64, pct / 100))
 
+    # Shine: a soft bright band in the middle, fading out to both sides; repeats
+    # sideways (glint running over the power bar's spell cost mark)
+    x = np.arange(128)
+    band = np.exp(-(((x - 63.5) / 14) ** 2)) * 255
+    write_tga(os.path.join(MEDIA, "Shine.tga"), 128, 4, np.tile(band, (4, 1)))
+
+    # Wings / WingsLeft: a stylized dragon ornament for elite, rare and boss targets,
+    # blades fanning out behind the portrait (the portrait covers the middle half)
+    wings = gen_wings(256)
+    write_tga(os.path.join(MEDIA, "Wings.tga"), 256, 256, wings)
+    write_tga(os.path.join(MEDIA, "WingsLeft.tga"), 256, 256, wings[:, ::-1])
+
     gen_rings()
+
+
+# blades: base angle (degrees, 0 = outward, positive = up), length, base half-width
+# (degrees), sweep (degrees the tip bends away from the middle)
+WING_BLADES = ((0, 0.97, 13, 0), (32, 0.93, 12, 16), (-32, 0.93, 12, 16),
+               (62, 0.86, 11, 22), (-62, 0.86, 11, 22), (92, 0.74, 9, 26), (-92, 0.74, 9, 26))
+
+
+def gen_wings(n):
+    """Alpha of the ornament pointing right, in a texture twice the portrait's size."""
+    row, col = np.mgrid[0:n, 0:n]  # rows bottom-up, as write_tga stores them
+    x = (col + 0.5) / (n / 2) - 1
+    y = (row + 0.5) / (n / 2) - 1
+    r = np.hypot(x, y)
+    phi = np.degrees(np.arctan2(y, x))
+    px = n / 2  # pixels per unit
+    alpha = np.zeros((n, n))
+    r0 = 0.42  # blades start under the portrait's edge
+    for base, length, width, sweep in WING_BLADES:
+        t = np.clip((r - r0) / (length - r0), 0, 1)
+        side = np.sign(base) if base else 0
+        center = base + side * sweep * t ** 1.6
+        half = width * (1 - t) ** 0.9 + 0.4
+        # distance to the blade's edge in pixels, along the arc
+        d = (np.abs(phi - center) - half) * np.pi / 180 * r * px
+        a = np.clip(0.5 - d, 0, 1)
+        a *= np.clip((length - r) * px + 0.5, 0, 1)  # soft tip
+        a *= np.clip((r - r0) * px + 0.5, 0, 1)
+        # a slight fade toward the tip, so the blades look lit from the portrait
+        alpha = np.maximum(alpha, a * (1 - 0.35 * t))
+    return alpha * 255
 
 
 # Ring10/20/30: rings whose width is 10, 20 or 30 % of the radius (global cooldown
@@ -359,7 +402,7 @@ def main():
     for path in (gen_chime(), gen_coin(), gen_impact(), gen_record(), gen_proc(), *gen_extras(), *gen_streaks()):
         data, rate = sf.read(path)
         print(f"{os.path.basename(path)}: {len(data) / rate:.2f}s, {rate} Hz, peak {np.max(np.abs(data)):.2f}")
-    print("textures: Gradient.tga, Glow.tga, Corner.tga, Round00-50.tga, Ring10-30.tga")
+    print("textures: Gradient.tga, Glow.tga, Corner.tga, Shine.tga, Wings.tga, WingsLeft.tga, Round00-50.tga, Ring10-30.tga")
 
 
 if __name__ == "__main__":
