@@ -9,25 +9,28 @@ builds its table on the client it belongs to.
 
 Run from the repository root:
     python tools/gen_spelldata.py --all                  every supported client
+    python tools/gen_spelldata.py --all --latest         same, with the newest build of each client
     python tools/gen_spelldata.py --flavor tbc [--build 2.5.6.69795]
 Needs only the Python standard library and internet access.
 """
 import argparse
 import csv
 import io
+import json
 import os
 import urllib.request
 from collections import defaultdict
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-# flavor -> (file suffix, default build); the flavor names match ns.FLAVOR in Core.lua
+# flavor -> (file suffix, default build, wago.tools product); the flavor names match ns.FLAVOR in Core.lua
 FLAVORS = {
-    "forever": ("Forever", "1.60.1.70205"),
-    "vanilla": ("Vanilla", "1.15.9.70003"),
-    "tbc": ("TBC", "2.5.6.69795"),
-    "mists": ("Mists", "5.5.4.70032"),
-    "retail": ("Retail", "12.1.0.69933"),
+    "forever": ("Forever", "1.60.1.70938", "wowf"),
+    "vanilla": ("Vanilla", "1.15.9.70576", "wow_classic_era"),
+    "tbc": ("TBC", "2.5.6.70577", "wow_anniversary"),
+    "mists": ("Mists", "5.5.4.70631", "wow_classic"),
+    "retail": ("Retail", "12.1.5.70783", "wow"),
 }
+USER_AGENT = "WombatLog-gen_spelldata"
 TABLES = ["SpellMisc", "SpellEffect", "SkillLineAbility", "SkillLine", "SpellName", "SpellDuration", "SpellCooldowns"]
 CLASS_SKILL_CATEGORY = "7"
 
@@ -56,7 +59,7 @@ def load(table, build, cache):
         text = open(path, encoding="utf-8").read()
     else:
         url = f"https://wago.tools/db2/{table}/csv?build={build}"
-        req = urllib.request.Request(url, headers={"User-Agent": "WombatLog-gen_spelldata"})
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
         with urllib.request.urlopen(req, timeout=300) as r:
             text = r.read().decode("utf-8")
         if path:
@@ -202,16 +205,28 @@ def generate(flavor, build, cache, out):
     print("  flags:", dict(sorted(counts.items())))
 
 
+def latest_builds():
+    """The newest build of every product, as wago.tools lists it."""
+    req = urllib.request.Request("https://wago.tools/api/builds", headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        data = json.load(r)
+    return {product: builds[0]["version"] for product, builds in data.items() if builds}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--flavor", choices=sorted(FLAVORS), default="forever")
     ap.add_argument("--all", action="store_true", help="every flavor with its default build")
     ap.add_argument("--build", help="overrides the flavor's default build")
+    ap.add_argument("--latest", action="store_true", help="use the newest build listed on wago.tools")
     ap.add_argument("--cache", help="folder to keep downloaded CSVs in")
     args = ap.parse_args()
+    latest = latest_builds() if args.latest else {}
     for flavor in (sorted(FLAVORS) if args.all else [args.flavor]):
-        suffix, default_build = FLAVORS[flavor]
-        build = (not args.all and args.build) or default_build
+        suffix, default_build, product = FLAVORS[flavor]
+        build = (not args.all and args.build) or latest.get(product) or default_build
+        if build != default_build:
+            print(f"{flavor}: build {build} (default in this script: {default_build})")
         generate(flavor, build, args.cache, os.path.join(ROOT, f"SpellData_{suffix}.lua"))
 
 
