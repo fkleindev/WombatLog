@@ -69,8 +69,9 @@ local function findTrackers()
     end
 end
 
+-- also while WombatLog's own quest tracker takes its place
 local function wantTrackerHidden()
-    return ns.db.blizzard.hideQuestTracker
+    return ns.db.blizzard.hideQuestTracker or ns.db.questTracker.enabled
 end
 
 local function hideTracker(f)

@@ -11,6 +11,7 @@ local SIDEBAR_W = 124
 local PAGE_TOP = -50     -- pages of features without sub-tabs
 local SUBTAB_TOP = -50   -- the sub-tab bar
 local SUBPAGE_TOP = -84  -- pages under a sub-tab bar
+local SUBTAB_ROW = 27    -- a second row of sub-tabs, when they don't fit in one
 
 local widgets = {}
 local refreshing = false
@@ -340,7 +341,7 @@ function Page:Dropdown(label, bind, options, col)
     return holder
 end
 
-function Page:Color(label, path, col)
+function Page:Color(label, path, col, dy)
     local bind = Bind(path)
     local b = CreateFrame("Button", nil, self.child)
     b:SetSize(WIDGET_W, 24)
@@ -390,7 +391,7 @@ function Page:Color(label, path, col)
         end
     end)
     register(b)
-    self:Add(b, 28, col)
+    self:Add(b, 28, col, dy)
     index(b, label)
     return b
 end
@@ -1531,6 +1532,8 @@ local function BuildTrackerGeneral(p)
     p:Checkbox("XP source after it", "xpTracker.popSource", 2)
     p:Checkbox("Exact XP when opened", "xpTracker.popTotal")
     p:Checkbox("Open on mouse over", "xpTracker.hoverOpen", 2)
+    p:Checkbox("Hide Blizzard's XP bar", "blizzard.hideXPBar")
+    p:Note("While you level. Where Blizzard shows your reputation in the same spot at max level, it stays.")
 
     p:Header("Growing")
     p:Slider("Size when XP comes in", "xpTracker.popScale", 1, 2.5, 0.05, times)
@@ -1625,6 +1628,10 @@ local function BuildQuestGeneral(p)
     p:Note("The progress is read from your quest log on every client, so it works in every language. Bonus objectives that fill a bar show their percent (Retail). The game's text is the yellow \"Kobold Vermin slain: 3/10\" in the middle of the screen; its other messages still show. A quest with a time limit keeps its card on top until it is done, with the time left and a bar that runs empty.")
     p:Note("The focused quest is the one you follow, with the arrow and waypoint: its card stays up, under the ones with a time limit. Clients without a focused quest take the first quest in the quest tracker.")
 
+    p:Header("Quest tracker")
+    p:Checkbox("Hide Blizzard's quest tracker", "blizzard.hideQuestTracker")
+    p:Note("The game's list of watched quests, e.g. when the quest progress cards show you enough. Quests stay watched; turn it back on and the list is there again.")
+
     PositionBlock(p, "Unlock (drag the card to move it)", function() return ns.QuestProgress end,
         resetXY("questProgress"), function()
         p:Dropdown("Position", "questProgress.anchor", {
@@ -1692,6 +1699,69 @@ local function BuildQuestSound(p)
     }, ns.Alerts.SoundOptions, 2)
     p:Dropdown("Sound channel", "questProgress.channel", SOUND_CHANNELS)
     p:Note("When a quest gets complete, only the completion sound plays.")
+end
+
+local function BuildTrackerQuests(p)
+    local path = "questTracker."
+    p:Header("Quest tracker")
+    p:Note("A modern list of the quests you watch, in place of the game's quest tracker, which is hidden while this is on. Click a quest to follow it, shift-click to open it in the quest log, right-click for more. The arrow beside a quest folds it; the header folds the whole list.")
+    p:Checkbox("Show the quest tracker", path .. "enabled")
+    p:Button("Test", function() ns.QuestTracker:Test() end, 2, -2, 100)
+    p:Checkbox("Compact view", path .. "compact")
+    p:Checkbox("Fold up in combat", path .. "collapseInCombat", 2)
+    p:Note("The compact view puts each quest on one line with one bar for all of it; only the quest you follow shows its objectives. The lines icon in the header switches it too. Folded up in combat, the list opens again after the fight.")
+    p:Checkbox("World quests and bonus objectives", path .. "bonus")
+    p:Checkbox("Tooltip with the objectives", path .. "tooltip", 2)
+    p:Note("Retail: the world quests you watch and the bonus objectives where you are, under your quests. The quest you follow is the one with the arrow and waypoint. Clients without those keep WombatLog's own, per character, and the quest progress cards follow it too. Test shows a sample quest moving on, one step per press.")
+
+    p:Header("Quest items")
+    p:Checkbox("Buttons for quest items", path .. "items")
+    p:Dropdown("Side", path .. "itemSide", {
+        { text = "Left", value = "left" },
+        { text = "Right", value = "right" },
+    }, 2)
+    p:Slider("Button size", path .. "itemSize", 20, 48, 1, px)
+    p:Note("Items a watched quest lets you use, beside the list. The game won't let these buttons change in combat: they stay where they are and keep working, and catch up after the fight.")
+
+    PositionBlock(p, "Unlock (drag the header to move it)", function() return ns.QuestTracker end,
+        resetXY("questTracker"), function()
+        p:Slider("Highest list", path .. "maxHeight", 150, 1000, 10, px)
+        p:Note("Quests that don't fit are counted under the list.")
+    end)
+end
+
+local function BuildTrackerLook(p)
+    local path = "questTracker."
+    p:Header("Look")
+    p:Slider("Width", path .. "width", 180, 400, 10, px)
+    p:Slider("Scale", path .. "scale", 0.5, 2, 0.05, times, 2)
+    p:Slider("Background opacity", path .. "bgOpacity", 0, 1, 0.05, pct)
+    p:Color("Quest you follow", path .. "focusColor", 2)
+    p:Color("Changed objective", path .. "highlightColor")
+    p:Color("Done objective", path .. "doneColor", 2)
+
+    p:Header("Titles")
+    p:Checkbox("Color by difficulty", path .. "levelColors")
+    p:Color("Title color", path .. "titleColor", 2)
+    p:Checkbox("Quest level in front", path .. "showLevel")
+
+    p:Header("Text")
+    p:Slider("Text size", path .. "textSize", 8, 20, 1)
+    p:Dropdown("Font", path .. "font", alertFontOptions, 2)
+    p:Dropdown("Outline", path .. "outline", OUTLINE_OPTIONS)
+
+    p:Header("Bars")
+    p:Slider("Thickness", path .. "bar.height", 2, 12, 1, px)
+    p:Color("Bar color", path .. "barColor", 2)
+    p:Dropdown("Bar texture", path .. "bar.texture", ns.Resources.TextureOptions)
+    p:Slider("Background opacity", path .. "bar.bgOpacity", 0, 1, 0.05, pct, 2)
+    p:Checkbox("One segment per item (up to 20)", path .. "bar.segments")
+    p:Checkbox("Thin border", path .. "bar.border", 2)
+    p:Slider("Fill speed", path .. "bar.speed", 1, 20, 1)
+    p:Checkbox("Spark at the fill's edge", path .. "bar.spark")
+    p:Checkbox("Gloss", path .. "bar.gloss", 2)
+    p:Checkbox("Light up the progress just made", path .. "bar.gainFlash")
+    p:Checkbox("Glow behind the bar", path .. "bar.glow", 2)
 end
 
 local function BuildQuestItems(p)
@@ -1838,15 +1908,7 @@ local function BuildSession(p)
     end, 2)
 end
 
-local function BuildBlizzard(p)
-    p:Header("XP bar")
-    p:Checkbox("Hide Blizzard's XP bar", "blizzard.hideXPBar")
-    p:Note("While you level. Where Blizzard shows your reputation in the same spot at max level, it stays.")
-
-    p:Header("Quest tracker")
-    p:Checkbox("Hide Blizzard's quest tracker", "blizzard.hideQuestTracker")
-    p:Note("The game's list of watched quests, e.g. when the quest progress cards show you enough. Quests stay watched; turn it back on and the list is there again.")
-
+local function BuildActionBars(p)
     -- the modern look can't be taken back without a reload
     local function modernBind(key)
         return {
@@ -1953,26 +2015,29 @@ local function BuildUnitFrames(p)
     p:Dropdown("Health text", path .. "healthText", TEXT_MODES)
     p:Dropdown("Power text", path .. "powerText", TEXT_MODES, 2)
     p:Note("The power text needs a power bar at least 7 px high.")
+end
 
-    for _, u in ipairs({ { "player", "Player" }, { "target", "Target" }, { "targettarget", "Target of target" },
-                         { "focus", "Focus" }, { "pet", "Pet" } }) do
-        local up = path .. u[1] .. "."
-        p:Header(u[2])
-        p:Checkbox("Show", up .. "enabled")
-        p:Slider("Bar width", up .. "width", 50, 260, 2, px)
-        p:Slider("Portrait size", up .. "portraitSize", 16, 90, 1, px, 2)
-        p:Slider("Health height", up .. "healthHeight", 4, 40, 1, px)
-        p:Slider("Power height", up .. "powerHeight", 0, 24, 1, px, 2)
-        p:Slider("Horizontal offset", up .. "x", -150, 150, 1, px)
-        p:Slider("Vertical offset", up .. "y", -100, 100, 1, px, 2)
+-- One frame's page: whether it shows, its size and where it sits in Blizzard's frame.
+local function UnitFramePage(key, name)
+    return function(p)
+        local path = "blizzard.unitFrames." .. key .. "."
+        p:Note("These options need \"Modern unit frames\" on the General tab.")
+        p:Header(name)
+        p:Checkbox("Show", path .. "enabled")
+        if key == "focus" then p:Note("Classic Era has no focus frame.") end
+        p:Slider("Bar width", path .. "width", 50, 260, 2, px)
+        p:Slider("Portrait size", path .. "portraitSize", 16, 90, 1, px, 2)
+        p:Slider("Health height", path .. "healthHeight", 4, 40, 1, px)
+        p:Slider("Power height", path .. "powerHeight", 0, 24, 1, px, 2)
+        p:Slider("Horizontal offset", path .. "x", -150, 150, 1, px)
+        p:Slider("Vertical offset", path .. "y", -100, 100, 1, px, 2)
+        p:Note("The offsets move the new look within Blizzard's frame; move the frame itself the way you always do (Edit Mode on Retail). A power height of 0 leaves the power bar out.")
     end
-    p:Note("Classic Era has no focus frame.")
-    p:Note("The offsets move the new look within Blizzard's frame; move the frame itself the way you always do (Edit Mode on Retail). A power height of 0 leaves the power bar out.")
 end
 
 local function BuildUnitFrameLook(p)
     local path = "blizzard.unitFrames."
-    p:Note("These options need \"Modern unit frames\" on the Unit frames tab.")
+    p:Note("These options need \"Modern unit frames\" on the General tab.")
     p:Header("Bars")
     p:Dropdown("Bar texture", path .. "texture", ns.Resources.TextureOptions)
     p:Dropdown("Health color", path .. "healthColor", {
@@ -1999,24 +2064,40 @@ end
 
 local function BuildUnitFrameEffects(p)
     local path = "blizzard.unitFrames."
-    p:Note("These options need \"Modern unit frames\" on the Unit frames tab.")
+    p:Note("These options need \"Modern unit frames\" on the General tab.")
     p:Header("Elite and rare")
-    p:Checkbox("Dragon ornament", path .. "elite.enabled")
+    p:Checkbox("Ornament", path .. "elite.enabled")
     p:Checkbox("Glint running over it", path .. "elite.shine", 2)
     p:Checkbox("Glow behind rare and boss ornaments", path .. "elite.glow")
-    p:Note("Elite, rare and boss units get wings around their portrait in their own color, and the portrait's border takes it too. Rare elites get the rare color with an elite border.")
-    p:Dropdown("Ornament for yourself", path .. "elite.self", {
-        { text = "None", value = "none" },
-        { text = "Elite", value = "elite" },
-        { text = "Rare", value = "rare" },
-        { text = "Rare elite", value = "rareelite" },
-        { text = "Boss", value = "boss" },
-    })
-    p:Note("Your own frame wears the ornament you pick here, in that kind's color, even with the ornament for others turned off.")
-    p:Color("Elite", path .. "elite.eliteColor")
-    p:Color("Rare", path .. "elite.rareColor", 2)
-    p:Color("Rare elite", path .. "elite.rareEliteColor")
-    p:Color("Boss", path .. "elite.bossColor", 2)
+    p:Checkbox("Outline", path .. "elite.outline")
+    p:Color("Outline color", path .. "elite.outlineColor", 2)
+    p:Note("Elite, rare and boss units get an ornament around their portrait in their kind's style and color, and the portrait's border takes the color too. Rare elites get the rare color with an elite border. The outline sets every ornament apart from a busy background.")
+    -- each kind: its style, its color beside it
+    local styles = {
+        { text = "Blades", value = "wings" },
+        { text = "Classic dragon", value = "dragon" },
+        { text = "Laurel wreath", value = "laurel" },
+        { text = "Crown", value = "crown" },
+        { text = "Flames", value = "flames" },
+        { text = "Halo of rays", value = "rays" },
+    }
+    p:Dropdown("Elite", path .. "elite.eliteStyle", styles)
+    p:Color("Color", path .. "elite.eliteColor", 2, -20)
+    p:Dropdown("Rare", path .. "elite.rareStyle", styles)
+    p:Color("Color", path .. "elite.rareColor", 2, -20)
+    p:Dropdown("Rare elite", path .. "elite.rareEliteStyle", styles)
+    p:Color("Color", path .. "elite.rareEliteColor", 2, -20)
+    p:Dropdown("Boss", path .. "elite.bossStyle", styles)
+    p:Color("Color", path .. "elite.bossColor", 2, -20)
+    p:Note("The classic dragon rests its head on the portrait, its wing and tail around it.")
+
+    p:Header("Your ornament")
+    local own = { { text = "None", value = "none" } }
+    for _, s in ipairs(styles) do own[#own + 1] = s end
+    p:Dropdown("Style", path .. "elite.selfStyle", own)
+    p:Color("Color", path .. "elite.selfColor", 2, -20)
+    p:Checkbox("Glow behind it", path .. "elite.selfGlow")
+    p:Note("Your own frame can wear an ornament of its own, apart from the kinds above and even with the ornament for others turned off. The glint and the outline follow the settings above.")
 
     p:Header("Animations")
     p:Checkbox("Damage trail", path .. "anim.damage")
@@ -2192,7 +2273,7 @@ local function movables()
     return {
         { unlocked = not ns.locked, SetLocked = function(_, l) ns.Display:SetLocked(l) end },
         ns.Alerts.crit, ns.Alerts.proc, ns.Reminders, ns.Report,
-        ns.KillAlert, ns.XPTracker, ns.QuestProgress, ns.Resources,
+        ns.KillAlert, ns.XPTracker, ns.QuestProgress, ns.QuestTracker, ns.Resources,
     }
 end
 
@@ -2209,6 +2290,7 @@ local OVERVIEW = {
     { "Kill alerts", "killAlert.enabled", function() ns.KillAlert:Test() end },
     { "XP tracker", "xpTracker.enabled", function() ns.XPTracker:Test() end },
     { "Quest progress", "questProgress.enabled", function() ns.QuestProgress:Test() end },
+    { "Quest tracker", "questTracker.enabled", function() ns.QuestTracker:Test() end },
     { "Quest items", "questItems.enabled" },
     { "Sparkles", "sparkle.enabled", function() ns.Sparkle:Test() end },
     { "Session", "session.enabled" },
@@ -2310,6 +2392,10 @@ local TABS = {
         { "Bars", BuildQuestBars },
         { "Sound", BuildQuestSound },
     } },
+    { "Quest tracker", {
+        { "General", BuildTrackerQuests },
+        { "Look", BuildTrackerLook },
+    } },
     { "Quest items", BuildQuestItems },
     { "Sparkles", {
         { "General", BuildSparkleGeneral },
@@ -2325,14 +2411,21 @@ local TABS = {
         { "Combo points", BuildResCombo },
         { "Cast bar", BuildResCast },
     } },
-    { "Blizzard UI", {
-        { "General", BuildBlizzard },
+    { "Action bars", {
+        { "General", BuildActionBars },
         { "Buttons", BuildBlizzardButtons },
         { "Bars", BuildBlizzardBars },
         { "Animations", BuildBlizzardAnimations },
-        { "Unit frames", BuildUnitFrames },
-        { "Frame look", BuildUnitFrameLook },
-        { "Frame effects", BuildUnitFrameEffects },
+    } },
+    { "Unit frames", {
+        { "General", BuildUnitFrames },
+        { "Player", UnitFramePage("player", "Player") },
+        { "Target", UnitFramePage("target", "Target") },
+        { "Target of target", UnitFramePage("targettarget", "Target of target") },
+        { "Focus", UnitFramePage("focus", "Focus") },
+        { "Pet", UnitFramePage("pet", "Pet") },
+        { "Look", BuildUnitFrameLook },
+        { "Effects", BuildUnitFrameEffects },
     } },
     { "Bag slots", BuildBagSlots },
     { "Minimap button", BuildMinimap },
@@ -2633,15 +2726,22 @@ function Config:Init()
                 tab.subs = {}
                 tab.bar = CreateFrame("Frame", nil, panel)
                 tab.bar:SetPoint("TOPLEFT", panel, "TOPLEFT", SIDEBAR_W + 26, SUBTAB_TOP)
-                tab.bar:SetSize(PAGE_WIDTH, 24)
-                local x = 0
+                -- the sub-tabs wrap to a second row when they don't fit, the pages
+                -- start under the last one
+                local x, row = 0, 0
                 for j, sub in ipairs(def[2]) do
                     local s = TabButton(tab.bar, sub[1], "bottom")
                     local w = math.ceil(s.text:GetStringWidth()) + 22
+                    if x > 0 and x + w > PAGE_WIDTH then x, row = 0, row + 1 end
                     s:SetSize(w, 24)
-                    s:SetPoint("TOPLEFT", x, 0)
+                    s:SetPoint("TOPLEFT", x, -row * SUBTAB_ROW)
                     x = x + w + 3
-                    s.page = NewPage(panel, SUBPAGE_TOP)
+                    tab.subs[j] = s
+                end
+                tab.bar:SetSize(PAGE_WIDTH, 24 + row * SUBTAB_ROW)
+                for j, sub in ipairs(def[2]) do
+                    local s = tab.subs[j]
+                    s.page = NewPage(panel, SUBPAGE_TOP - row * SUBTAB_ROW)
                     if j == 1 then
                         -- the feature's own name finds its first page
                         indexing = { tab = tabIndex, sub = 1, where = L[def[1]], page = s.page }
@@ -2650,7 +2750,6 @@ function Config:Init()
                     indexing = { tab = tabIndex, sub = j, where = L[def[1]] .. " » " .. L[sub[1]], page = s.page }
                     sub[2](s.page)
                     s:SetScript("OnClick", function() Config:SelectTab(tabIndex, j) end)
-                    tab.subs[j] = s
                 end
             end
             indexing = nil

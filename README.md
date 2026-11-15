@@ -73,6 +73,18 @@ combat starts and fades out a few seconds after it ends.
   pulsing red in the last 15 seconds. Optionally the quest you follow (the focused one
   with the arrow, or the first in the quest tracker where there is none) keeps its
   card up too, under those.
+- **Quest tracker:** a modern list of the quests you watch, in place of the game's
+  quest tracker (hidden while it's on). Each quest shows its objectives with a bar for
+  every count; progress fills the bar and lights the objective up, a quest that gets
+  done flashes and says it's ready to turn in, and quests glide in, out and into place.
+  Click a quest to follow it: on Retail that's the game's focused quest with the arrow
+  and waypoint, elsewhere WombatLog keeps its own per character, which the quest
+  progress cards follow too. Shift-click opens the quest log, right-click offers follow,
+  share, fold and stop watching. Each quest folds to its title, the header folds the
+  whole list, and it can fold up by itself in combat. A compact view shows each quest
+  on one line with one bar, and only the followed one in full. On Retail it also lists
+  watched world quests and the bonus objectives around you. Quest items get buttons
+  beside the list that keep working in combat. Off by default.
 - **Quest items:** items a quest in your log still asks for but that aren't quest
   items themselves (cloth, ore, meat for a turn-in) get a glow around their slot and a
   quest icon in your bags (colour, pulse and icon size adjustable), and their tooltip names the quest and your progress. At a merchant a
@@ -123,8 +135,11 @@ combat starts and fades out a few seconds after it ends.
 - **Modern unit frames** for you, your pet, your target, its target and your focus
   (not on Classic Era, which has none): a round, square or no
   portrait with a level badge, slim bars on a rounded panel, the name and health in
-  the bar. Elite, rare and boss units get a dragon ornament around their portrait in
-  their own color, with a glint running over it, and you can give yourself one too. Lost health trails behind the bar,
+  the bar. Elite, rare and boss units get an ornament around their portrait in
+  their own color, with a glint running over it and an optional outline. Each kind
+  can wear its own style: blades, a classic dragon resting its head on the
+  portrait, a laurel wreath, a crown, flames or a halo of rays. You can give
+  yourself an ornament of your own, with its own style, color and glow. Lost health trails behind the bar,
   heals flash green, low health pulses red, a new target slides in, the frame glows
   in combat and the portrait shakes when hit. Blizzard's frames keep working
   underneath (clicks, menus, auras, Edit Mode). Off by default.
@@ -217,7 +232,8 @@ and lights the setting up.
   XP just gained lighting up, glow, rested XP, percent text; off by default) and
   *Quest alert* (on/off, quest name, color, sound).
 - **XP tracker:** *General* (on/off, hide at max level, level, XP gained text, XP
-  source, exact XP when opened, open on mouse over, how big and how long it grows,
+  source, exact XP when opened, open on mouse over, hide Blizzard's XP bar while you
+  level (where Blizzard shows your reputation in the same spot at max level, it stays), how big and how long it grows,
   position along and distance from the top edge), *Look* (length, thickness, scale,
   color, background opacity, kill XP color, text size, font, outline), *XP bar* (the same
   options as the kill alert's bar) and *Animation* (style, speed,
@@ -226,10 +242,16 @@ and lights the setting up.
 - **Quest progress:** *General* (on/off, free or under the XP tracker, display time,
   quests at once, bars, dim the other objectives, "Quest complete!" banner, wait until
   the fight is over, hide the game's quest progress text, always show quests with a
-  time limit, always show the focused quest, position), *Look* (width, scale,
+  time limit, always show the focused quest, hide Blizzard's quest tracker, position), *Look* (width, scale,
   background opacity, colors, text size, font, outline), *Bars* (thickness,
   color, texture, background, segments, border, fill speed, hide full bars, spark, gloss, light,
   glow) and *Sound* (on progress, on completion, channel).
+- **Quest tracker:** *General* (on/off, test, compact view, fold up in combat, world
+  quests and bonus objectives, tooltip, quest item buttons with their side and size,
+  position and the highest the list may get) and *Look* (width, scale, background,
+  colors for the followed quest and for changed and done objectives, titles by
+  difficulty or one color, quest level, text, and the bars: thickness, color, texture,
+  segments, border, fill speed, spark, gloss, light and glow).
 - **Quest items:** on/off, glow and/or icon, glow colour and pulse, icon size, ask before selling, the quest in the tooltip.
 - **Bag slots:** on/off, also on the bag bar and the bank, number of slots, icon for
   special bags, number in the kind's colour, size.
@@ -247,20 +269,20 @@ and lights the setting up.
 - **Fight summary:** *Summary* (display time, scale, position: unlock it to drag the card) and *History &
   records* (how many fights to keep, minimum fight length, personal records).
 - **Session:** session tracker and an optional session line above the log window.
-- **Blizzard UI:** *General* (hide Blizzard's XP bar while you level; where Blizzard
-  shows your reputation in the same spot at max level, it stays; hide the quest tracker; modern action
-  buttons, turning them off needs a reload; the same look for the bag bar and the
-  micro menu; hide the bar art; show or hide key bindings and macro names), *Buttons* (corner radius up to round, icon zoom, border
+- **Action bars:** *General* (modern action buttons, turning them off needs a reload;
+  the same look for the bag bar and the micro menu; hide the bar art; show or hide
+  key bindings and macro names), *Buttons* (corner radius up to round, icon zoom, border
   thickness, color and opacity, background, shadow, and the mouse-over, pressed and
   active colors), *Bars* (a panel behind each bar with padding, corner radius,
   color, border and shadow) and *Animations* (fading mouse-over light, the icon
   dipping in on use, a flash when a cooldown ends). Buttons, Bars and Animations
-  need the modern action buttons. *Unit frames* (on/off, portrait style, texts, and
-  for the player, target, target of target, focus and pet: on/off, bar width, portrait size, bar heights and
-  an offset), *Frame look* (bar texture, health color, panel, border, shadow) and
-  *Frame effects* (the elite ornament with its glint, glow and colors, an ornament
-  for yourself, and every
-  animation on its own).
+  need the modern action buttons.
+- **Unit frames:** *General* (on/off, portrait style, texts), one sub-tab each for
+  *Player*, *Target*, *Target of target*, *Focus* and *Pet* (on/off, bar width,
+  portrait size, bar heights and an offset), *Look* (bar texture, health color,
+  panel, border, shadow) and *Effects* (the elite ornament with its glint, glow,
+  outline, and each kind's style and color, your own ornament with its style, color
+  and glow, and every animation on its own).
 - **Custom sounds:** your own sounds for every sound list. Put `.ogg` or `.mp3` files
   into `Interface\AddOns\WombatLog\Media\Custom\`, restart the game (it only sees new
   files after a restart, `/reload` is not enough) and add each file by name. They
@@ -395,6 +417,7 @@ effort: whatever the client keeps secret is left out.
 | `QUEST_COMPLETE`, `QUEST_FINISHED`, `QUEST_TURNED_IN` | Quest alerts |
 | `QUEST_LOG_UPDATE`, `QUEST_WATCH_UPDATE`, `C_QuestLog` / `GetQuestLogTitle`, `GetQuestLogLeaderBoard` | Quest progress: the objectives read again and compared after every change |
 | `C_QuestLog.GetTimeAllowed` / `GetQuestTimers`, `GetQuestIndexForTimer` | Quest progress: the time left on quests with a time limit |
+| `C_QuestLog.GetQuestIDForQuestWatchIndex` / `GetQuestIndexForWatch`, `C_SuperTrack`, `GetTasksTable`, `GetQuestLogSpecialItemInfo` | Quest tracker: the watched quests, the one you follow, bonus objectives nearby, quest items |
 | `UI_INFO_MESSAGE` | Hiding the game's quest progress text (optional) |
 | `outlineModeShowLootEffectWhenDisabled`, `SoftTarget*` CVars, `PLAYER_SOFT_INTERACT_CHANGED`, `C_NamePlate`, `SetUnitCursorTexture`, `UnitIsInInteractRange`, `CanLootUnit` | Sparkles: the game's sparkle, the interaction target, what it is and whether it is in reach |
 | `C_Container`, `BAG_UPDATE_DELAYED`, `MERCHANT_SHOW` / `_CLOSED`, `GetBuybackItemLink`, `BuybackItem` | Quest items: marks in the bags, asking before a sale, buying back |
@@ -486,6 +509,7 @@ As a result:
 | `KillAlert.lua` | Kill and quest alerts (XP, XP bar, multi-kills) |
 | `XPTracker.lua` | XP tracker that is always shown and grows when XP comes in |
 | `QuestProgress.lua` | Quest progress cards: all objectives, the changed one lit, bars for counts |
+| `QuestTracker.lua` | Quest tracker: the watched quests with bars and animations, following, folding, quest item buttons |
 | `Sparkle.lua` | Sparkles: the game's own sparkle kept on, and an effect on the interaction target |
 | `QuestItems.lua` | Quest marks in the bags for items your quests need, sell question, tooltip |
 | `BagButtons.lua` | The bag item buttons (game's bags, Bagnon, AdiBags, Baganator) for the features that draw on them |

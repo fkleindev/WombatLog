@@ -239,6 +239,31 @@ ns.defaults.questProgress = {
     },
 }
 
+-- a modern list of the quests you watch, in place of the game's quest tracker
+ns.defaults.questTracker = {
+    enabled = false,
+    x = 790, y = 250,               -- the tracker's top edge, from the screen center
+    compact = false,                -- one line per quest: objectives only for the focused one
+    collapseInCombat = false,       -- folds up while you fight, opens again after
+    bonus = true,                   -- Retail: world quests you watch, bonus objectives nearby
+    items = true, itemSide = "left", itemSize = 30, -- buttons for quest items, beside it
+    tooltip = true,
+    maxHeight = 600,                -- px; quests past it are counted under the list
+    scale = 1, width = 250, textSize = 12, bgOpacity = 0.55,
+    font = "", outline = "OUTLINE",
+    levelColors = true,             -- titles in the color of the quest's difficulty
+    showLevel = false,              -- "[12]" in front of the title
+    titleColor = { 1.00, 0.82, 0.18 },
+    focusColor = { 0.35, 0.75, 1.00 },
+    highlightColor = { 1.00, 0.82, 0.18 },
+    doneColor = { 0.35, 1.00, 0.45 },
+    barColor = { 0.95, 0.65, 0.20 },
+    bar = {
+        height = 4, texture = "blizzard", bgOpacity = 0.5, border = true, segments = false,
+        speed = 4, spark = true, gloss = false, gainFlash = true, glow = false,
+    },
+}
+
 -- items your quests still need that aren't quest items: marked in the bags
 ns.defaults.questItems = {
     enabled = true,
@@ -359,12 +384,16 @@ ns.defaults.blizzard = {
         target = { enabled = true, width = 140, healthHeight = 20, powerHeight = 8, portraitSize = 52, x = 0, y = 0 },
         targettarget = { enabled = true, width = 66, healthHeight = 10, powerHeight = 4, portraitSize = 28, x = 0, y = 0 },
         focus = { enabled = true, width = 120, healthHeight = 18, powerHeight = 7, portraitSize = 46, x = 0, y = 0 },
-        -- a dragon ornament around the portrait of elite, rare and boss units
+        -- an ornament around the portrait of elite, rare and boss units
         elite = {
             enabled = true, shine = true, glow = true,
-            self = "none",                -- your own frame: "none" | "elite" | "rare" | "rareelite" | "boss"
+            outline = false, outlineColor = { 0.04, 0.03, 0.02 }, -- a thin rim around every ornament
+            -- each kind's style: "wings" | "dragon" | "laurel" | "crown" | "flames" | "rays"
+            eliteStyle = "wings", rareStyle = "wings", rareEliteStyle = "wings", bossStyle = "wings",
             eliteColor = { 1.00, 0.78, 0.25 }, rareColor = { 0.78, 0.85, 1.00 },
             rareEliteColor = { 0.60, 0.80, 1.00 }, bossColor = { 1.00, 0.30, 0.20 },
+            -- your own frame's ornament, set apart from the kinds: "none" or a style
+            selfStyle = "none", selfColor = { 1.00, 0.78, 0.25 }, selfGlow = false,
         },
         anim = {
             damage = true,                -- lost health stays a moment, then runs after the bar
@@ -607,6 +636,7 @@ function ns.ApplyAll(refreshPanel)
     ns.KillAlert:Apply()
     ns.XPTracker:Apply()
     ns.QuestProgress:Apply()
+    ns.QuestTracker:Apply()
     ns.QuestItems:Apply()
     ns.BagSlots:Apply()
     ns.Sparkle:Apply()
@@ -632,6 +662,19 @@ local function activate()
     local k = ns.db.killAlert
     if k and k.barVersion == nil then
         k.showBar, k.barVersion = false, 2
+    end
+    -- your own ornament used to borrow a kind's style and color: it keeps them
+    local uf = ns.db.blizzard and ns.db.blizzard.unitFrames
+    local E = uf and uf.elite
+    if E and E.self ~= nil then
+        local kinds = { elite = "elite", rare = "rare", rareelite = "rareElite", boss = "boss" }
+        local kind = kinds[E.self]
+        if kind and E.selfStyle == nil then
+            E.selfStyle = E[kind .. "Style"] or "wings"
+            E.selfColor = E[kind .. "Color"] and ns.CopyTable(E[kind .. "Color"]) or nil
+            E.selfGlow = E.glow ~= false and E.self ~= "elite" or nil
+        end
+        E.self = nil
     end
     fillDefaults(ns.db, ns.defaults)
     if oldLook then
@@ -994,6 +1037,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.KillAlert:Init()
     ns.XPTracker:Init()
     ns.QuestProgress:Init()
+    ns.QuestTracker:Init()
     ns.BagButtons:Init()
     ns.QuestItems:Init()
     ns.BagSlots:Init()

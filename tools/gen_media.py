@@ -61,7 +61,35 @@ def gen_textures():
     write_tga(os.path.join(MEDIA, "Wings.tga"), 256, 256, wings)
     write_tga(os.path.join(MEDIA, "WingsLeft.tga"), 256, 256, wings[:, ::-1])
 
+    # Ornament<Style> / Ornament<Style>Left: the other ornament styles, same layout;
+    # the dragon's head is a texture of its own, drawn over the portrait
+    ornaments = {f"Ornament{name}": alpha for name, alpha in gen_ornaments(256).items()}
+    for name, alpha in ornaments.items():
+        write_tga(os.path.join(MEDIA, f"{name}.tga"), 256, 256, alpha)
+        write_tga(os.path.join(MEDIA, f"{name}Left.tga"), 256, 256, alpha[:, ::-1])
+
+    # <Ornament>Outline / <Ornament>OutlineLeft: a thin rim around each ornament,
+    # drawn behind it in a color of the player's choice
+    ornaments["Wings"] = wings
+    for name, alpha in ornaments.items():
+        rim = outline(alpha)
+        write_tga(os.path.join(MEDIA, f"{name}Outline.tga"), 256, 256, rim)
+        write_tga(os.path.join(MEDIA, f"{name}OutlineLeft.tga"), 256, 256, rim[:, ::-1])
+
     gen_rings()
+    gen_icons()
+
+
+def gen_icons():
+    """Small round-capped line icons (quest tracker): a chevron pointing down, and
+    three lines of falling length for the compact view."""
+    c = Canvas(32)
+    c.add(sd_stroke(c, [(-0.55, 0.22), (0, -0.30), (0.55, 0.22)], 0.13, 0.13))
+    write_tga(os.path.join(MEDIA, "Chevron.tga"), 32, 32, c.alpha * 255)
+    c = Canvas(32)
+    for y, half in ((0.5, 0.62), (0, 0.42), (-0.5, 0.22)):
+        c.add(sd_stroke(c, [(-0.62, y), (-0.62 + 2 * half, y)], 0.12, 0.12))
+    write_tga(os.path.join(MEDIA, "Lines.tga"), 32, 32, c.alpha * 255)
 
 
 # blades: base angle (degrees, 0 = outward, positive = up), length, base half-width
@@ -93,6 +121,276 @@ def gen_wings(n):
         # a slight fade toward the tip, so the blades look lit from the portrait
         alpha = np.maximum(alpha, a * (1 - 0.35 * t))
     return alpha * 255
+
+
+# --- ornament styles ----------------------------------------------------------
+# Every style is drawn pointing right (away from the bars) in a texture twice the
+# portrait's size: the portrait covers the middle half, x and y run from -1 to 1.
+# Shapes are signed distances (negative inside), turned into antialiased alpha.
+
+class Canvas:
+    def __init__(self, n):
+        self.n = n
+        row, col = np.mgrid[0:n, 0:n]  # rows bottom-up, as write_tga stores them
+        self.x = (col + 0.5) / (n / 2) - 1
+        self.y = (row + 0.5) / (n / 2) - 1
+        self.alpha = np.zeros((n, n))
+
+    def coverage(self, d):
+        return np.clip(0.5 - d * self.n / 2, 0, 1)
+
+    def add(self, d, strength=1.0):
+        self.alpha = np.maximum(self.alpha, self.coverage(d) * strength)
+
+    def cut(self, d):
+        self.alpha *= 1 - self.coverage(d)
+
+    def mirror_y(self):
+        """Adds the shape's reflection across the horizontal middle."""
+        self.alpha = np.maximum(self.alpha, self.alpha[::-1, :])
+
+    def result(self, fade=0.35):
+        """Alpha 0-255, fading a little from the portrait's edge outward."""
+        t = np.clip((np.hypot(self.x, self.y) - 0.5) / 0.5, 0, 1)
+        return self.alpha * (1 - fade * t) * 255
+
+
+def polar(r, deg):
+    a = np.radians(deg)
+    return np.array([r * np.cos(a), r * np.sin(a)])
+
+
+def bezier(ctrl, m=64):
+    """Points along a Bezier curve through the control points (de Casteljau)."""
+    t = np.linspace(0, 1, m)[:, None]
+    p = [np.asarray(c, float) for c in ctrl]
+    while len(p) > 1:
+        p = [(1 - t) * a + t * b for a, b in zip(p, p[1:])]
+    return p[0]
+
+
+def spline(points, m=160):
+    """Points along a Catmull-Rom curve through the given points."""
+    p = np.asarray(points, float)
+    p = np.vstack([2 * p[0] - p[1], p, 2 * p[-1] - p[-2]])
+    out = []
+    per = max(2, m // (len(p) - 3))
+    for i in range(1, len(p) - 2):
+        p0, p1, p2, p3 = p[i - 1], p[i], p[i + 1], p[i + 2]
+        t = np.linspace(0, 1, per, endpoint=i == len(p) - 3)[:, None]
+        out.append(0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t ** 2
+                          + (3 * p1 - p0 - 3 * p2 + p3) * t ** 3))
+    return np.vstack(out)
+
+
+def sd_circle(c, center, r):
+    return np.hypot(c.x - center[0], c.y - center[1]) - r
+
+
+def sd_stroke(c, pts, r0, r1=None, shape=1.0):
+    """A line along pts, r0 thick at its start and r1 at its end, or radii per point."""
+    pts = np.asarray(pts, float)
+    if r1 is None:
+        radii = np.asarray(r0, float)
+    else:
+        radii = r0 + (r1 - r0) * np.linspace(0, 1, len(pts)) ** shape
+    d = np.full(c.x.shape, np.inf)
+    for (ax, ay), (bx, by), ra, rb in zip(pts, pts[1:], radii, radii[1:]):
+        ex, ey = bx - ax, by - ay
+        wx, wy = c.x - ax, c.y - ay
+        h = np.clip((wx * ex + wy * ey) / max(ex * ex + ey * ey, 1e-12), 0, 1)
+        d = np.minimum(d, np.hypot(wx - ex * h, wy - ey * h) - (ra + (rb - ra) * h))
+    return d
+
+
+def sd_polygon(c, pts):
+    pts = np.asarray(pts, float)
+    d = np.full(c.x.shape, np.inf)
+    inside = np.zeros(c.x.shape, bool)
+    for (ax, ay), (bx, by) in zip(pts, np.roll(pts, -1, axis=0)):
+        ex, ey = bx - ax, by - ay
+        wx, wy = c.x - ax, c.y - ay
+        h = np.clip((wx * ex + wy * ey) / max(ex * ex + ey * ey, 1e-12), 0, 1)
+        d = np.minimum(d, np.hypot(wx - ex * h, wy - ey * h))
+        if ey != 0:
+            crosses = (ay > c.y) != (by > c.y)
+            inside ^= crosses & (c.x < ax + (c.y - ay) * ex / ey)
+    return np.where(inside, -d, d)
+
+
+def leaf(base, deg, length, width, m=24):
+    """An almond-shaped leaf from base, pointing deg, fullest a little before the middle."""
+    s = np.linspace(0, 1, m)
+    half = width / 2 * np.sin(np.pi * s ** 0.8) ** 0.9
+    u, v = polar(1, deg), polar(1, deg + 90)
+    along = np.asarray(base) + np.outer(s * length, u)
+    return np.vstack([along + np.outer(half, v), (along - np.outer(half, v))[::-1]])
+
+
+def spike(base, deg, length, width, bend=0.25, m=16):
+    """A pointed spike from base, pointing deg, its sides curving in a little."""
+    u, v = polar(1, deg), polar(1, deg + 90)
+    base = np.asarray(base, float)
+    tip = base + u * length
+    left, right = base + v * width / 2, base - v * width / 2
+    mid = base + u * length * 0.5
+    side_l = bezier([left, mid + v * width / 2 * (1 - 2 * bend), tip], m)
+    side_r = bezier([tip, mid - v * width / 2 * (1 - 2 * bend), right], m)
+    return np.vstack([side_l, side_r[1:]])
+
+
+def gen_laurel(n):
+    """Two laurel branches tied at the outer middle, reaching up and down around the portrait."""
+    c = Canvas(n)
+    R, ends = 0.68, (4, 112)
+    stem = np.array([polar(R, a) for a in np.linspace(*ends, 48)])
+    c.add(sd_stroke(c, stem, 0.020, 0.008))
+    for k, a in enumerate(range(10, 101, 18)):
+        size = 1 - 0.07 * k
+        c.add(sd_polygon(c, leaf(polar(R, a), a + 45, 0.30 * size, 0.13 * size)))
+        c.add(sd_polygon(c, leaf(polar(R, a + 9), a + 9 + 130, 0.25 * size, 0.11 * size)))
+    c.add(sd_polygon(c, leaf(polar(R, ends[1] - 2), ends[1] + 90, 0.17, 0.08)))
+    c.mirror_y()
+    c.add(sd_circle(c, polar(R + 0.01, 0), 0.05))
+    for a in (-11, 11):
+        c.add(sd_circle(c, polar(R + 0.11, a), 0.032))
+    return c.result()
+
+
+def gen_crown(n):
+    """A crown on top of the portrait: a band with five points, a jewel on each."""
+    c = Canvas(n)
+    band = np.array([polar(0.56, a) for a in np.linspace(90 - 56, 90 + 56, 48)])
+    c.add(sd_stroke(c, band, 0.065, 0.065))
+    for off, tip in ((0, 0.93), (23, 0.86), (46, 0.76)):
+        for a in {90 - off, 90 + off}:
+            c.add(sd_polygon(c, spike(polar(0.6, a), a, tip - 0.6, 0.25 if off == 0 else 0.22, bend=0.3)))
+            c.add(sd_circle(c, polar(tip, a), 0.048))
+    # a gap between the band and the points, so they read as two parts
+    gap = np.array([polar(0.64, a) for a in np.linspace(90 - 60, 90 + 60, 48)])
+    c.cut(sd_stroke(c, gap, 0.012, 0.012))
+    return c.result(fade=0.25)
+
+
+def flame(c, deg, length, width, lean=0.55, sway=0.06, strength=1.0):
+    """A flame tongue from behind the portrait, leaning upward, an S in its sway."""
+    base = polar(0.40, deg)
+    u = polar(1, deg) + np.array((0, lean))
+    u /= np.hypot(*u)
+    v = np.array((-u[1], u[0]))
+    reach = length - 0.40
+    pts = bezier([base, base + u * reach * 0.35 + v * sway,
+                  base + u * reach * 0.7 - v * sway, base + u * reach], 64)
+    t = np.linspace(0, 1, len(pts))
+    c.add(sd_stroke(c, pts, width * (1 - t) ** 1.2 * (1 + 0.8 * np.sin(np.pi * t ** 0.7))), strength)
+
+
+def gen_flames(n):
+    """Flame tongues blazing from the portrait's outer side, rising like fire does."""
+    c = Canvas(n)
+    # small tongues in between, a little fainter, then the big ones over them
+    for a in range(-48, 97, 24):
+        flame(c, a, 0.74 - 0.0012 * abs(a - 20), 0.05, sway=-0.04, strength=0.72)
+    for a in range(-60, 109, 24):
+        flame(c, a, 0.97 - 0.0022 * abs(a - 24), 0.07)
+    return c.result()
+
+
+def gen_rays(n):
+    """A halo of rays around the portrait, long and short in turn, on a thin ring."""
+    c = Canvas(n)
+    for k, a in enumerate(range(-110, 111, 10)):
+        long = k % 2 == 0
+        length = 0.97 - 0.14 * (a / 110) ** 2 if long else 0.75 - 0.06 * (a / 110) ** 2
+        width = 0.08 if long else 0.06
+        c.add(sd_polygon(c, spike(polar(0.635, a), a, length - 0.635, width, bend=0.1)))
+    # the rays start a little past the ring, so it stays a clean line
+    ring = np.array([polar(0.575, a) for a in np.linspace(-116, 116, 96)])
+    c.add(sd_stroke(c, ring, 0.026, 0.026))
+    return c.result(fade=0.4)
+
+
+DRAGON_SHOULDER = (0.40, 0.30)
+DRAGON_WRIST = (0.62, 0.80)
+
+
+def gen_dragon(n):
+    """After the old elite dragon: a bat wing raised over the portrait's outer side,
+    the body curling around below it and ending in a spade-tipped tail."""
+    c = Canvas(n)
+    S, W = np.array(DRAGON_SHOULDER), np.array(DRAGON_WRIST)
+    tips = [np.array(p) for p in ((0.93, 0.90), (0.98, 0.58), (0.90, 0.24))]
+    root = np.array((0.50, 0.02))
+    # the membrane, its edge scalloped between the finger tips
+    edge = [S, W, tips[0]]
+    for a, b in zip(tips, tips[1:] + [root]):
+        ctrl = (a + b) / 2 + (W - (a + b) / 2) * 0.32
+        edge.extend(bezier([a, ctrl, b], 16)[1:])
+    c.add(sd_polygon(c, np.vstack(edge)), 0.62)
+    # the bones over it: the arm, the fingers and a claw at the wrist
+    c.add(sd_stroke(c, bezier([S, (0.44, 0.62), W], 32), 0.042, 0.026))
+    for tip in tips:
+        c.add(sd_stroke(c, bezier([W, (W + tip) / 2 + np.array((0.02, 0.02)), tip], 32), 0.024, 0.005))
+    c.add(sd_stroke(c, bezier([W, W + (-0.02, 0.10), W + (-0.10, 0.15)], 24), 0.026, 0.002))
+
+    # the body and the tail curling around below the portrait
+    path = spline([(0.40, -0.05), (0.72, -0.22), (0.80, -0.56), (0.52, -0.82), (0.10, -0.88), (-0.30, -0.74)], 200)
+    c.add(sd_stroke(c, path, 0.13, 0.022, shape=0.8))
+    # spikes along its back
+    seg = np.diff(path, axis=0)
+    for i in np.linspace(len(path) * 0.18, len(path) * 0.72, 6).astype(int):
+        tangent = seg[i] / np.hypot(*seg[i])
+        normal = path[i] / np.hypot(*path[i])
+        r = 0.13 + (0.022 - 0.13) * (i / len(path)) ** 0.8
+        deg = np.degrees(np.arctan2(*(normal + tangent * 0.5)[::-1]))
+        c.add(sd_polygon(c, spike(path[i] + normal * r * 0.6, deg, r * 0.4 + 0.07, 0.07, bend=0.2)))
+    # the spade at the tail's end
+    end, before = path[-1], path[-12]
+    deg = np.degrees(np.arctan2(*(end - before)[::-1]))
+    c.add(sd_polygon(c, spike(end - polar(0.03, deg), deg, 0.15, 0.13, bend=-0.15)))
+    return c.result(fade=0.25)
+
+
+def gen_dragon_head(n):
+    """The dragon's head and neck, resting on the portrait's top edge, looking inward."""
+    c = Canvas(n)
+    head = [(-0.25, 0.585), (-0.21, 0.628), (-0.07, 0.648), (0.03, 0.705), (0.14, 0.722),
+            (0.25, 0.695), (0.35, 0.625), (0.45, 0.50), (0.52, 0.36), (0.40, 0.34),
+            (0.30, 0.44), (0.15, 0.515), (0.0, 0.497), (-0.12, 0.52), (-0.22, 0.548)]
+    c.add(sd_polygon(c, spline(head + head[:1], 240)[:-1]))
+    # horns sweeping back, a spike under the jaw and a frill along the neck
+    c.add(sd_stroke(c, bezier([(0.06, 0.69), (0.12, 0.84), (0.30, 0.93)], 40), 0.034, 0.003))
+    c.add(sd_stroke(c, bezier([(0.16, 0.69), (0.28, 0.79), (0.42, 0.80)], 40), 0.028, 0.003))
+    c.add(sd_polygon(c, spike((0.15, 0.53), -125, 0.11, 0.06, bend=0.15)))
+    for p, deg in (((0.31, 0.64), 55), ((0.40, 0.55), 40), ((0.47, 0.44), 25)):
+        c.add(sd_polygon(c, spike(p, deg, 0.08, 0.06, bend=0.2)))
+    # the eye and the mouth, cut out
+    c.cut(sd_polygon(c, leaf((-0.04, 0.615), 18, 0.085, 0.032)))
+    c.cut(sd_stroke(c, bezier([(-0.27, 0.566), (-0.14, 0.565), (-0.03, 0.548)], 32), 0.010, 0.006))
+    return c.result(fade=0.2)
+
+
+def outline(alpha, radius=4.5):
+    """Alpha 0-255 of a rim `radius` texture pixels wide just outside the shape. The
+    shape's fade is undone first, so the rim stays solid where the ornament fades."""
+    shape = np.clip(alpha / 255 / 0.6, 0, 1)
+    n = shape.shape[0]
+    k = int(np.ceil(radius))
+    pad = np.pad(shape, k)
+    grown = np.zeros_like(shape)
+    for dy in range(-k, k + 1):
+        for dx in range(-k, k + 1):
+            w = np.clip(radius + 0.5 - np.hypot(dx, dy), 0, 1)
+            if w > 0:
+                grown = np.maximum(grown, pad[k + dy:k + dy + n, k + dx:k + dx + n] * w)
+    return np.clip(grown - shape, 0, 1) * 255
+
+
+def gen_ornaments(n):
+    return {
+        "Dragon": gen_dragon(n), "DragonHead": gen_dragon_head(n), "Laurel": gen_laurel(n),
+        "Crown": gen_crown(n), "Flames": gen_flames(n), "Rays": gen_rays(n),
+    }
 
 
 # Ring10/20/30: rings whose width is 10, 20 or 30 % of the radius (global cooldown
@@ -402,7 +700,8 @@ def main():
     for path in (gen_chime(), gen_coin(), gen_impact(), gen_record(), gen_proc(), *gen_extras(), *gen_streaks()):
         data, rate = sf.read(path)
         print(f"{os.path.basename(path)}: {len(data) / rate:.2f}s, {rate} Hz, peak {np.max(np.abs(data)):.2f}")
-    print("textures: Gradient.tga, Glow.tga, Corner.tga, Shine.tga, Wings.tga, WingsLeft.tga, Round00-50.tga, Ring10-30.tga")
+    print("textures: Gradient.tga, Glow.tga, Corner.tga, Shine.tga, Wings.tga, WingsLeft.tga, "
+          "Ornament<Style>(Left).tga, Round00-50.tga, Ring10-30.tga")
 
 
 if __name__ == "__main__":

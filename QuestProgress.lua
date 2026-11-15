@@ -162,6 +162,10 @@ local function snapshot(id, title, index)
     return { id = id, title = title, objectives = objs, complete = complete }
 end
 
+-- for the quest tracker, which shows the same quests (and bonus objectives the log
+-- doesn't list, read by their ID)
+QuestProgress.Snapshot = snapshot
+
 -- What moved on from old to q: { [objective] = its count before }, and whether the
 -- quest just got complete.
 local function diff(old, q)
@@ -227,15 +231,22 @@ local function readTimers()
     timers = list
 end
 
+-- A quest's time limit as { expires, total }, or nil (for the quest tracker).
+function QuestProgress.Timer(id) return timers[id] end
+
 -- The quest you follow, whose card stays up while the option is on: the focused one
 -- (Retail: the one with the arrow and waypoint). Clients without that know only the
--- quests watched in the tracker; there it is the first of them.
+-- quests watched in the tracker; there it is the one picked in WombatLog's quest
+-- tracker, or else the first of them.
 local function focusedQuest()
     local cfg = ns.db.questProgress
     if not (cfg.enabled and cfg.focusedQuest) then return nil end
     local id
+    local own = ns.QuestTracker and ns.QuestTracker.OwnFocus and ns.QuestTracker:OwnFocus()
     if C_SuperTrack and C_SuperTrack.GetSuperTrackedQuestID then
         id = Safe(C_SuperTrack.GetSuperTrackedQuestID())
+    elseif own then
+        id = own
     elseif C_QuestLog and C_QuestLog.GetQuestIDForQuestWatchIndex then
         id = Safe(C_QuestLog.GetQuestIDForQuestWatchIndex(1))
     elseif GetQuestIndexForWatch then
@@ -290,6 +301,7 @@ function QuestProgress:Scan()
     readTimers()
     if #updates > 0 then self:Report(updates) end
     self:UpdatePins()
+    if ns.QuestTracker and ns.QuestTracker.OnScan then ns.QuestTracker:OnScan() end
 end
 
 local function requestScan()

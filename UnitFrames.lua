@@ -18,7 +18,16 @@ local MEDIA = "Interface\\AddOns\\WombatLog\\Media\\"
 local WHITE = "Interface\\Buttons\\WHITE8X8"
 local GLOW = MEDIA .. "Glow"
 local SHINE = MEDIA .. "Shine"
-local WINGS = { left = MEDIA .. "WingsLeft", right = MEDIA .. "Wings" }
+-- the ornament styles: their texture (pointing right, "...Left" pointing left) and,
+-- for the dragon, its head, drawn over the portrait
+local ORNAMENTS = {
+    wings = { tex = "Wings" },
+    dragon = { tex = "OrnamentDragon", head = "OrnamentDragonHead" },
+    laurel = { tex = "OrnamentLaurel" },
+    crown = { tex = "OrnamentCrown" },
+    flames = { tex = "OrnamentFlames" },
+    rays = { tex = "OrnamentRays" },
+}
 local PAD = 2              -- px between the panel's border and the bars
 local GAP = 1              -- px between health and power
 local SHADOW = 12          -- px the shadow and the glows reach past the frame
@@ -349,10 +358,33 @@ end
 
 local function classColors(cls)
     local E = cfg().elite
+    if cls == "self" then return E.selfColor, E.selfColor end
     if cls == "boss" then return E.bossColor, E.bossColor end
     if cls == "rareelite" then return E.rareEliteColor, E.eliteColor end
     if cls == "rare" then return E.rareColor, E.rareColor end
     return E.eliteColor, E.eliteColor -- wings, portrait border
+end
+
+local STYLE_KEYS = { elite = "eliteStyle", rare = "rareStyle", rareelite = "rareEliteStyle", boss = "bossStyle", self = "selfStyle" }
+
+local function ornamentStyle(cls)
+    local style = cfg().elite[STYLE_KEYS[cls] or "eliteStyle"]
+    return ORNAMENTS[style] and style or "wings"
+end
+
+-- Puts the style's textures on the ornament (and its glint's mask), once per change.
+local function setOrnament(w, style)
+    local key = style .. tostring(w.side)
+    if w.ornament == key then return end
+    w.ornament = key
+    local o, suffix = ORNAMENTS[style], w.side == "right" and "" or "Left"
+    w.wings:SetTexture(MEDIA .. o.tex .. suffix)
+    w.wingMask:SetTexture(MEDIA .. o.tex .. suffix, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    w.wingLine:SetTexture(MEDIA .. o.tex .. "Outline" .. suffix)
+    if o.head then
+        w.wingHead:SetTexture(MEDIA .. o.head .. suffix)
+        w.wingHeadLine:SetTexture(MEDIA .. o.head .. "Outline" .. suffix)
+    end
 end
 
 -- A color for low health worked out by the client, for secret health: the low
@@ -426,9 +458,11 @@ local function create(u, blizz)
     w.low = w.lowGlowF:CreateTexture(nil, "BACKGROUND")
     w.low:SetTexture(GLOW)
     w.low:SetBlendMode("ADD")
-    w.wings = w:CreateTexture(nil, "BACKGROUND", nil, -7)
+    w.wingLine = w:CreateTexture(nil, "BACKGROUND", nil, -7) -- the ornament's outline
+    w.wingLine:Hide()
+    w.wings = w:CreateTexture(nil, "BACKGROUND", nil, -6)
     w.wingMask = w:CreateMaskTexture()
-    w.shine = w:CreateTexture(nil, "BACKGROUND", nil, -6)
+    w.shine = w:CreateTexture(nil, "BACKGROUND", nil, -5)
     w.shine:SetTexture(SHINE, "REPEAT", "CLAMP")
     w.shine:SetBlendMode("ADD")
     w.shine:AddMaskTexture(w.wingMask)
@@ -476,6 +510,11 @@ local function create(u, blizz)
         t:AddMaskTexture(w.pMask)
         t:SetAlpha(0)
     end
+    -- the dragon ornament's head rests on the portrait (under the level and PvP badges)
+    w.wingHeadLine = w.pf:CreateTexture(nil, "OVERLAY", nil, 6)
+    w.wingHeadLine:Hide()
+    w.wingHead = w.pf:CreateTexture(nil, "OVERLAY", nil, 7)
+    w.wingHead:Hide()
 
     -- texts, and the level badge on the portrait
     w.top = CreateFrame("Frame", nil, w)
@@ -658,9 +697,10 @@ local function layout(w)
     local cx = P > 0 and P / 2 or 0
     local cy = P > 0 and H / 2 or H / 2
     put(w, w.wings, cx - size / 2, cy - size / 2, size, size)
-    w.wings:SetTexture(w.side == "right" and WINGS.right or WINGS.left)
-    w.wingMask:SetTexture(w.side == "right" and WINGS.right or WINGS.left, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     w.wingMask:SetAllPoints(w.wings)
+    w.wingLine:SetAllPoints(w.wings)
+    w.wingHead:SetAllPoints(w.wings)
+    w.wingHeadLine:SetAllPoints(w.wings)
     w.shine:SetAllPoints(w.wings)
     local g = size * 1.15
     put(w, w.wingGlow, cx - g / 2, cy - g / 2, g, g)
@@ -804,21 +844,32 @@ end
 function UnitFrames:UpdateClass(w)
     local C = cfg()
     local E = C.elite
-    -- your own frame can wear an ornament of your choice
+    -- your own frame can wear an ornament of its own, set apart from the kinds
     local cls
-    if w.u.key == "player" and E.self ~= "none" then
-        cls = E.self
+    if w.u.key == "player" and ORNAMENTS[E.selfStyle] then
+        cls = "self"
     elseif E.enabled then
         cls = classification(unitOf(w))
     end
     w.cls = cls
     local show = cls ~= nil
+    local style = show and ornamentStyle(cls)
+    if show then setOrnament(w, style) end
+    local head = show and ORNAMENTS[style].head ~= nil and w.pf:IsShown()
     w.wings:SetShown(show)
-    w.shine:SetShown(show and C.elite.shine)
-    w.wingGlow:SetShown(show and C.elite.glow and (cls == "rare" or cls == "rareelite" or cls == "boss"))
+    w.wingHead:SetShown(head)
+    w.wingLine:SetShown(show and E.outline)
+    w.wingHeadLine:SetShown(head and E.outline)
+    w.shine:SetShown(show and E.shine)
+    local glows = E.glow and (cls == "rare" or cls == "rareelite" or cls == "boss")
+    if cls == "self" then glows = E.selfGlow end
+    w.wingGlow:SetShown(show and glows and true or false)
     if show then
         local wing, border = classColors(cls)
         tint(w.wings, wing, 1)
+        tint(w.wingHead, wing, 1)
+        tint(w.wingLine, E.outlineColor, 1)
+        tint(w.wingHeadLine, E.outlineColor, 1)
         tint(w.shine, { lerp(wing[1], 1, 0.6), lerp(wing[2], 1, 0.6), lerp(wing[3], 1, 0.6) }, 1)
         tint(w.wingGlow, wing, 1)
         tint(w.pBorder, border, 1)
