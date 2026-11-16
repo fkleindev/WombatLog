@@ -365,6 +365,16 @@ local function classColors(cls)
     return E.eliteColor, E.eliteColor -- wings, portrait border
 end
 
+local OUTLINE_KEYS = {
+    elite = "eliteOutlineColor", rare = "rareOutlineColor", rareelite = "rareEliteOutlineColor",
+    boss = "bossOutlineColor", self = "selfOutlineColor",
+}
+
+local function outlineColor(cls)
+    local E = cfg().elite
+    return E[OUTLINE_KEYS[cls] or "eliteOutlineColor"] or E.eliteOutlineColor
+end
+
 local STYLE_KEYS = { elite = "eliteStyle", rare = "rareStyle", rareelite = "rareEliteStyle", boss = "bossStyle", self = "selfStyle" }
 
 local function ornamentStyle(cls)
@@ -384,6 +394,7 @@ local function setOrnament(w, style)
     if o.head then
         w.wingHead:SetTexture(MEDIA .. o.head .. suffix)
         w.wingHeadLine:SetTexture(MEDIA .. o.head .. "Outline" .. suffix)
+        w.headMask:SetTexture(MEDIA .. o.head .. suffix, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
     end
 end
 
@@ -511,10 +522,17 @@ local function create(u, blizz)
         t:SetAlpha(0)
     end
     -- the dragon ornament's head rests on the portrait (under the level and PvP badges)
-    w.wingHeadLine = w.pf:CreateTexture(nil, "OVERLAY", nil, 6)
+    -- (with a glint of its own, as the wing's glint stays behind the portrait)
+    w.wingHeadLine = w.pf:CreateTexture(nil, "OVERLAY", nil, 5)
     w.wingHeadLine:Hide()
-    w.wingHead = w.pf:CreateTexture(nil, "OVERLAY", nil, 7)
+    w.wingHead = w.pf:CreateTexture(nil, "OVERLAY", nil, 6)
     w.wingHead:Hide()
+    w.headMask = w.pf:CreateMaskTexture()
+    w.headShine = w.pf:CreateTexture(nil, "OVERLAY", nil, 7)
+    w.headShine:SetTexture(SHINE, "REPEAT", "CLAMP")
+    w.headShine:SetBlendMode("ADD")
+    w.headShine:AddMaskTexture(w.headMask)
+    w.headShine:Hide()
 
     -- texts, and the level badge on the portrait
     w.top = CreateFrame("Frame", nil, w)
@@ -701,6 +719,8 @@ local function layout(w)
     w.wingLine:SetAllPoints(w.wings)
     w.wingHead:SetAllPoints(w.wings)
     w.wingHeadLine:SetAllPoints(w.wings)
+    w.headMask:SetAllPoints(w.wings)
+    w.headShine:SetAllPoints(w.wings)
     w.shine:SetAllPoints(w.wings)
     local g = size * 1.15
     put(w, w.wingGlow, cx - g / 2, cy - g / 2, g, g)
@@ -861,6 +881,7 @@ function UnitFrames:UpdateClass(w)
     w.wingLine:SetShown(show and E.outline)
     w.wingHeadLine:SetShown(head and E.outline)
     w.shine:SetShown(show and E.shine)
+    w.headShine:SetShown(head and E.shine)
     local glows = E.glow and (cls == "rare" or cls == "rareelite" or cls == "boss")
     if cls == "self" then glows = E.selfGlow end
     w.wingGlow:SetShown(show and glows and true or false)
@@ -868,9 +889,15 @@ function UnitFrames:UpdateClass(w)
         local wing, border = classColors(cls)
         tint(w.wings, wing, 1)
         tint(w.wingHead, wing, 1)
-        tint(w.wingLine, E.outlineColor, 1)
-        tint(w.wingHeadLine, E.outlineColor, 1)
-        tint(w.shine, { lerp(wing[1], 1, 0.6), lerp(wing[2], 1, 0.6), lerp(wing[3], 1, 0.6) }, 1)
+        local line = outlineColor(cls)
+        tint(w.wingLine, line, 1)
+        tint(w.wingHeadLine, line, 1)
+        -- the glint: up to full strength it fades in, above it turns whiter
+        local strength = E.shineStrength or 1
+        local white = math.min(1, 0.6 + 0.4 * math.max(0, strength - 1))
+        local glint = { lerp(wing[1], 1, white), lerp(wing[2], 1, white), lerp(wing[3], 1, white) }
+        tint(w.shine, glint, math.min(1, strength))
+        tint(w.headShine, glint, math.min(1, strength))
         tint(w.wingGlow, wing, 1)
         tint(w.pBorder, border, 1)
         tint(w.badgeRing, border, 1)
@@ -1032,8 +1059,9 @@ function UnitFrames.OnUpdate(w, dt)
     -- the ornament: a glint running over it, a glow breathing behind it
     if w.cls then
         local cycle = w.cls == "boss" and 1.4 or (w.cls == "elite" and 2.6 or 2)
-        local off = (now / cycle) % 1
+        local off = (now * (cfg().elite.shineSpeed or 1) / cycle) % 1
         w.shine:SetTexCoord(off, off + 0.4, 0, 1)
+        w.headShine:SetTexCoord(off, off + 0.4, 0, 1)
         if w.wingGlow:IsShown() then
             local strength = w.cls == "boss" and 0.55 or 0.35
             w.wingGlow:SetAlpha(strength * (0.6 + 0.4 * math.sin(now * (w.cls == "boss" and 4 or 2.2))))

@@ -136,7 +136,8 @@ combat starts and fades out a few seconds after it ends.
   (not on Classic Era, which has none): a round, square or no
   portrait with a level badge, slim bars on a rounded panel, the name and health in
   the bar. Elite, rare and boss units get an ornament around their portrait in
-  their own color, with a glint running over it and an optional outline. Each kind
+  their own color, with a glint running over it (as fast and bright as you like)
+  and an optional outline in a color of each kind's own. Each kind
   can wear its own style: blades, a classic dragon resting its head on the
   portrait, a laurel wreath, a crown, flames or a halo of rays. You can give
   yourself an ornament of your own, with its own style, color and glow. Lost health trails behind the bar,

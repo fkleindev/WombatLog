@@ -391,7 +391,7 @@ function Page:Color(label, path, col, dy)
         end
     end)
     register(b)
-    self:Add(b, 28, col, dy)
+    self:Add(b, 28 - math.min(0, dy or 0), col, dy) -- nudged down, the row grows with it
     index(b, label)
     return b
 end
@@ -2068,10 +2068,11 @@ local function BuildUnitFrameEffects(p)
     p:Header("Elite and rare")
     p:Checkbox("Ornament", path .. "elite.enabled")
     p:Checkbox("Glint running over it", path .. "elite.shine", 2)
+    p:Slider("Glint speed", path .. "elite.shineSpeed", 0.25, 3, 0.05, times)
+    p:Slider("Glint strength", path .. "elite.shineStrength", 0.1, 2, 0.05, pct, 2)
     p:Checkbox("Glow behind rare and boss ornaments", path .. "elite.glow")
-    p:Checkbox("Outline", path .. "elite.outline")
-    p:Color("Outline color", path .. "elite.outlineColor", 2)
-    p:Note("Elite, rare and boss units get an ornament around their portrait in their kind's style and color, and the portrait's border takes the color too. Rare elites get the rare color with an elite border. The outline sets every ornament apart from a busy background.")
+    p:Checkbox("Outline", path .. "elite.outline", 2)
+    p:Note("Elite, rare and boss units get an ornament around their portrait in their kind's style and color, and the portrait's border takes the color too. Rare elites get the rare color with an elite border. The outline sets every ornament apart from a busy background, in each kind's outline color.")
     -- each kind: its style, its color beside it
     local styles = {
         { text = "Blades", value = "wings" },
@@ -2083,12 +2084,16 @@ local function BuildUnitFrameEffects(p)
     }
     p:Dropdown("Elite", path .. "elite.eliteStyle", styles)
     p:Color("Color", path .. "elite.eliteColor", 2, -20)
+    p:Color("Outline color", path .. "elite.eliteOutlineColor", 2, -46)
     p:Dropdown("Rare", path .. "elite.rareStyle", styles)
     p:Color("Color", path .. "elite.rareColor", 2, -20)
+    p:Color("Outline color", path .. "elite.rareOutlineColor", 2, -46)
     p:Dropdown("Rare elite", path .. "elite.rareEliteStyle", styles)
     p:Color("Color", path .. "elite.rareEliteColor", 2, -20)
+    p:Color("Outline color", path .. "elite.rareEliteOutlineColor", 2, -46)
     p:Dropdown("Boss", path .. "elite.bossStyle", styles)
     p:Color("Color", path .. "elite.bossColor", 2, -20)
+    p:Color("Outline color", path .. "elite.bossOutlineColor", 2, -46)
     p:Note("The classic dragon rests its head on the portrait, its wing and tail around it.")
 
     p:Header("Your ornament")
@@ -2096,8 +2101,9 @@ local function BuildUnitFrameEffects(p)
     for _, s in ipairs(styles) do own[#own + 1] = s end
     p:Dropdown("Style", path .. "elite.selfStyle", own)
     p:Color("Color", path .. "elite.selfColor", 2, -20)
+    p:Color("Outline color", path .. "elite.selfOutlineColor", 2, -46)
     p:Checkbox("Glow behind it", path .. "elite.selfGlow")
-    p:Note("Your own frame can wear an ornament of its own, apart from the kinds above and even with the ornament for others turned off. The glint and the outline follow the settings above.")
+    p:Note("Your own frame can wear an ornament of its own, apart from the kinds above and even with the ornament for others turned off. The glint and whether it has an outline follow the settings above.")
 
     p:Header("Animations")
     p:Checkbox("Damage trail", path .. "anim.damage")

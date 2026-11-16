@@ -387,7 +387,11 @@ ns.defaults.blizzard = {
         -- an ornament around the portrait of elite, rare and boss units
         elite = {
             enabled = true, shine = true, glow = true,
-            outline = false, outlineColor = { 0.04, 0.03, 0.02 }, -- a thin rim around every ornament
+            shineSpeed = 1, shineStrength = 1, -- the glint: how fast it runs, how bright it is
+            outline = false, -- a thin rim around every ornament, in each kind's outline color
+            eliteOutlineColor = { 0.04, 0.03, 0.02 }, rareOutlineColor = { 0.04, 0.03, 0.02 },
+            rareEliteOutlineColor = { 0.04, 0.03, 0.02 }, bossOutlineColor = { 0.04, 0.03, 0.02 },
+            selfOutlineColor = { 0.04, 0.03, 0.02 },
             -- each kind's style: "wings" | "dragon" | "laurel" | "crown" | "flames" | "rays"
             eliteStyle = "wings", rareStyle = "wings", rareEliteStyle = "wings", bossStyle = "wings",
             eliteColor = { 1.00, 0.78, 0.25 }, rareColor = { 0.78, 0.85, 1.00 },
@@ -675,6 +679,15 @@ local function activate()
             E.selfGlow = E.glow ~= false and E.self ~= "elite" or nil
         end
         E.self = nil
+    end
+    -- one outline color for every ornament became one per kind: each keeps it
+    if E and E.outlineColor then
+        for _, kind in ipairs({ "elite", "rare", "rareElite", "boss", "self" }) do
+            if E[kind .. "OutlineColor"] == nil then
+                E[kind .. "OutlineColor"] = ns.CopyTable(E.outlineColor)
+            end
+        end
+        E.outlineColor = nil
     end
     fillDefaults(ns.db, ns.defaults)
     if oldLook then
