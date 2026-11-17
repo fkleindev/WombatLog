@@ -92,6 +92,14 @@ combat starts and fades out a few seconds after it ends.
   merchant, or from a bag addon), you're offered to buy it back. Works in the game's
   bags, Bagnon, AdiBags and Baganator; the tooltip and the buy-back offer work with
   any bag addon.
+- **Flight path timer:** shows up by itself when you take a flight path: where you
+  come from and where you are going as two map pins joined by an arc, a gryphon, wind
+  rider or bird (by your faction, or your pick) flying along it, the time left and when
+  you arrive. The first times are worked out from the game's own flight routes and
+  marked with ~; every flight is measured, so a route you have flown shows its real
+  time and the other estimates adjust to how fast flights really are. Stops on the way
+  count, a `/reload` in the air keeps the timer, and the flight map's tooltips show the
+  flight time too. Movable.
 - **Bag slots:** bags show on their icon how many slots they have, in the colour of
   their kind, and special bags (herbs, soul shards, leather, enchanting, quivers, ammo
   pouches, ...) a small icon of what they take. In the bags, on the bag bar and on the
@@ -254,6 +262,9 @@ and lights the setting up.
   difficulty or one color, quest level, text, and the bars: thickness, color, texture,
   segments, border, fill speed, spark, gloss, light and glow).
 - **Quest items:** on/off, glow and/or icon, glow colour and pulse, icon size, ask before selling, the quest in the tooltip.
+- **Flight timer:** on/off, test, flight time in the flight map's tooltips, time of
+  arrival, mount, color, scale, text size, fonts and outline, forgetting the learned
+  times, position.
 - **Bag slots:** on/off, also on the bag bar and the bank, number of slots, icon for
   special bags, number in the kind's colour, size.
 - **Sparkles:** *General* (the game's own sparkle, own effect on/off, quest objects,
@@ -423,6 +434,7 @@ effort: whatever the client keeps secret is left out.
 | `outlineModeShowLootEffectWhenDisabled`, `SoftTarget*` CVars, `PLAYER_SOFT_INTERACT_CHANGED`, `C_NamePlate`, `SetUnitCursorTexture`, `UnitIsInInteractRange`, `CanLootUnit` | Sparkles: the game's sparkle, the interaction target, what it is and whether it is in reach |
 | `C_Container`, `BAG_UPDATE_DELAYED`, `MERCHANT_SHOW` / `_CLOSED`, `GetBuybackItemLink`, `BuybackItem` | Quest items: marks in the bags, asking before a sale, buying back |
 | `GetItemInfoInstant` (item subclass), `C_TooltipInfo.GetHyperlink` / a hidden tooltip, `CONTAINER_SLOTS`, `GetInventoryItemLink` | Bag slots: kind of bag and its number of slots |
+| `TAXIMAP_OPENED`, `TakeTaxiNode`, `C_TaxiMap.GetAllTaxiNodes`, `GetNumRoutes` / `TaxiGetNodeSlot`, `UnitOnTaxi` | Flight path timer: the route you picked with its stops, take-off and landing |
 | `PLAYER_MONEY`, `PLAYER_DEAD` | Session money and deaths |
 | `PLAYER_REGEN_DISABLED` / `_ENABLED` | Showing and hiding the window |
 
@@ -498,6 +510,7 @@ As a result:
 | `Locales/Locales.lua` | Translation lookup, language choice and the names WombatLog translates itself |
 | `Locales/<code>.lua` | One file per language (`enUS`, `deDE`, `frFR`, `esES`, `itIT`) |
 | `Core.lua` | Settings defaults, profiles, the fight start/end cycle, filters, slash commands |
+| `FlightData_*.lua` | Generated flight times for every hop between two flight masters, one file per client |
 | `SpellData_*.lua` | Generated facts for every class spell, one file per client (school, DoT ticks and duration, channels, …) |
 | `Sources.lua` | Forever and Retail: turns game events into feed entries and decides which hits are yours |
 | `CombatLog.lua` | Classic clients: turns the combat log into feed entries |
@@ -518,6 +531,7 @@ As a result:
 | `Report.lua` | Fight summary card and the journal window |
 | `Swing.lua` | Swing timer lane inside the log window |
 | `GCD.lua` | Global cooldown ring at the mouse cursor |
+| `FlightTimer.lua` | Flight path timer: the route on an arc, learning flight times, the time in the flight map's tooltips |
 | `Resources.lua` | Personal resource display |
 | `Minimap.lua` | Minimap button and addon compartment entry |
 | `MacroBuilder.lua` | The macro builder: macros from blocks, live preview, checks and saving |
@@ -531,8 +545,10 @@ As a result:
 | `Media/Round00-50.tga` | Rounded squares (corner radius 0-50 % of the side) for the modern action buttons |
 | `Media/Ring10-30.tga` | Rings (10, 20 and 30 % of the radius wide) for the global cooldown ring |
 | `Media/Diamond.tga` | Diamond mask for diamond-shaped combo points |
+| `Media/FlightPin.tga`, `Media/Flight<Gryphon\|Wyvern\|Bird>.tga` | Map pin and flying mounts of the flight path timer |
 | `Media/Sounds/*.ogg` | Alert sounds (crit, streak, record, proc) |
 | `tools/gen_spelldata.py` | Regenerates the `SpellData_*.lua` files from each client's game data via wago.tools (`--all`, or `--flavor forever\|vanilla\|tbc\|mists\|retail [--build x.y.z.n]`) |
+| `tools/gen_flightdata.py` | Regenerates the `FlightData_*.lua` files from each client's flight routes via wago.tools (same options as `gen_spelldata.py`) |
 | `tools/gen_media.py` | Regenerates everything in `Media` (`pip install numpy soundfile`) |
 | `tools/check_locales.py` | Checks every language file for missing texts and mismatched `%s`/`%d` placeholders (`--template` prints all texts for a new language) |
 

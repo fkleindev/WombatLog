@@ -1781,6 +1781,38 @@ local function BuildQuestItems(p)
     p:Note("At a merchant, a right-click on a marked item asks first. If one is sold anyway, e.g. dragged onto the merchant, you're offered to buy it back. Items stay marked until the quest is turned in or abandoned. Works in the game's bags, Bagnon, AdiBags and Baganator; the tooltip and the buy-back offer work with any bag addon.")
 end
 
+local function BuildFlightTimer(p)
+    p:Header("Flight path timer")
+    p:Note("Shows up by itself when you take a flight path: where you come from and where you are going as two pins, your mount flying along the route between them, the time left and when you arrive.")
+    p:Checkbox("Show the flight path timer", "flightTimer.enabled")
+    p:Button("Test", function() ns.FlightTimer:Test() end, 2, -2, 100)
+    p:Checkbox("Flight time in the flight map's tooltips", "flightTimer.tooltip")
+    p:Checkbox("Time of arrival", "flightTimer.showArrival", 2)
+
+    p:Header("Look")
+    p:Dropdown("Mount", "flightTimer.mount", {
+        { text = "By faction", value = "auto" },
+        { text = "Gryphon", value = "gryphon" },
+        { text = "Wind rider", value = "wyvern" },
+        { text = "Bird", value = "bird" },
+    })
+    p:Color("Color", "flightTimer.color", 2, -20)
+    p:Slider("Scale", "flightTimer.scale", 0.5, 2, 0.05, times)
+    p:Slider("Text size", "flightTimer.textSize", 9, 24, 1, nil, 2)
+    p:Dropdown("Number font", "flightTimer.font", alertFontOptions)
+    p:Dropdown("Name font", "flightTimer.nameFont", alertFontOptions, 2)
+    p:Dropdown("Outline", "flightTimer.outline", OUTLINE_OPTIONS)
+
+    p:Header("Flight times")
+    p:Note("At first the times come from the game's flight routes (marked with ~). Every flight you take is measured: that route then shows its real time, and the other estimates adjust to how fast flights really are. Learned times are kept for all your characters.")
+    p:Button("Forget learned times", function()
+        ns.FlightTimer:Forget()
+        ns.Print(L["Learned flight times forgotten."])
+    end)
+
+    PositionBlock(p, "Unlock (drag the timer to move it)", function() return ns.FlightTimer end, resetXY("flightTimer"))
+end
+
 local function BuildBagSlots(p)
     p:Header("Bag slots")
     p:Note("Bags show on their icon how many slots they have, and special bags (herbs, soul shards, leather, quivers, ...) a small icon of what they take. In the bags, and if you like on the bag bar and the bank's bag slots.")
@@ -2279,7 +2311,7 @@ local function movables()
     return {
         { unlocked = not ns.locked, SetLocked = function(_, l) ns.Display:SetLocked(l) end },
         ns.Alerts.crit, ns.Alerts.proc, ns.Reminders, ns.Report,
-        ns.KillAlert, ns.XPTracker, ns.QuestProgress, ns.QuestTracker, ns.Resources,
+        ns.KillAlert, ns.XPTracker, ns.QuestProgress, ns.QuestTracker, ns.Resources, ns.FlightTimer,
     }
 end
 
@@ -2298,6 +2330,7 @@ local OVERVIEW = {
     { "Quest progress", "questProgress.enabled", function() ns.QuestProgress:Test() end },
     { "Quest tracker", "questTracker.enabled", function() ns.QuestTracker:Test() end },
     { "Quest items", "questItems.enabled" },
+    { "Flight timer", "flightTimer.enabled", function() ns.FlightTimer:Test() end },
     { "Sparkles", "sparkle.enabled", function() ns.Sparkle:Test() end },
     { "Session", "session.enabled" },
     { "Resource display", "resources.enabled", function() ns.Resources:Test() end },
@@ -2403,6 +2436,7 @@ local TABS = {
         { "Look", BuildTrackerLook },
     } },
     { "Quest items", BuildQuestItems },
+    { "Flight timer", BuildFlightTimer },
     { "Sparkles", {
         { "General", BuildSparkleGeneral },
         { "Look", BuildSparkleLook },
@@ -2783,6 +2817,7 @@ function Config:Init()
         if ns.XPTracker.unlocked then ns.XPTracker:SetLocked(true) end
         if ns.QuestProgress.unlocked then ns.QuestProgress:SetLocked(true) end
         if ns.Report.unlocked then ns.Report:SetLocked(true) end
+        if ns.FlightTimer.unlocked then ns.FlightTimer:SetLocked(true) end
         if Config.results then Config.results:Hide() end
     end)
 

@@ -174,6 +174,17 @@ ns.defaults.questAlert = {
     sound = false, soundChoice = "wl:xp", channel = "Master",
 }
 
+-- a timer while you take a flight path: two pins joined by an arc, your mount flying along it
+ns.defaults.flightTimer = {
+    enabled = true,
+    tooltip = true,                 -- the flight time in the flight map's tooltips
+    showArrival = true,             -- the time of day you arrive, under the time left
+    mount = "auto",                 -- "auto" (by faction) | "gryphon" | "wyvern" | "bird"
+    color = { 1.00, 0.82, 0.30 },   -- the destination, the route flown and the mount
+    scale = 1, textSize = 13, font = "", nameFont = "", outline = "OUTLINE",
+    x = 0, y = 260,
+}
+
 -- small XP bar hanging from the top edge, always shown; grows down when XP comes in
 ns.defaults.xpTracker = {
     enabled = true, hideAtMax = true, showLevel = true,
@@ -646,6 +657,7 @@ function ns.ApplyAll(refreshPanel)
     ns.Sparkle:Apply()
     ns.RangeIndicator:Apply()
     ns.GCD:Apply()
+    ns.FlightTimer:Apply()
     ns.BlizzardUI:Apply()
     ns.UnitFrames:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
@@ -1056,6 +1068,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.BagSlots:Init()
     ns.RangeIndicator:Init()
     ns.GCD:Init()
+    ns.FlightTimer:Init()
     ns.BlizzardUI:Init()
     ns.UnitFrames:Init()
     ns.MacroBuilder:Init()

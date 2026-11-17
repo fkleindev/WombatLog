@@ -25,6 +25,11 @@ SpellData_Vanilla.lua
 SpellData_TBC.lua
 SpellData_Mists.lua
 SpellData_Retail.lua
+FlightData_Forever.lua
+FlightData_Vanilla.lua
+FlightData_TBC.lua
+FlightData_Mists.lua
+FlightData_Retail.lua
 Sources.lua
 CombatLog.lua
 Stats.lua
@@ -45,6 +50,7 @@ RangeIndicator.lua
 Report.lua
 Swing.lua
 GCD.lua
+FlightTimer.lua
 Resources.lua
 Minimap.lua
 BlizzardUI.lua

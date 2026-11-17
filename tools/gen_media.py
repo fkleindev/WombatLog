@@ -78,6 +78,7 @@ def gen_textures():
 
     gen_rings()
     gen_icons()
+    gen_flight()
 
 
 def gen_icons():
@@ -393,6 +394,113 @@ def gen_ornaments(n):
     }
 
 
+# --- flight path timer ---------------------------------------------------------
+# Drawn in the same -1..1 space; the mounts fly right, the pin points down.
+
+def gen_pin(n):
+    """A map pin: a round head with a hole, running down to a point (flight path timer)."""
+    c = Canvas(n)
+    # teardrop: a circle up top, its sides running down to a point
+    cy, r = 0.30, 0.52
+    tip = -0.95
+    t = np.degrees(np.arcsin(r / (cy - tip)))  # where the sides leave the circle
+    side = [polar(r, a) + (0, cy) for a in np.linspace(-t, 180 + t, 64)]
+    c.add(sd_polygon(c, np.vstack([side, [(0, tip)]])))
+    c.cut(sd_circle(c, (0, cy), 0.21))
+    return c.alpha * 255
+
+def gen_gryphon(n):
+    """A gryphon flying right, its wings raised (the Alliance's flight path mount)."""
+    c = Canvas(n)
+    # the far wing, fainter, behind everything
+    root2 = np.array((0.02, 0.16))
+    for deg, ln, w in ((98, 0.70, 0.15), (108, 0.70, 0.15), (118, 0.66, 0.14), (129, 0.58, 0.13)):
+        c.add(sd_polygon(c, leaf(root2 + polar(0.05, deg), deg, ln, w)), 0.55)
+    # body: a deep eagle chest at the front (right), lion haunches behind
+    body = spline([(-0.58, 0.02), (-0.30, 0.12), (0.05, 0.16), (0.30, 0.22), (0.46, 0.16),
+                   (0.48, -0.04), (0.30, -0.22), (0.00, -0.26), (-0.34, -0.24), (-0.58, -0.14), (-0.58, 0.02)], 220)
+    c.add(sd_polygon(c, body))
+    # a big feathered head on a short neck, the beak hooked down
+    head = spline([(0.34, 0.18), (0.44, 0.40), (0.60, 0.48), (0.74, 0.44), (0.82, 0.36),
+                   (0.80, 0.24), (0.66, 0.18), (0.52, 0.08), (0.34, 0.18)], 160)
+    c.add(sd_polygon(c, head))
+    beak = bezier([(0.78, 0.42), (0.92, 0.42), (0.98, 0.32), (0.92, 0.22)], 24)
+    c.add(sd_polygon(c, np.vstack([beak, [(0.88, 0.27), (0.76, 0.26)]])))
+    for p, deg in (((0.44, 0.40), 160), ((0.40, 0.30), 190)):
+        c.add(sd_polygon(c, spike(p, deg, 0.13, 0.08, bend=0.2)))           # feather tufts
+    c.cut(sd_circle(c, (0.70, 0.37), 0.032))                                # eye
+    # the near wing raised high: long feathers fanning up and back over a broad base
+    root = np.array((0.00, 0.12))
+    for deg, ln, w in ((92, 0.86, 0.17), (102, 0.88, 0.17), (113, 0.86, 0.16), (124, 0.80, 0.16),
+                       (136, 0.72, 0.15), (149, 0.62, 0.14), (162, 0.50, 0.13)):
+        c.add(sd_polygon(c, leaf(root + polar(0.06, deg), deg, ln, w)))
+    c.add(sd_polygon(c, leaf(root + (-0.06, 0), 112, 0.52, 0.36)))
+    # eagle talons reaching ahead, a lion leg behind, the tail with its tuft
+    c.add(sd_stroke(c, bezier([(0.34, -0.14), (0.50, -0.32), (0.66, -0.30)], 24), 0.06, 0.03))
+    c.add(sd_stroke(c, bezier([(0.18, -0.20), (0.30, -0.42), (0.46, -0.44)], 24), 0.06, 0.03))
+    c.add(sd_stroke(c, bezier([(-0.42, -0.16), (-0.52, -0.38), (-0.40, -0.50)], 24), 0.09, 0.035))
+    c.add(sd_stroke(c, bezier([(-0.56, -0.04), (-0.76, -0.08), (-0.86, 0.06)], 32), 0.035, 0.022))
+    c.add(sd_polygon(c, leaf((-0.86, 0.04), 110, 0.20, 0.13)))
+    return c.alpha * 255
+
+def gen_wyvern(n):
+    """A wind rider flying right, bat wings raised, its scorpion tail curled (the Horde's)."""
+    c = Canvas(n)
+    body = spline([(-0.40, -0.02), (-0.10, 0.08), (0.25, 0.08), (0.42, 0.02), (0.30, -0.14),
+                   (-0.05, -0.20), (-0.36, -0.14), (-0.40, -0.02)], 200)
+    c.add(sd_polygon(c, body))
+    # a long neck reaching forward, a maned head
+    c.add(sd_stroke(c, bezier([(0.30, -0.02), (0.52, 0.10), (0.62, 0.22)], 24), 0.11, 0.08))
+    head = spline([(0.54, 0.22), (0.62, 0.34), (0.76, 0.34), (0.92, 0.24), (0.86, 0.16),
+                   (0.72, 0.15), (0.60, 0.12), (0.54, 0.22)], 120)
+    c.add(sd_polygon(c, head))
+    for p, deg in (((0.58, 0.32), 140), ((0.52, 0.26), 160), ((0.48, 0.18), 175)):
+        c.add(sd_polygon(c, spike(p, deg, 0.14, 0.06, bend=0.2)))            # mane
+    c.add(sd_polygon(c, spike((0.66, 0.34), 105, 0.12, 0.05, bend=0.2)))     # horn
+    c.cut(sd_circle(c, (0.74, 0.27), 0.026))
+    # a bat wing: arm up to the wrist, fingers spread, membrane scalloped between them
+    S, W = np.array((0.02, 0.08)), np.array((-0.10, 0.62))
+    tips = [np.array(p) for p in ((0.10, 0.96), (-0.30, 0.92), (-0.58, 0.70), (-0.70, 0.34))]
+    root = np.array((-0.30, 0.02))
+    edge = [S, W, tips[0]]
+    for a, b in zip(tips, tips[1:] + [root]):
+        ctrl = (a + b) / 2 + (W - (a + b) / 2) * 0.35
+        edge.extend(bezier([a, ctrl, b], 16)[1:])
+    c.add(sd_polygon(c, np.vstack(edge)), 0.75)
+    c.add(sd_stroke(c, bezier([S, (0.04, 0.38), W], 24), 0.045, 0.03))
+    for tip in tips:
+        c.add(sd_stroke(c, [W, tip], 0.026, 0.008))
+    # legs and the scorpion tail curling up behind
+    c.add(sd_stroke(c, bezier([(0.18, -0.14), (0.26, -0.34), (0.40, -0.38)], 24), 0.05, 0.025))
+    c.add(sd_stroke(c, bezier([(-0.22, -0.16), (-0.26, -0.36), (-0.12, -0.42)], 24), 0.06, 0.025))
+    tail = spline([(-0.36, -0.06), (-0.62, -0.10), (-0.84, 0.00), (-0.88, 0.20), (-0.76, 0.30)], 120)
+    c.add(sd_stroke(c, tail, 0.07, 0.03))
+    c.add(sd_polygon(c, spike((-0.76, 0.30), 20, 0.16, 0.10, bend=0.1)))
+    return c.alpha * 255
+
+def gen_bird(n):
+    """A bird of prey flying right (neutral flight paths)."""
+    c = Canvas(n)
+    body = spline([(-0.55, 0.00), (-0.20, 0.12), (0.30, 0.14), (0.52, 0.16), (0.66, 0.22),
+                   (0.80, 0.16), (0.70, 0.04), (0.50, -0.10), (0.10, -0.20), (-0.30, -0.14), (-0.55, 0.00)], 200)
+    c.add(sd_polygon(c, body))
+    c.add(sd_polygon(c, spike((0.78, 0.17), -20, 0.12, 0.06, bend=0.3)))
+    c.cut(sd_circle(c, (0.66, 0.16), 0.03))
+    root = np.array((0.10, 0.06))
+    for deg, ln, w in ((100, 0.88, 0.16), (110, 0.88, 0.15), (120, 0.84, 0.15), (131, 0.76, 0.14), (143, 0.66, 0.13)):
+        c.add(sd_polygon(c, leaf(root + polar(0.05, deg), deg, ln, w)))
+    c.add(sd_polygon(c, leaf(root, 112, 0.46, 0.30)))
+    for deg in (172, 182, 192):                                              # tail fan
+        c.add(sd_polygon(c, leaf((-0.48, -0.01), deg, 0.40, 0.14)))
+    return c.alpha * 255
+
+
+def gen_flight():
+    write_tga(os.path.join(MEDIA, "FlightPin.tga"), 64, 64, gen_pin(64))
+    for name, gen in (("Gryphon", gen_gryphon), ("Wyvern", gen_wyvern), ("Bird", gen_bird)):
+        write_tga(os.path.join(MEDIA, f"Flight{name}.tga"), 128, 128, gen(128))
+
+
 # Ring10/20/30: rings whose width is 10, 20 or 30 % of the radius (global cooldown
 # ring at the cursor: its swipe, track and the queue window's color)
 RINGS = (10, 20, 30)
@@ -701,7 +809,7 @@ def main():
         data, rate = sf.read(path)
         print(f"{os.path.basename(path)}: {len(data) / rate:.2f}s, {rate} Hz, peak {np.max(np.abs(data)):.2f}")
     print("textures: Gradient.tga, Glow.tga, Corner.tga, Shine.tga, Wings.tga, WingsLeft.tga, "
-          "Ornament<Style>(Left).tga, Round00-50.tga, Ring10-30.tga")
+          "Ornament<Style>(Left).tga, Round00-50.tga, Ring10-30.tga, Flight<Pin|Gryphon|Wyvern|Bird>.tga")
 
 
 if __name__ == "__main__":
