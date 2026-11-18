@@ -12,6 +12,8 @@ local PAGE_TOP = -50     -- pages of features without sub-tabs
 local SUBTAB_TOP = -50   -- the sub-tab bar
 local SUBPAGE_TOP = -84  -- pages under a sub-tab bar
 local SUBTAB_ROW = 27    -- a second row of sub-tabs, when they don't fit in one
+local WINDOW_W, WINDOW_H = 720, 700 -- the settings window (lower on small screens)
+local SIDEBAR_STEP = 44  -- how far one turn of the mouse wheel scrolls the sidebar
 
 local widgets = {}
 local refreshing = false
@@ -2161,8 +2163,7 @@ local function BuildMacroBuilder(p)
     p:Note("Build macros from blocks instead of typing them: pick a command, add conditions such as Shift, @mouseover or in combat as chips, and drag spells from your spellbook or items from your bags into the slots. Existing macros open as blocks, too.")
     p:Note("While you build, the character count, a check of spells and conditions and a live view of what each line would do right now (hold Shift, change your target) stay in sight. Save writes the macro straight into the game's macros, general or for this character.")
     p:Button("Open macro builder", function()
-        if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
-        if Config.panel:IsShown() and not Config.category then Config.panel:Hide() end
+        Config.panel:Hide()
         ns.MacroBuilder:Open()
     end)
     p:Note("Also with /wl macro, Ctrl-click on the minimap button or the \"Builder\" button in the game's macro window.")
@@ -2515,6 +2516,7 @@ end
 -- sub: which sub-tab to show; each feature remembers its last one.
 function Config:SelectTab(index, sub)
     if self.results then self.results:Hide() end
+    self:ScrollSidebarTo(self.tabs[index])
     for i, tab in ipairs(self.tabs) do
         local on = i == index
         Highlight(tab, on)
@@ -2723,10 +2725,132 @@ function Config:RefreshAll()
     self.profileText:SetText(L["Profile:"] .. " |cffffffff" .. (ns.Profiles.Current() or "") .. "|r")
 end
 
+-- A thin line around a frame.
+local function Border(f, r, g, b, a)
+    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", nil, 1 }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, 1 },
+                            { "TOPLEFT", "BOTTOMLEFT", 1, nil }, { "TOPRIGHT", "BOTTOMRIGHT", 1, nil } }) do
+        local t = f:CreateTexture(nil, "BORDER")
+        t:SetColorTexture(r, g, b, a)
+        t:SetPoint(side[1])
+        t:SetPoint(side[2])
+        if side[3] then t:SetWidth(side[3]) else t:SetHeight(side[4]) end
+    end
+end
+
+-- The settings are a window of their own, not a page in the game's settings: there
+-- they'd have to fit the game's frame, and the sidebar outgrew it.
+local function CreateWindow()
+    local f = CreateFrame("Frame", "WombatLogConfig", UIParent)
+    f:Hide()
+    local screenH = UIParent:GetHeight() or WINDOW_H
+    f:SetSize(WINDOW_W, math.max(480, math.min(WINDOW_H, screenH - 60)))
+    f:SetPoint("CENTER")
+    f:SetFrameStrata("HIGH")
+    f:SetToplevel(true)
+    f:SetClampedToScreen(true)
+    f:SetMovable(true)
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    local bg = f:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.05, 0.05, 0.07, 0.96)
+    Border(f, 1, 0.82, 0, 0.35)
+    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -2, -2)
+    tinsert(UISpecialFrames, "WombatLogConfig") -- Escape closes it
+    return f
+end
+
+-- The sidebar scrolls with the mouse wheel when its tabs are taller than the window;
+-- a slim bar on its right shows where you are.
+local function CreateSidebar(panel)
+    local side = CreateFrame("ScrollFrame", nil, panel)
+    side:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -50)
+    side:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 12, 10)
+    side:SetWidth(SIDEBAR_W + 8)
+    local child = CreateFrame("Frame", nil, side)
+    child:SetSize(SIDEBAR_W + 8, 1)
+    side:SetScrollChild(child)
+    local thumb = side:CreateTexture(nil, "OVERLAY")
+    thumb:SetColorTexture(1, 0.82, 0, 0.35)
+    thumb:SetWidth(2)
+    local function update()
+        local range = side:GetVerticalScrollRange() or 0
+        local h = side:GetHeight() or 0
+        if range <= 0.5 or h <= 0 then
+            thumb:Hide()
+            return
+        end
+        local th = math.max(24, h * h / (h + range))
+        thumb:ClearAllPoints()
+        thumb:SetPoint("TOPRIGHT", side, "TOPRIGHT", 0, -(h - th) * side:GetVerticalScroll() / range)
+        thumb:SetHeight(th)
+        thumb:Show()
+    end
+    side:EnableMouseWheel(true)
+    side:SetScript("OnMouseWheel", function(self, delta)
+        local range = self:GetVerticalScrollRange() or 0
+        self:SetVerticalScroll(math.max(0, math.min(range, self:GetVerticalScroll() - delta * SIDEBAR_STEP)))
+    end)
+    side:SetScript("OnVerticalScroll", update)
+    side:SetScript("OnScrollRangeChanged", update)
+    side:SetScript("OnSizeChanged", update)
+    side.child = child
+    return side
+end
+
+-- Scrolls the sidebar just enough to show this tab.
+function Config:ScrollSidebarTo(tab)
+    local side = self.sidebar
+    if not (side and tab and tab.sideY) then return end
+    local top, h = -tab.sideY, side:GetHeight() or 0
+    if h <= 0 then return end -- not laid out yet
+    local cur = side:GetVerticalScroll()
+    local range = side:GetVerticalScrollRange() or 0
+    if top < cur then
+        side:SetVerticalScroll(math.max(0, top - 8))
+    elseif top + 20 > cur + h then
+        side:SetVerticalScroll(math.max(0, math.min(range, top + 28 - h)))
+    end
+end
+
+-- A page in the game's AddOns settings that only leads to the window.
+local function RegisterInGameSettings()
+    local stub = CreateFrame("Frame")
+    local title = stub:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("WombatLog")
+    local note = stub:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    note:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
+    note:SetText(L["WombatLog's settings open in a window of their own."])
+    local open = CreateFrame("Button", nil, stub, "UIPanelButtonTemplate")
+    open:SetSize(180, 26)
+    open:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -12)
+    open:SetText(L["Open settings"])
+    local function go()
+        if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
+        if InterfaceOptionsFrame and InterfaceOptionsFrame:IsShown() then HideUIPanel(InterfaceOptionsFrame) end
+        Config.panel:Show()
+    end
+    open:SetScript("OnClick", go)
+    -- picking WombatLog in the list goes straight to the window
+    stub:SetScript("OnShow", function() C_Timer.After(0, go) end)
+    if Settings and Settings.RegisterCanvasLayoutCategory then
+        local category = Settings.RegisterCanvasLayoutCategory(stub, "WombatLog")
+        Settings.RegisterAddOnCategory(category)
+    elseif InterfaceOptions_AddCategory then
+        stub.name = "WombatLog"
+        InterfaceOptions_AddCategory(stub)
+    end
+end
+
 function Config:Init()
-    local panel = CreateFrame("Frame", "WombatLogConfig")
-    panel:Hide()
+    local panel = CreateWindow()
     self.panel = panel
+    local side = CreateSidebar(panel)
+    self.sidebar = side
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
     title:SetPoint("TOPLEFT", 16, -16)
@@ -2740,18 +2864,19 @@ function Config:Init()
         if def.group then
             -- a small heading over the tabs that belong together
             y = y - 6
-            local h = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-            h:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, y - 2)
+            local h = side.child:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+            h:SetPoint("TOPLEFT", side.child, "TOPLEFT", 8, y + 50 - 2)
             h:SetText(L[def.group])
             h:SetTextColor(0.8, 0.68, 0.3)
             y = y - 16
         else
             i = i + 1
             local tabIndex = i
-            local tab = TabButton(panel, def[1])
+            local tab = TabButton(side.child, def[1])
             tab.name = def[1]
             tab:SetSize(SIDEBAR_W, 20)
-            tab:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, y)
+            tab.sideY = y + 50
+            tab:SetPoint("TOPLEFT", side.child, "TOPLEFT", 4, tab.sideY)
             y = y - 22
             if type(def[2]) == "function" then
                 tab.page = NewPage(panel)
@@ -2797,6 +2922,7 @@ function Config:Init()
             self.tabs[tabIndex] = tab
         end
     end
+    side.child:SetHeight(-(y + 50) + 8)
     CreateSearch(panel)
     self:SelectTab(1)
 
@@ -2821,34 +2947,10 @@ function Config:Init()
         if Config.results then Config.results:Hide() end
     end)
 
-    if Settings and Settings.RegisterCanvasLayoutCategory then
-        self.category = Settings.RegisterCanvasLayoutCategory(panel, "WombatLog")
-        Settings.RegisterAddOnCategory(self.category)
-    else
-        -- no Settings API: run as a standalone window
-        panel:SetParent(UIParent)
-        panel:SetSize(720, 620)
-        panel:SetPoint("CENTER")
-        panel:SetFrameStrata("DIALOG")
-        panel:SetMovable(true)
-        panel:EnableMouse(true)
-        panel:RegisterForDrag("LeftButton")
-        panel:SetScript("OnDragStart", panel.StartMoving)
-        panel:SetScript("OnDragStop", panel.StopMovingOrSizing)
-        local bg = panel:CreateTexture(nil, "BACKGROUND")
-        bg:SetAllPoints()
-        bg:SetColorTexture(0.05, 0.05, 0.07, 0.95)
-        local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
-        close:SetPoint("TOPRIGHT", -4, -4)
-        tinsert(UISpecialFrames, "WombatLogConfig")
-    end
+    RegisterInGameSettings()
 end
 
 function Config:Open()
     if not self.panel then return end
-    if self.category then
-        Settings.OpenToCategory(self.category:GetID())
-    else
-        self.panel:SetShown(not self.panel:IsShown())
-    end
+    self.panel:SetShown(not self.panel:IsShown())
 end

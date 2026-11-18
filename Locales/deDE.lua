@@ -1056,4 +1056,5 @@ ns.RegisterLocale("deDE", "Deutsch", {
     ["Flight timer"] = "Flugtimer",
     ["Unlock (drag the timer to move it)"] = "Entsperren (Timer ziehen zum Verschieben)",
     ["Learned flight times forgotten."] = "Gelernte Flugzeiten vergessen.",
+    ["WombatLog's settings open in a window of their own."] = "Die Einstellungen von WombatLog öffnen sich in einem eigenen Fenster.",
 })

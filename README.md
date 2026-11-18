@@ -156,7 +156,7 @@ combat starts and fades out a few seconds after it ends.
   biggest hit of the fight.
 - A **welcome screen** on each character's first login: every feature with a short
   description and a switch, plus the language. `/wl welcome` brings it back.
-- A full settings panel with live preview, color pickers, filters and profiles.
+- A settings window of its own with live preview, color pickers, filters, search and profiles.
 - Available in English, German, French, Spanish and Italian. It follows your game
   language by default and can be switched in the settings.
 
@@ -174,7 +174,7 @@ Every extra feature can be turned off on its own in the settings.
 
 | Command | What it does |
 | --- | --- |
-| `/wl` | Opens the settings (also in Esc > Options > AddOns > WombatLog) |
+| `/wl` | Opens the settings window (also from Esc > Options > AddOns > WombatLog) |
 | `/wl welcome` | Opens the welcome screen: every feature with a switch, and the language |
 | `/wl test` | Runs a fake fight (with a crit streak, a sample record and a proc) so you can see everything outside combat |
 | `/wl journal` | Opens the journal: fight history, records, session |

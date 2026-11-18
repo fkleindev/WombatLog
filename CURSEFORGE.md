@@ -37,7 +37,7 @@ Your combat events show up in a transparent, borderless window that fades in whe
 - **Welcome screen** on each character's first login: turn every feature on or off and pick the language.
 - **Live header:** DPS, HPS, fight timer, damage dealt and taken, biggest hit.
 
-Every feature can be turned off on its own, and the full settings panel shows a live preview as you change things, down to hiding spell names or icons in the log. Profiles are included.
+Every feature can be turned off on its own, and the settings, a window of their own with a search, show a live preview as you change things, down to hiding spell names or icons in the log. Profiles are included.
 
 Available in **English, German, French, Spanish and Italian**. WombatLog follows your game language and can be switched in the settings.
 
