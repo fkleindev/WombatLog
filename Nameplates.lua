@@ -24,8 +24,12 @@ local ORNAMENTS = { -- the unit frames' ornament styles, the left-pointing pictu
     wings = "Wings", dragon = "OrnamentDragon", laurel = "OrnamentLaurel",
     crown = "OrnamentCrown", flames = "OrnamentFlames", rays = "OrnamentRays",
 }
+local HEADS = { dragon = "OrnamentDragonHead" } -- a second layer drawn over the bar
 local STYLE_KEYS = { elite = "eliteStyle", rare = "rareStyle", rareelite = "rareEliteStyle", boss = "bossStyle" }
 local COLOR_KEYS = { elite = "eliteColor", rare = "rareColor", rareelite = "rareEliteColor", boss = "bossColor" }
+local OUTLINE_KEYS = {
+    elite = "eliteOutlineColor", rare = "rareOutlineColor", rareelite = "rareEliteOutlineColor", boss = "bossOutlineColor",
+}
 
 local PAD = 1              -- px between the panel's border and the bar
 local SHADOW = 10          -- px the shadow reaches past the panel
@@ -289,8 +293,11 @@ local function create(base)
     p.low:SetTexture(GLOW)
     p.low:SetBlendMode("ADD")
     p.low:SetAlpha(0)
-    p.wings = p:CreateTexture(nil, "BACKGROUND", nil, -6) -- the elite ornament
+    p.wingLine = p:CreateTexture(nil, "BACKGROUND", nil, -6) -- the ornament's outline
+    p.wingLine:Hide()
+    p.wings = p:CreateTexture(nil, "BACKGROUND", nil, -5) -- the elite ornament
     p.wings:Hide()
+    p.wingLine:SetAllPoints(p.wings)
 
     p.panel = newPanel(p, lv + 1)
     p.lag = statusBar(p, lv + 2)
@@ -311,6 +318,13 @@ local function create(base)
     p.name = text(p.top, "CENTER")
     p.level = text(p.top, "RIGHT")
     p.hpText = text(p.top, "RIGHT")
+    -- the dragon ornament's head, over the bar's end (under the texts)
+    p.wingHeadLine = p.top:CreateTexture(nil, "ARTWORK", nil, 0)
+    p.wingHeadLine:SetAllPoints(p.wings)
+    p.wingHeadLine:Hide()
+    p.wingHead = p.top:CreateTexture(nil, "ARTWORK", nil, 1)
+    p.wingHead:SetAllPoints(p.wings)
+    p.wingHead:Hide()
     p.raid = p.top:CreateTexture(nil, "OVERLAY")
     p.raid:SetTexture(RAID_ICONS)
     p.raid:Hide()
@@ -376,11 +390,12 @@ local function layout(p)
     tint(p.low, LOW, 1)
     p.low:SetAlpha(0)
 
-    -- the ornament at the panel's left end
+    -- the ornament around the panel's left end: its middle (the half where the unit
+    -- frames' portrait sits) starts at the panel's edge, so it hugs the bar's end
     local s = math.floor(Hp * 2.6)
     p.wings:ClearAllPoints()
     p.wings:SetSize(s, s)
-    p.wings:SetPoint("CENTER", p, "LEFT", 0, 0)
+    p.wings:SetPoint("CENTER", p, "LEFT", math.floor(s / 4 + 0.5), 0)
 
     -- texts: the name above (or in the bar), the level in front of it, health on the right
     local size = C.textSize
@@ -555,11 +570,33 @@ function NP:UpdateClass(p)
     local C = cfg()
     local cls = C.ornament and not p.nameOnly and classification(p.unit)
     p.wings:SetShown(cls and true or false)
+    p.wingHead:Hide()
+    p.wingLine:Hide()
+    p.wingHeadLine:Hide()
     if not cls then return end
+    -- style, color and outline as set for the unit frames
     local E = ns.db.blizzard.unitFrames.elite
-    local style = ORNAMENTS[E[STYLE_KEYS[cls]]] or ORNAMENTS.wings
+    local key = E[STYLE_KEYS[cls]]
+    local style = ORNAMENTS[key] or ORNAMENTS.wings
+    local color = E[COLOR_KEYS[cls]] or E.eliteColor
+    local line = E[OUTLINE_KEYS[cls]] or E.eliteOutlineColor
     p.wings:SetTexture(MEDIA .. style .. "Left")
-    tint(p.wings, E[COLOR_KEYS[cls]] or E.eliteColor, 1)
+    tint(p.wings, color, 1)
+    if E.outline and line then
+        p.wingLine:SetTexture(MEDIA .. style .. "OutlineLeft")
+        tint(p.wingLine, line, 1)
+        p.wingLine:Show()
+    end
+    if HEADS[key] then
+        p.wingHead:SetTexture(MEDIA .. HEADS[key] .. "Left")
+        tint(p.wingHead, color, 1)
+        p.wingHead:Show()
+        if E.outline and line then
+            p.wingHeadLine:SetTexture(MEDIA .. HEADS[key] .. "OutlineLeft")
+            tint(p.wingHeadLine, line, 1)
+            p.wingHeadLine:Show()
+        end
+    end
 end
 
 function NP:UpdateRaid(p)
