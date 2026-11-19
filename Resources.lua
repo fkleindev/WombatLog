@@ -231,22 +231,25 @@ end
 local EASE = Enum and Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
 local easeWorks = EASE ~= nil
 
-local function setSecretValue(b, cur)
-    if easeWorks and ns.db.resources.smooth then
+local function setSecretValue(b, cur, smooth)
+    if easeWorks and smooth then
         if pcall(b.SetValue, b, cur, EASE) then return end
         easeWorks = false -- the client doesn't take it after all
     end
     b:SetValue(cur)
 end
 
--- Plain values glide here (smooth); secret ones go to the widget, which glides
--- them itself where the client can.
-local function setBar(b, cur, max)
+-- Plain values glide (glideBar, every frame); secret ones go to the widget, which
+-- glides them itself where the client can. smooth: the resource display's setting
+-- unless given. b.snap: the next value is taken as is (a new unit in a frame).
+local function setBar(b, cur, max, smooth)
+    if smooth == nil then smooth = ns.db.resources.smooth end
+    if b.snap then smooth, b.snap, b.shownValue = false, nil, nil end
     b:SetMinMaxValues(0, max or 1)
     if isSecret(cur) or isSecret(max) then
         b.target, b.shownValue = nil, nil
-        setSecretValue(b, cur)
-    elseif ns.db.resources.smooth and b.shownValue then
+        setSecretValue(b, cur, smooth)
+    elseif smooth and b.shownValue then
         b.target = cur or 0
     else
         b.target = nil
@@ -254,6 +257,16 @@ local function setBar(b, cur, max)
         b:SetValue(cur or 0)
     end
 end
+
+local function glideBar(b, dt)
+    if not (b.target and b.shownValue) then return end
+    local v = b.shownValue + (b.target - b.shownValue) * math.min(1, dt * 12)
+    if math.abs(b.target - v) < 0.5 then v, b.target = b.target, nil end
+    b.shownValue = v
+    b:SetValue(v)
+end
+-- also used by the unit frames
+Resources.SetBar, Resources.GlideBar = setBar, glideBar
 
 local function styleBar(b, cfg, color)
     local R = ns.db.resources
@@ -769,52 +782,73 @@ end
 
 local costOnUpdate
 
--- Marks for bar b, clipped to it (a cost bigger than what's left doesn't hang out
--- on the left), with the bar's texts lifted above them.
-local function costLayer(b)
+-- The bars that show costs: the resource display's power and druid mana, and the
+-- unit frames' own power bar. A target t: { bar, pt() = the power type it shows
+-- (nil: none now), on() = shows marks now, color() }, and gets t.clip.
+local targets = {}
+
+-- Marks for t's bar, clipped to it (a cost bigger than what's left doesn't hang out
+-- on the left). lift: texts to raise above them.
+function Resources:AddCostTarget(t, lift)
+    local b = t.bar
     local clip = CreateFrame("Frame", nil, b)
     clip:SetAllPoints()
     clip:SetClipsChildren(true)
     clip:SetFrameLevel(b:GetFrameLevel() + 1)
     clip.cast, clip.flash = makeMark(clip), makeMark(clip)
+    clip.target = t
     clip:SetScript("OnUpdate", costOnUpdate)
     clip:Hide()
-    local top = CreateFrame("Frame", nil, b)
-    top:SetAllPoints()
-    top:SetFrameLevel(b:GetFrameLevel() + 2)
-    b.left:SetParent(top)
-    b.right:SetParent(top)
-    b.cost = clip
+    if lift then
+        local top = CreateFrame("Frame", nil, b)
+        top:SetAllPoints()
+        top:SetFrameLevel(b:GetFrameLevel() + 2)
+        for _, fs in ipairs(lift) do fs:SetParent(top) end
+    end
+    t.clip = clip
+    targets[#targets + 1] = t
+    return t
 end
 
--- Which shown bar spellID takes from, what it costs there and that bar's maximum.
-local function findCost(spellID)
+-- What spellID costs, by power type (the first cost of each).
+local function spellCosts(spellID)
     if not spellID or not getPowerCost then return nil end
     local ok, costs = pcall(getPowerCost, spellID)
     costs = ok and ns.SafeTable(costs)
     if not costs then return nil end
-    local bars = Resources.bars
+    local list
     for _, c in ipairs(costs) do
         local pt, n = Safe(c.type), Safe(c.cost)
         local needsAura = Safe(c.requiredAuraID)
-        if n and n > 0 and not (needsAura and needsAura ~= 0 and Safe(c.hasRequiredAura) == false) then
-            local key = (pt == powerType() and "power") or (pt == MANA and "druidMana") or nil
-            if key and bars[key]:IsShown() then return key, n, UnitPowerMax("player", pt), pt end
+        if pt and n and n > 0 and not (needsAura and needsAura ~= 0 and Safe(c.hasRequiredAura) == false) then
+            list = list or {}
+            if not list[pt] then list[pt] = n end
         end
+    end
+    return list
+end
+
+-- Each target showing marks now that costs has a cost for: t, cost, power type.
+local function eachTarget(costs, fn)
+    if not costs then return end
+    for _, t in ipairs(targets) do
+        local pt = t.on() and t.pt()
+        if pt and costs[pt] then fn(t, costs[pt], pt) end
     end
 end
 
--- Puts mark m of bar `key` up: "cast" ends at the fill's edge and reaches left,
+-- Puts mark m of target t up: "cast" ends at the fill's edge and reaches left,
 -- "flash" starts there (or at `at`, a plain value) and reaches right.
-local function placeMark(m, key, cost, max, mode, at)
-    local R, b = ns.db.resources, Resources.bars[key]
+local function placeMark(m, t, cost, max, mode, at)
+    local b = t.bar
+    local w, h = b:GetWidth(), b:GetHeight()
     m:SetMinMaxValues(0, max)
     m:SetValue(cost)
-    m:SetSize(R.width, R[key].height)
+    m:SetSize(w, h)
     m:SetReverseFill(mode == "cast")
     m:ClearAllPoints()
     if at then
-        m:SetPoint("LEFT", b, "LEFT", R.width * math.min(1, math.max(0, at / max)), 0)
+        m:SetPoint("LEFT", b, "LEFT", w * math.min(1, math.max(0, at / max)), 0)
     else
         m:SetPoint(mode == "cast" and "RIGHT" or "LEFT", b:GetStatusBarTexture(), "RIGHT", 0, 0)
     end
@@ -822,47 +856,60 @@ local function placeMark(m, key, cost, max, mode, at)
     m.fill:SetVertexColor(1, 1, 1, 0)
     m.shine:SetVertexColor(1, 1, 1, 0)
     m:Show()
-    b.cost:Show()
+    t.clip:Show()
 end
 
-local function enabled()
-    return ns.db and Resources.frame and ns.db.resources.power.costMark
-end
+-- An instant's cost flashes even when no power update follows: this looks after it
+-- while the resource display may be hidden.
+local pendingDriver = CreateFrame("Frame")
+pendingDriver:Hide()
+pendingDriver:SetScript("OnUpdate", function(self)
+    if not Cost.pending then self:Hide() return end
+    if GetTime() - Cost.pending.at > 0.3 then Resources:FlashPending(true) end
+end)
 
 function Resources:MarkCast(guid, spellID, test)
     self:EndMark(true)
-    if not enabled() then return end
-    local key, cost, max
-    if test then
-        key, cost, max = "power", PREVIEW_COST, 1
-    else
-        key, cost, max = findCost(spellID)
-    end
     Cost.guid, Cost.spellID, Cost.test, Cost.endedAt = guid, spellID, test, nil
-    if not key then return end
-    Cost.key = key
-    placeMark(self.bars[key].cost.cast, key, cost, max, "cast")
+    local marked = {}
+    if test then
+        -- the preview's cast: on the resource display's power bar
+        local t = self.costPower
+        if t and t.on() then
+            placeMark(t.clip.cast, t, PREVIEW_COST, 1, "cast")
+            marked[1] = t
+        end
+    else
+        eachTarget(spellCosts(spellID), function(t, cost, pt)
+            placeMark(t.clip.cast, t, cost, UnitPowerMax("player", pt), "cast")
+            marked[#marked + 1] = t
+        end)
+    end
+    Cost.key = #marked > 0 and marked or nil
 end
 
--- The cast is over (done or not): its mark fades. now skips the fade.
+-- The cast is over (done or not): its marks fade. now skips the fade.
 function Resources:EndMark(now)
-    local key = Cost.key
+    local marked = Cost.key
     Cost.key, Cost.test = nil, nil
     Cost.endedAt = GetTime()
-    local m = key and self.bars[key].cost.cast
-    if not (m and m:IsShown()) then return end
-    if now then m:Hide() else m.fadeFrom = m.fadeFrom or GetTime() end
+    for _, t in ipairs(marked or {}) do
+        local m = t.clip.cast
+        if m:IsShown() then
+            if now then m:Hide() else m.fadeFrom = m.fadeFrom or GetTime() end
+        end
+    end
 end
 
 -- An instant spell (or a channel) went off: flash what it took once the power
 -- has gone down, or after a moment when no power update comes.
 function Resources:MarkInstant(spellID)
-    if not enabled() then return end
-    local key, cost, max, pt = findCost(spellID)
-    if not key then return end
-    local cur = UnitPower("player", pt)
-    Cost.pending = { key = key, cost = cost, max = max, pt = pt, at = GetTime(),
-                     before = not isSecret(cur) and cur or nil }
+    local costs, pt0 = spellCosts(spellID), nil
+    eachTarget(costs, function(_, _, pt) pt0 = pt0 or pt end)
+    if not pt0 then return end
+    local cur = UnitPower("player", pt0)
+    Cost.pending = { costs = costs, pt = pt0, at = GetTime(), before = not isSecret(cur) and cur or nil }
+    pendingDriver:Show()
 end
 
 -- force: flash even if the power hasn't visibly gone down (it may have before the
@@ -870,16 +917,18 @@ end
 function Resources:FlashPending(force)
     local p = Cost.pending
     if not p then return end
-    if GetTime() - p.at > 1 then Cost.pending = nil return end -- the display was hidden meanwhile
+    if GetTime() - p.at > 1 then Cost.pending = nil return end
     local cur = UnitPower("player", p.pt)
     -- a regeneration tick right after the spell isn't the payment yet
     if not force and p.before and not isSecret(cur) and cur >= p.before then return end
     Cost.pending = nil
-    if not self.bars[p.key]:IsShown() then return end
-    -- plain values: right where the bar is headed, so a gliding fill runs through
-    -- the flash instead of dragging it along
-    local at = not isSecret(cur) and not isSecret(p.max) and p.max > 0 and cur or nil
-    placeMark(self.bars[p.key].cost.flash, p.key, p.cost, p.max, "flash", at)
+    eachTarget(p.costs, function(t, cost, pt)
+        local now, max = UnitPower("player", pt), UnitPowerMax("player", pt)
+        -- plain values: right where the bar is headed, so a gliding fill runs through
+        -- the flash instead of dragging it along
+        local at = not isSecret(now) and not isSecret(max) and max > 0 and now or nil
+        placeMark(t.clip.flash, t, cost, max, "flash", at)
+    end)
 end
 
 local function animate(m, now, color)
@@ -908,7 +957,7 @@ local function animate(m, now, color)
 end
 
 function costOnUpdate(self)
-    local now, color = GetTime(), ns.db.resources.power.costColor
+    local now, color = GetTime(), self.target.color()
     local a = animate(self.cast, now, color)
     local b = animate(self.flash, now, color)
     if not (a or b) then self:Hide() end
@@ -940,17 +989,8 @@ local function OnUpdate(self, dt)
         Resources:UpdatePower()
     end
     -- smooth plain values
-    for _, b in pairs(Resources.bars) do
-        if b.target and b.shownValue then
-            local v = b.shownValue + (b.target - b.shownValue) * math.min(1, dt * 12)
-            if math.abs(b.target - v) < 0.5 then v, b.target = b.target, nil end
-            b.shownValue = v
-            b:SetValue(v)
-        end
-    end
+    for _, b in pairs(Resources.bars) do glideBar(b, dt) end
     castOnUpdate()
-    -- an instant's cost flashes even when no power update follows
-    if Cost.pending and GetTime() - Cost.pending.at > 0.3 then Resources:FlashPending(true) end
     -- out of combat, re-check twice a second: no event fires once you're full again
     self.recheck = (self.recheck or 0) + dt
     if self.recheck >= 0.5 then
@@ -1000,8 +1040,15 @@ function Resources:Init()
     cb.icon = cb:CreateTexture(nil, "ARTWORK")
     cb.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     cb.icon:SetPoint("RIGHT", cb, "LEFT", -3, 0)
-    costLayer(self.bars.power)
-    costLayer(self.bars.druidMana)
+    -- spell cost marks on both power bars
+    local R = function() return ns.db.resources end
+    local function shown() return R().power.costMark end
+    local function color() return R().power.costColor end
+    local power, druid = self.bars.power, self.bars.druidMana
+    self.costPower = self:AddCostTarget({ bar = power, on = function() return shown() and power:IsShown() end,
+        pt = powerType, color = color }, { power.left, power.right })
+    self:AddCostTarget({ bar = druid, on = function() return shown() and druid:IsShown() end,
+        pt = function() return MANA end, color = color }, { druid.left, druid.right })
     self:Apply()
 end
 

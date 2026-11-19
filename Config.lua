@@ -514,6 +514,60 @@ function Page:ProcLists()
     return holder
 end
 
+-- A list of spell names or IDs at path (an array in ns.db), each with Remove.
+local NAME_ROWS = 8
+
+function Page:NameList(label, path, col)
+    local bind = Bind(path)
+    local holder = CreateFrame("Frame", nil, self.child)
+    holder:SetSize(WIDGET_W, 22 + NAME_ROWS * 22)
+    local title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT")
+    title:SetText(L[label])
+    local rows = {}
+    for i = 1, NAME_ROWS do
+        local r = CreateFrame("Frame", nil, holder)
+        r:SetSize(WIDGET_W, 20)
+        r:SetPoint("TOPLEFT", 0, -20 - (i - 1) * 22)
+        r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        r.text:SetPoint("LEFT")
+        r.text:SetWidth(WIDGET_W - 70)
+        r.text:SetJustifyH("LEFT")
+        r.text:SetWordWrap(false)
+        r.btn = CreateFrame("Button", nil, r, "UIPanelButtonTemplate")
+        r.btn:SetSize(64, 18)
+        r.btn:SetPoint("RIGHT")
+        rows[i] = r
+    end
+    local empty = holder:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    empty:SetPoint("TOPLEFT", 0, -22)
+    empty:SetText(L["Empty"])
+    holder.Refresh = function()
+        local list = bind.get()
+        for i, r in ipairs(rows) do
+            local e = list[i]
+            if e then
+                local id = tonumber(e)
+                local info = id and ns.SpellInfo(id)
+                r.text:SetText(info and info.name and (info.name .. " (" .. id .. ")") or e)
+                r.btn:SetText(L["Remove"])
+                r.btn:SetScript("OnClick", function()
+                    table.remove(list, i)
+                    holder.Refresh()
+                    ns.ApplyAll()
+                end)
+                r:Show()
+            else
+                r:Hide()
+            end
+        end
+        empty:SetShown(#list == 0)
+    end
+    register(holder)
+    self:Add(holder, 26 + NAME_ROWS * 22, col)
+    return holder
+end
+
 -- A fixed set of entries the user can move up and down. getList returns the keys
 -- in order, setList saves a new order, labels maps keys to names.
 function Page:OrderList(label, getList, setList, labels)
@@ -2034,7 +2088,7 @@ end
 local function BuildUnitFrames(p)
     local path = "blizzard.unitFrames."
     p:Header("Unit frames")
-    p:Note("A modern look for your own frame, your pet's and your target's. Blizzard's frames keep working underneath: clicks, the right-click menu, auras, the target's cast bar and their place (Edit Mode on Retail) stay.")
+    p:Note("A modern look for your own frame, your pet's, your target's and your party's. Blizzard's frames keep working underneath: clicks, the right-click menu, auras, the target's cast bar and their place (Edit Mode on Retail) stay.")
     p:Checkbox("Modern unit frames", path .. "enabled")
     p:Dropdown("Portrait", path .. "portrait", {
         { text = "Round", value = "round" },
@@ -2067,6 +2121,54 @@ local function UnitFramePage(key, name)
         p:Slider("Vertical offset", path .. "y", -100, 100, 1, px, 2)
         p:Note("The offsets move the new look within Blizzard's frame; move the frame itself the way you always do (Edit Mode on Retail). A power height of 0 leaves the power bar out.")
     end
+end
+
+-- The party: like the game, smaller than your own frame unless it takes its size;
+-- spacing, fading out of range and a preview to set it up without a group.
+local function BuildPartyFrames(p)
+    local path = "blizzard.unitFrames.party."
+    p:Note("These options need \"Modern unit frames\" on the General tab.")
+    p:Header("Party")
+    p:Checkbox("Show", path .. "enabled")
+    local same = p:Checkbox("Same size as your own frame", path .. "sameAsPlayer", 2)
+    p:Note("Like the game's, party members' frames are smaller than yours. \"Same size as your own frame\" gives them its bar width, heights and portrait size, and they follow when you change them on the Player tab; the size sliders here then rest.")
+    local sizes = {
+        p:Slider("Bar width", path .. "width", 50, 260, 2, px),
+        p:Slider("Portrait size", path .. "portraitSize", 16, 90, 1, px, 2),
+        p:Slider("Health height", path .. "healthHeight", 4, 40, 1, px),
+        p:Slider("Power height", path .. "powerHeight", 0, 24, 1, px, 2),
+    }
+    -- resting sliders are dimmed
+    local function dim()
+        local on = ns.db.blizzard.unitFrames.party.sameAsPlayer
+        for _, h in ipairs(sizes) do h:SetAlpha(on and 0.4 or 1) end
+    end
+    for _, h in ipairs(sizes) do
+        local refresh = h.Refresh
+        h.Refresh = function() refresh(); dim() end
+    end
+    same:HookScript("OnClick", dim)
+    p:Slider("Spacing", path .. "spacing", 0, 40, 1, px)
+    p:Slider("Horizontal offset", path .. "x", -150, 150, 1, px)
+    p:Slider("Vertical offset", path .. "y", -100, 100, 1, px, 2)
+    p:Note("The spacing is the room between the members' frames (and their pets'): WombatLog stacks Blizzard's party frames by it, out of combat. Move the party as a whole the way you always do.")
+
+    p:Header("Range")
+    p:Checkbox("Fade out of range", path .. "fade")
+    p:Slider("Opacity out of range", path .. "fadeAlpha", 0.1, 1, 0.05, pct, 2)
+
+    p:Header("Pets")
+    local pet = "blizzard.unitFrames.partypet."
+    p:Checkbox("Show", pet .. "enabled")
+    p:Slider("Bar width", pet .. "width", 30, 200, 2, px)
+    p:Slider("Portrait size", pet .. "portraitSize", 12, 60, 1, px, 2)
+    p:Slider("Health height", pet .. "healthHeight", 4, 30, 1, px)
+    p:Slider("Power height", pet .. "powerHeight", 0, 16, 1, px, 2)
+    p:Note("Party pets show when the game shows them (the \"Show party pets\" option in the interface settings).")
+
+    p:Header("Preview")
+    p:Checkbox("Preview without a group", path .. "preview")
+    p:Note("Shows four made-up party members where your party will be, to set size and spacing. It ends when you join a group or close the settings. On Retail, raid-style party frames (Edit Mode) stay as they are and show no preview.")
 end
 
 local function BuildUnitFrameLook(p)
@@ -2149,7 +2251,175 @@ local function BuildUnitFrameEffects(p)
     p:Checkbox("New target slides in", path .. "anim.targetChange")
     p:Checkbox("Glow in combat", path .. "anim.combat", 2)
     p:Checkbox("Shake when hit", path .. "anim.hit")
+    p:Checkbox("Smooth bar movement", path .. "anim.smooth", 2)
+    p:Checkbox("Mark the cost of the spell you cast", path .. "anim.costMark")
+    p:Color("Cost color", path .. "anim.costColor", 2)
+    p:Note("Your own power bar shows what the spell you cast will take, as on the resource display: the part shimmers while you cast and flashes when an instant spell takes it.")
     p:Note("In combat Forever and Retail may keep health secret: the bars stay right, the damage trail and the heal flash wait until it's readable again, and low health is worked out by the game where it can.")
+end
+
+---------------------------------------------------------------------------
+-- Nameplates
+---------------------------------------------------------------------------
+
+
+local function BuildNameplates(p)
+    local path = "nameplates."
+    p:Header("Nameplates")
+    p:Note("Nameplates in WombatLog's look in place of the game's: name, level, health, a cast bar, your auras on the unit and more. The game's plates keep working underneath (clicks, stacking, fading with distance). In dungeons and raids the game keeps friendly nameplates from addons: those stay the game's.")
+    p:Checkbox("Our nameplates", path .. "enabled")
+    p:Checkbox("Enemies", path .. "hostile")
+    p:Checkbox("Allies", path .. "friendly", 2)
+    p:Checkbox("Allies: only the name", path .. "friendlyNameOnly")
+    p:Dropdown("Overlapping plates", path .. "motion", {
+        { text = "As set in the game", value = "game" },
+        { text = "Stack them", value = "stack" },
+        { text = "Let them overlap", value = "overlap" },
+    }, 2)
+
+    p:Header("Size")
+    p:Slider("Width", path .. "width", 60, 220, 2, px)
+    p:Slider("Health height", path .. "healthHeight", 4, 30, 1, px, 2)
+    p:Slider("Cast bar height", path .. "castHeight", 4, 20, 1, px)
+    p:Slider("Text size", path .. "textSize", 7, 16, 1, nil, 2)
+    p:Note("The game's plates take the size too (the area you click, and the room they get when stacked). Sizes and stacking change out of combat.")
+end
+
+local function BuildNameplateLook(p)
+    local path = "nameplates."
+    p:Note("These options need \"Our nameplates\" on the General tab.")
+    p:Header("Bars")
+    p:Dropdown("Bar texture", path .. "texture", ns.Resources.TextureOptions)
+    p:Dropdown("Health color", path .. "healthColor", {
+        { text = "Reaction", value = "reaction" },
+        { text = "Class (players), reaction (others)", value = "class" },
+        { text = "Custom color", value = "custom" },
+    }, 2)
+    p:Color("Custom color", path .. "customColor")
+    p:Color("Allied players", path .. "friendlyPlayerColor")
+    p:Color("Your party", path .. "partyColor", 2)
+    p:Note("By reaction, allied players are blue and only your party (or raid) green, as on the game's plates; the name color \"Reaction\" follows the same.")
+
+    p:Header("Panel")
+    p:Slider("Corner radius", path .. "radius", 0, 8, 1, px)
+    p:Color("Color", path .. "bgColor", 2)
+    p:Slider("Opacity", path .. "bgOpacity", 0, 1, 0.05, pct)
+    p:Checkbox("Shadow", path .. "shadow", 2)
+    p:Slider("Shadow opacity", path .. "shadowOpacity", 0, 1, 0.05, pct)
+
+    p:Header("Border")
+    p:Checkbox("Border", path .. "border")
+    p:Slider("Thickness", path .. "borderSize", 1, 4, 1, px, 2)
+    p:Color("Color", path .. "borderColor")
+    p:Slider("Opacity", path .. "borderOpacity", 0, 1, 0.05, pct, 2)
+end
+
+local function BuildNameplateTexts(p)
+    local path = "nameplates."
+    p:Note("These options need \"Our nameplates\" on the General tab.")
+    p:Header("Name")
+    p:Checkbox("Names", path .. "name")
+    p:Checkbox("Name in the health bar", path .. "nameInBar", 2)
+    p:Dropdown("Name color", path .. "nameColor", {
+        { text = "White", value = "white" },
+        { text = "Reaction", value = "reaction" },
+        { text = "Class (players), reaction (others)", value = "class" },
+    })
+    p:Header("Health and level")
+    p:Dropdown("Health text", path .. "healthText", TEXT_MODES)
+    p:Checkbox("Level", path .. "level", 2)
+    p:Checkbox("Elite and rare ornament", path .. "ornament")
+    p:Checkbox("Raid target icon", path .. "raidIcon", 2)
+    p:Note("The ornament takes each kind's style and color from the unit frames' Effects tab.")
+end
+
+local function BuildNameplateCast(p)
+    local path = "nameplates."
+    p:Note("These options need \"Our nameplates\" on the General tab.")
+    p:Header("Cast bar")
+    p:Checkbox("Cast bar", path .. "castbar")
+    p:Checkbox("Spell icon", path .. "castIcon", 2)
+    p:Checkbox("Spell name", path .. "castName")
+    p:Checkbox("Time left", path .. "castTime", 2)
+    p:Color("Color", path .. "castColor")
+    p:Color("Can't be interrupted", path .. "castLockedColor", 2)
+    p:Note("An interrupted cast shows red for a moment.")
+end
+
+local function BuildNameplateAuras(p)
+    local path = "nameplates."
+    p:Note("These options need \"Our nameplates\" on the General tab.")
+    p:Header("Auras")
+    p:Checkbox("Auras", path .. "auras")
+    p:Checkbox("Time left", path .. "auraTimer", 2)
+    p:Slider("Icon size", path .. "auraSize", 12, 36, 1, px)
+    p:Slider("At most", path .. "maxAuras", 1, 12, 1, nil, 2)
+    p:Dropdown("Drawn by", path .. "auraSource", {
+        { text = "Automatic", value = "auto" },
+        { text = "WombatLog (with the lists)", value = "ours" },
+        { text = "The game", value = "game" },
+    })
+    p:Checkbox("Enemies: all debuffs", path .. "auraAllHostile")
+    p:Checkbox("Allies: all buffs", path .. "auraAllFriendly", 2)
+    p:Note("Enemies show the debuffs you put on them, allies the buffs you gave them. Auras on the left list show from anyone too; auras on the right list never show.")
+    p:Note("Forever and Retail keep other units' auras from addons in combat. Automatic lets the game draw them there: its own aura row moves onto our plate, with the game's look and choice of auras (size, count, \"all\" and the lists then don't apply). WombatLog draws them on the other clients.")
+
+    local box = p:EditBox("Spell name or spell ID")
+    local always, never
+    local function add(key, list)
+        local t = strtrim(box:GetText() or "")
+        if t == "" then return end
+        local entries = ns.db.nameplates[key]
+        for _, e in ipairs(entries) do
+            if tostring(e):lower() == t:lower() then return end
+        end
+        entries[#entries + 1] = tonumber(t) and tostring(tonumber(t)) or t
+        box:SetText("")
+        box:ClearFocus()
+        list.Refresh()
+        ns.ApplyAll()
+    end
+    p:Button("Always show", function() add("auraAlways", always) end, nil, nil, 150)
+    p:Button("Never show", function() add("auraNever", never) end, 2, nil, 150)
+    always = p:NameList("Always show", path .. "auraAlways")
+    never = p:NameList("Never show", path .. "auraNever", 2)
+end
+
+local function BuildNameplateExtras(p)
+    local path = "nameplates."
+    p:Note("These options need \"Our nameplates\" on the General tab.")
+    p:Header("Target")
+    p:Checkbox("Glow around the target", path .. "targetGlow")
+    p:Color("Glow color", path .. "targetGlowColor", 2)
+    p:Slider("Target size", path .. "targetScale", 1, 1.5, 0.05, pct)
+
+    p:Header("Threat")
+    p:Checkbox("Threat colors", path .. "threat")
+    p:Dropdown("Your role", path .. "threatRole", {
+        { text = "Automatic", value = "auto" },
+        { text = "Tank", value = "tank" },
+        { text = "Damage or healer", value = "dps" },
+    }, 2)
+    p:Color("Safe", path .. "threatSafe")
+    p:Color("Warning", path .. "threatWarn", 2)
+    p:Color("Danger", path .. "threatDanger")
+    p:Note("Enemies fighting you color the health bar by threat. As damage or healer: danger once they attack you, a warning when you're close to pulling them, normal colors otherwise. As tank it turns around: safe while you hold them, a warning when you're about to lose them, danger when they're on someone else. Automatic takes your role in the group, or your specialization.")
+
+    p:Header("Execute range")
+    p:Checkbox("Execute mark", path .. "execute")
+    p:Slider("Below", path .. "executeAt", 0.05, 0.5, 0.05, pct, 2)
+    p:Color("Color below", path .. "executeColor")
+    p:Note("A line on enemies' health bars where the execute range begins (Execute, Kill Shot and the like); below it the bar takes the color. It waits while health is secret.")
+
+    p:Header("Quests")
+    p:Checkbox("Mark mobs your quests need", path .. "quest")
+
+    p:Header("Animations")
+    p:Checkbox("Damage trail", path .. "anim.damage")
+    p:Checkbox("Heal flash", path .. "anim.heal", 2)
+    p:Checkbox("Smooth bar movement", path .. "anim.smooth")
+    p:Checkbox("Low health", path .. "anim.lowHealth", 2)
+    p:Slider("Below", path .. "anim.lowAt", 0.1, 0.6, 0.05, pct)
 end
 
 local function BuildMinimap(p)
@@ -2465,8 +2735,17 @@ local TABS = {
         { "Target of target", UnitFramePage("targettarget", "Target of target") },
         { "Focus", UnitFramePage("focus", "Focus") },
         { "Pet", UnitFramePage("pet", "Pet") },
+        { "Party", BuildPartyFrames },
         { "Look", BuildUnitFrameLook },
         { "Effects", BuildUnitFrameEffects },
+    } },
+    { "Nameplates", {
+        { "General", BuildNameplates },
+        { "Look", BuildNameplateLook },
+        { "Texts", BuildNameplateTexts },
+        { "Cast bar", BuildNameplateCast },
+        { "Auras", BuildNameplateAuras },
+        { "Extras", BuildNameplateExtras },
     } },
     { "Bag slots", BuildBagSlots },
     { "Minimap button", BuildMinimap },
@@ -2944,6 +3223,7 @@ function Config:Init()
         if ns.QuestProgress.unlocked then ns.QuestProgress:SetLocked(true) end
         if ns.Report.unlocked then ns.Report:SetLocked(true) end
         if ns.FlightTimer.unlocked then ns.FlightTimer:SetLocked(true) end
+        ns.UnitFrames:EndPreview()
         if Config.results then Config.results:Hide() end
     end)
 

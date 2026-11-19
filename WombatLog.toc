@@ -55,6 +55,7 @@ Resources.lua
 Minimap.lua
 BlizzardUI.lua
 UnitFrames.lua
+Nameplates.lua
 MacroBuilder.lua
 Config.lua
 Welcome.lua

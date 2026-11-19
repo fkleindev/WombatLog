@@ -4,7 +4,7 @@ ns.UnitFrames = UnitFrames
 local L = ns.L
 local Safe, isSecret = ns.Safe, ns.IsSecret
 
--- Modern unit frames for you, your pet and your target. Blizzard's frames stay what
+-- Modern unit frames for you, your pet, your target and your party. Blizzard's frames stay what
 -- they are (clicks, the right-click menu, auras, the target's cast bar, target of
 -- target, Edit Mode, the fade out of range): only their art, bars, portrait and
 -- texts go invisible, and a frame of WombatLog's own inside each draws the new look
@@ -56,7 +56,35 @@ local UNITS = {
     { key = "targettarget", frame = "TargetFrameToT", unit = "targettarget", side = "left", poll = true, hideAll = true },
     { key = "focus", frame = "FocusFrame", unit = "focus", side = "right" }, -- not on Classic Era
 }
+
+-- The party: Blizzard's member frames are named on older clients, kept by the
+-- party frame on newer ones; each holds its member's pet frame. (Retail's raid-style
+-- party frames are left alone.)
+local function partyMember(i)
+    return _G["PartyMemberFrame" .. i] or (PartyFrame and PartyFrame["MemberFrame" .. i])
+end
+local function partyPet(i)
+    local m = partyMember(i)
+    return _G["PartyMemberFrame" .. i .. "PetFrame"] or (m and m.PetFrame)
+end
+-- the parts of a member frame the new look replaces: by name ("%s" is the frame's) or key
+local PARTY_HIDE = { "%sTexture", "%sBackground", "%sFlash", "%sVehicleTexture", "%sStatus",
+    "%sPortrait", "%sName", "%sHealthBar", "%sManaBar", "%sHealthBarText", "%sManaBarText",
+    "%sHealthBarTextLeft", "%sHealthBarTextRight", "%sManaBarTextLeft", "%sManaBarTextRight",
+    ".Texture", ".VehicleTexture", ".Flash", ".Background", ".Status", ".Portrait", ".Name",
+    ".HealthBarContainer", ".HealthBar", ".ManaBar" }
+-- cfg: the settings they share; small: smaller texts; scanTexts: Blizzard's texts
+-- over ours are looked for now and then; range: faded out of range
+for i = 1, 4 do
+    UNITS[#UNITS + 1] = { key = "party" .. i, cfg = "party", unit = "party" .. i, side = "left",
+        hide = PARTY_HIDE, scanTexts = true, range = true, get = function() return partyMember(i) end }
+end
+for i = 1, 4 do
+    UNITS[#UNITS + 1] = { key = "partypet" .. i, cfg = "partypet", unit = "partypet" .. i, side = "left",
+        small = true, hideAll = true, range = true, get = function() return partyPet(i) end }
+end
 local POLL = 0.1
+local RANGE_EVERY = 0.2
 -- the events that bring a new unit into a frame, and which frame
 local NEW_UNIT = { PLAYER_TARGET_CHANGED = "target", PLAYER_FOCUS_CHANGED = "focus" }
 
@@ -222,7 +250,15 @@ local function blizzardParts(u, blizz)
     local function add(r)
         if type(r) == "table" and r.SetAlpha then list[#list + 1] = r end
     end
-    for _, path in ipairs(HIDE[u.frame] or {}) do add(resolve(blizz, path)) end
+    local okName, gname = pcall(blizz.GetName, blizz)
+    if not okName or type(gname) ~= "string" or isSecret(gname) then gname = nil end
+    for _, path in ipairs(u.hide or HIDE[u.frame] or {}) do
+        if path:find("%s", 1, true) then
+            if gname then add(_G[path:format(gname)]) end
+        else
+            add(resolve(blizz, path))
+        end
+    end
     for _, k in ipairs(HIDE_KEYS) do add(blizz[k]) end
     for _, bar in ipairs({ blizz.healthbar, blizz.manabar }) do
         for _, k in ipairs(BAR_TEXTS) do add(bar and bar[k]) end
@@ -301,8 +337,10 @@ local function hideTextsOver(w)
 end
 
 local function rehide(w)
-    if not w.u.hideAll then return end
-    for _, r in ipairs(blizzardParts(w.u, w.blizz)) do hideFor(w, r) end
+    if not (w.u.hideAll or w.u.scanTexts) then return end
+    if w.u.hideAll then
+        for _, r in ipairs(blizzardParts(w.u, w.blizz)) do hideFor(w, r) end
+    end
     hideTextsOver(w)
 end
 
@@ -448,8 +486,9 @@ local function text(parent, justify)
     return fs
 end
 
-local function create(u, blizz)
-    local w = CreateFrame("Frame", nil, blizz)
+-- parent: blizz but for the party preview, which shows while Blizzard's frame doesn't
+local function create(u, blizz, parent)
+    local w = CreateFrame("Frame", nil, parent or blizz)
     w.u, w.blizz, w.side = u, blizz, u.side
     local base = blizz:GetFrameLevel() + 1
     w:SetFrameLevel(base)
@@ -565,9 +604,27 @@ local function put(w, region, x, y, width, height)
     region:SetSize(width, height)
 end
 
+-- The frame's settings. Party members can take your own frame's size: its bars and
+-- portrait, followed as they change, with their own place.
+local SIZE_KEYS = { "width", "healthHeight", "powerHeight", "portraitSize" }
+local function settingsOf(w)
+    local C = cfg()
+    local U = C[w.u.cfg or w.u.key]
+    if w.u.cfg ~= "party" or not U.sameAsPlayer then return U end
+    local s = {}
+    for k, v in pairs(U) do s[k] = v end
+    for _, k in ipairs(SIZE_KEYS) do s[k] = C.player[k] end
+    return s
+end
+
 local function setFonts(w)
     local C, A = cfg(), ns.db.appearance
-    local size = w.u.key == "pet" and math.max(7, C.textSize - 2) or C.textSize
+    local size = C.textSize
+    if w.u.key == "pet" or w.u.small then
+        size = math.max(7, size - 2)
+    elseif w.u.cfg == "party" and not C.party.sameAsPlayer then
+        size = math.max(7, size - 1)
+    end
     ns.SetFont(w.name, A.nameFont, size, "OUTLINE")
     ns.SetFont(w.hpText, A.amountFont, size, "OUTLINE")
     ns.SetFont(w.ppText, A.amountFont, math.max(7, size - 2), "OUTLINE")
@@ -576,7 +633,7 @@ end
 
 -- Sizes and places everything from the settings.
 local function layout(w)
-    local C, U = cfg(), cfg()[w.u.key]
+    local C, U = cfg(), settingsOf(w)
     local style = C.portrait
     local b = C.border and C.borderSize or 0
     local h1, h2 = U.healthHeight, U.powerHeight
@@ -755,7 +812,8 @@ local function fitTexts(w)
     local hasName = cfg().names
     local tw = w.hpText:GetStringWidth() or 0
     if isSecret(tw) then tw = bw * 0.4 end
-    local fits = not hasName or tw <= 0 or (room - tw - 6) >= bw * NAME_SHARE
+    -- offline, dead or a ghost always shows: the name makes way
+    local fits = w.status or not hasName or tw <= 0 or (room - tw - 6) >= bw * NAME_SHARE
     w.hpText:SetShown(fits)
     w.name:SetWidth(math.max(10, (fits and tw > 0) and (room - tw - 6) or room))
 end
@@ -763,8 +821,7 @@ end
 function UnitFrames:UpdateHealth(w, animate)
     local unit, A, C = unitOf(w), cfg().anim, cfg()
     local cur, max = UnitHealth(unit), UnitHealthMax(unit)
-    w.hp:SetMinMaxValues(0, max or 1)
-    w.hp:SetValue(cur or 0)
+    ns.Resources.SetBar(w.hp, cur, max, A.smooth)
     w.lag:SetMinMaxValues(0, max or 1)
     local isPlain = plain(cur, max)
     if isPlain and animate and A.damage and w.lagValue and cur < w.lagValue then
@@ -784,7 +841,8 @@ function UnitFrames:UpdateHealth(w, animate)
     w.lag:SetStatusBarColor(lerp(c[1], 1, 0.75), lerp(c[2], 0.9, 0.6), lerp(c[3], 0.8, 0.6), 0.9)
     w.portrait:SetDesaturated(dead(unit) and true or false)
 
-    if dead(unit) then
+    w.status = dead(unit) and true or nil
+    if w.status then
         local s = UnitIsConnected and Safe(UnitIsConnected(unit)) == false and L["Offline"]
             or Safe(UnitIsGhost(unit)) and L["Ghost"] or L["Dead"]
         w.hpText:SetText(s)
@@ -815,8 +873,7 @@ function UnitFrames:UpdatePower(w)
     if not w.pp:IsShown() then return end
     local pt = UnitPowerType(unit)
     local cur, max = UnitPower(unit, pt), UnitPowerMax(unit, pt)
-    w.pp:SetMinMaxValues(0, max or 1)
-    w.pp:SetValue(cur or 0)
+    ns.Resources.SetBar(w.pp, cur, max, C.anim.smooth)
     local c = powerColor(unit)
     w.pp:SetStatusBarColor(c[1], c[2], c[3], 1)
     if w.ppText:IsShown() then ns.Resources.SetText(w.ppText, C.powerText, cur, max, false, unit) end
@@ -825,7 +882,7 @@ end
 function UnitFrames:UpdateName(w)
     local unit = unitOf(w)
     if cfg().names then
-        if not pcall(w.name.SetText, w.name, UnitName(unit)) then w.name:SetText("") end
+        if not pcall(w.name.SetText, w.name, ns.UnitDisplayName(unit)) then w.name:SetText("") end
     else
         w.name:SetText("")
     end
@@ -967,6 +1024,23 @@ function UnitFrames:UpdateCombat(w)
     w.inCombat = cfg().anim.combat and Safe(UnitAffectingCombat(unitOf(w))) and true or false
 end
 
+-- Party members out of range fade. Blizzard fades its frame on some clients too: ours
+-- makes up for that, so it ends at the opacity set (or stays whole without fading).
+function UnitFrames:UpdateRange(w)
+    local P, unit = cfg().party, unitOf(w)
+    local a = 1
+    if P.fade and UnitInRange and Safe(UnitExists(unit)) then
+        local inRange, checked = UnitInRange(unit)
+        if Safe(checked) and Safe(inRange) == false then a = P.fadeAlpha end
+    end
+    local ok, pa = pcall(w.blizz.GetAlpha, w.blizz)
+    if ok and type(pa) == "number" and not isSecret(pa) and pa > 0.05 then a = math.min(1, a / pa) end
+    if w.rangeAlpha ~= a then
+        w.rangeAlpha = a
+        w:SetAlpha(a)
+    end
+end
+
 -- Runs fn(w), so a part failing doesn't take the rest of the update with it; the
 -- first error of each part is told once in chat and kept for /wl debug.
 local reported = {}
@@ -983,6 +1057,8 @@ end
 
 function UnitFrames:Update(w, animate)
     if not w:IsShown() then return end
+    -- a full update without animation (a new unit, a setting): the bars jump there
+    if not animate then w.hp.snap, w.pp.snap = true, true end
     try("name", self.UpdateName, w, self, w)
     try("portrait", self.UpdatePortrait, w, self, w)
     try("ornament", self.UpdateClass, w, self, w)
@@ -990,6 +1066,7 @@ function UnitFrames:Update(w, animate)
     try("power", self.UpdatePower, w, self, w)
     try("combat", self.UpdateCombat, w, self, w)
     try("pvp", self.UpdatePvP, w, self, w)
+    if w.u.range then try("range", self.UpdateRange, w, self, w) end
     try("hiding", rehide, w, w)
 end
 
@@ -999,11 +1076,18 @@ end
 
 function UnitFrames.OnUpdate(w, dt)
     local now = GetTime()
-    if w.u.hideAll then
+    if w.u.hideAll or w.u.scanTexts then
         w.rehideT = (w.rehideT or 0) + dt
         if w.rehideT >= 1 then
             w.rehideT = 0
             try("hiding", rehide, w, w)
+        end
+    end
+    if w.u.range then
+        w.rangeT = (w.rangeT or 0) + dt
+        if w.rangeT >= RANGE_EVERY then
+            w.rangeT = 0
+            try("range", UnitFrames.UpdateRange, w, UnitFrames, w)
         end
     end
     if w.u.poll then
@@ -1013,6 +1097,10 @@ function UnitFrames.OnUpdate(w, dt)
             UnitFrames:Poll(w)
         end
     end
+
+    -- the bars glide to new values
+    ns.Resources.GlideBar(w.hp, dt)
+    ns.Resources.GlideBar(w.pp, dt)
 
     -- damage trail
     if w.lagHold then
@@ -1119,7 +1207,10 @@ function UnitFrames:Poll(w)
     local guid = UnitExists(unit) and Safe(UnitGUID(unit)) or nil
     local now = GetTime()
     if guid == nil or guid ~= w.guid or now - (w.fullAt or 0) >= FULL_EVERY then
-        if guid ~= w.guid then w.lagValue, w.lastHP, w.lagHold, w.healT = nil, nil, nil, nil end
+        if guid ~= w.guid then
+            w.lagValue, w.lastHP, w.lagHold, w.healT = nil, nil, nil, nil
+            w.hp.snap, w.pp.snap = true, true
+        end
         w.guid, w.fullAt = guid, now
         self:Update(w, true)
     else
@@ -1146,23 +1237,285 @@ end
 
 local function wanted(u)
     local C = cfg()
-    return C.enabled and C[u.key].enabled
+    return C.enabled and C[u.cfg or u.key].enabled
+end
+
+---------------------------------------------------------------------------
+-- The party's places: Blizzard's member frames sit as close as its small art
+-- needs. With ours on, they're stacked by our frames' size and the spacing set,
+-- each pet under its member. Their frames are protected: only out of combat.
+---------------------------------------------------------------------------
+
+local saved = {} -- Blizzard frame -> its points before we moved it
+
+local function savePoints(f)
+    if saved[f] then return end
+    local list = {}
+    for i = 1, f:GetNumPoints() do list[i] = { f:GetPoint(i) } end
+    saved[f] = list
+end
+
+local function restorePoints(f)
+    local list = saved[f]
+    if not list then return end
+    saved[f] = nil
+    f:ClearAllPoints()
+    for _, p in ipairs(list) do pcall(f.SetPoint, f, unpack(p)) end
+end
+
+local function showsPartyPets()
+    local ok, v = pcall(GetCVarBool, "showPartyPets")
+    return ok and v and true or false
+end
+
+-- Retail can show the party in raid-style frames instead: those stay as they are.
+local function raidStyleParty()
+    local ok, v = pcall(function()
+        return EditModeManagerFrame and EditModeManagerFrame.UseRaidStylePartyFrames
+            and EditModeManagerFrame:UseRaidStylePartyFrames()
+    end)
+    return ok and v and true or false
+end
+
+function UnitFrames:Arrange()
+    if InCombatLockdown() then
+        self.arrangeLater = true
+        return
+    end
+    self.arrangeLater = nil
+    local C = cfg()
+    if not (C.enabled and C.party.enabled) then
+        for i = 1, 4 do
+            for _, f in ipairs({ partyMember(i) or false, partyPet(i) or false }) do
+                if f then restorePoints(f) end
+            end
+        end
+        -- Retail's party frame places its members itself again
+        if self.arranged and PartyFrame and PartyFrame.Layout then pcall(PartyFrame.Layout, PartyFrame) end
+        self.arranged = nil
+        return
+    end
+    self.arranged = true
+    -- Retail places only the members it shows: the first one gets a place of its own
+    -- in the party frame meanwhile, for the others and the preview to go by
+    local first = partyMember(1)
+    if first and first:GetNumPoints() == 0 and PartyFrame and first:GetParent() == PartyFrame then
+        savePoints(first)
+        first:SetPoint("TOPLEFT", PartyFrame, "TOPLEFT", 0, 0)
+    end
+    local g, pets = C.party.spacing, showsPartyPets()
+    for i = 1, 4 do
+        local m, w = partyMember(i), frames["party" .. i]
+        if m and w then
+            -- the pet: under the member, from where its bars begin
+            local p, pw = partyPet(i), frames["partypet" .. i]
+            local petH
+            if p then
+                local pT, pX, pY
+                if pw and wanted(pw.u) then
+                    petH, pT, pX, pY = pw.H, pw.T, pw.anchorX, pw.anchorY
+                else
+                    petH, pT, pX, pY = p:GetHeight(), p:GetWidth(), 0, 0
+                end
+                savePoints(p)
+                local indent = w.P > 0 and math.floor(w.P / 2) or 8
+                p:ClearAllPoints()
+                p:SetPoint("CENTER", m, "CENTER", w.anchorX - w.T / 2 + indent - pX + pT / 2,
+                    w.anchorY - w.H / 2 - g - petH / 2 - pY)
+            end
+            if i > 1 and partyMember(i - 1) then
+                savePoints(m)
+                local step = w.H + g + ((pets and petH) and (petH + g) or 0)
+                m:ClearAllPoints()
+                m:SetPoint("CENTER", partyMember(i - 1), "CENTER", 0, -step)
+            end
+        end
+    end
+end
+
+---------------------------------------------------------------------------
+-- Preview: without a group, four made-up members (and a pet) show where the party
+-- will be, so its size and spacing can be set up
+---------------------------------------------------------------------------
+
+local SAMPLES = {
+    { class = "WARRIOR", hp = 1, power = "RAGE", pp = 0.35, far = true },
+    { class = "HUNTER", hp = 0.76, power = "MANA", pp = 0.6, pet = { hp = 0.9, power = "FOCUS", pp = 0.8 } },
+    { class = "PRIEST", hp = 0.22, power = "MANA", pp = 0.85 },
+    { class = "MAGE", offline = true },
+}
+local PET_ICON = "Interface\\Icons\\Ability_Hunter_Pet_Wolf"
+local CLASS_CIRCLES = "Interface\\TargetingFrame\\UI-Classes-Circles"
+local previews = {} -- key -> preview frame
+
+local function previewWanted()
+    local C = cfg()
+    return C.enabled and C.party.enabled and C.party.preview and not IsInGroup() and not raidStyleParty()
+end
+
+local function fillPreview(w, s, isPet)
+    local C, A = cfg(), cfg().anim
+    local cls = not isPet and s.class
+    local cc = cls and RAID_CLASS_COLORS and RAID_CLASS_COLORS[cls]
+    local reaction = FACTION_BAR_COLORS and FACTION_BAR_COLORS[5]
+    local c
+    if s.offline then
+        c = GREY
+    elseif C.healthColor == "custom" then
+        c = C.customColor
+    elseif C.healthColor == "class" and cc then
+        c = { cc.r, cc.g, cc.b }
+    elseif C.healthColor ~= "green" and reaction then
+        c = { reaction.r, reaction.g, reaction.b }
+    else
+        c = GREEN
+    end
+    local hp = s.offline and 0 or s.hp
+    for _, bar in ipairs({ w.hp, w.lag }) do
+        bar:SetMinMaxValues(0, 100)
+        bar:SetValue(hp * 100)
+    end
+    w.hp:SetStatusBarColor(c[1], c[2], c[3], 1)
+    w.lag:SetStatusBarColor(c[1], c[2], c[3], 1)
+    w.status = s.offline or nil
+    if s.offline then
+        w.hpText:SetText(L["Offline"])
+    else
+        ns.Resources.SetText(w.hpText, C.healthText, hp * 100, 100, true, nil)
+    end
+    local pc = s.power and PowerBarColor and PowerBarColor[s.power]
+    w.pp:SetMinMaxValues(0, 100)
+    w.pp:SetValue(s.offline and 0 or (s.pp or 0) * 100)
+    if pc and pc.r then w.pp:SetStatusBarColor(pc.r, pc.g, pc.b, 1) end
+    if w.ppText:IsShown() then
+        ns.Resources.SetText(w.ppText, C.powerText, (s.pp or 0) * 100, 100, false, nil)
+    end
+
+    local name = isPet and L["Pet"] or (LOCALIZED_CLASS_NAMES_MALE and LOCALIZED_CLASS_NAMES_MALE[cls]) or cls
+    w.name:SetText(C.names and name or "")
+    local level = Safe(UnitLevel("player")) or 1
+    w.level:SetText(level)
+    w.level:SetTextColor(levelColor(level))
+    w.nameX = 4
+    if not w.pf:IsShown() then
+        w.nameX = 4 + math.ceil(w.level:GetStringWidth()) + 4
+        w.name:ClearAllPoints()
+        w.name:SetPoint("LEFT", w.hp, "LEFT", w.nameX, 0)
+    end
+    fitTexts(w)
+
+    if w.pf:IsShown() then
+        local tc = cls and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[cls]
+        if tc then
+            w.portrait:SetTexture(CLASS_CIRCLES)
+            local inset = (tc[2] - tc[1]) * 0.06
+            w.portrait:SetTexCoord(tc[1] + inset, tc[2] - inset, tc[3] + inset, tc[4] - inset)
+        else
+            w.portrait:SetTexture(PET_ICON)
+            w.portrait:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        end
+        w.portrait:SetDesaturated(s.offline and true or false)
+    end
+
+    -- no ornament, no PvP badge; low health pulses as it would
+    w.cls = nil
+    for _, t in ipairs({ w.wings, w.wingHead, w.wingLine, w.wingHeadLine, w.shine, w.headShine, w.wingGlow, w.pvp }) do
+        t:Hide()
+    end
+    tint(w.pBorder, C.borderColor, C.border and C.borderOpacity or 0)
+    tint(w.badgeRing, C.borderColor, 1)
+    w.lowOn = A.lowHealth and not s.offline and hp > 0 and hp <= A.lowAt or false
+    w.low:SetVertexColor(LOW[1], LOW[2], LOW[3], 1)
+    for _, t in ipairs(w.lowParts) do tint(t, LOW, 1) end
+    w:SetAlpha((C.party.fade and s.far) and C.party.fadeAlpha or 1)
+end
+
+local function showPreview(key, u, blizz, s, isPet)
+    local w = previews[key]
+    if not w then
+        w = create(u, blizz, UIParent)
+        previews[key] = w
+    end
+    -- in UIParent, at the size of Blizzard's frame it stands in for
+    local ok, scale = pcall(function() return blizz:GetEffectiveScale() / UIParent:GetEffectiveScale() end)
+    w:SetScale(ok and scale and scale > 0 and scale or 1)
+    w:SetFrameStrata(blizz:GetFrameStrata())
+    layout(w)
+    w:Show()
+    fillPreview(w, s, isPet)
+end
+
+function UnitFrames:UpdatePreview()
+    if not self.ready then return end
+    local on = previewWanted()
+    local C, pets = cfg(), showsPartyPets()
+    local shown = {}
+    if on then
+        for i, s in ipairs(SAMPLES) do
+            local m = partyMember(i)
+            if m then
+                local key = "party" .. i
+                showPreview(key, { key = "preview" .. key, cfg = "party", side = "left" }, m, s)
+                shown[key] = true
+                local p = partyPet(i)
+                if s.pet and p and pets and C.partypet.enabled then
+                    key = "partypet" .. i
+                    showPreview(key, { key = "preview" .. key, cfg = "partypet", side = "left", small = true },
+                        p, s.pet, true)
+                    shown[key] = true
+                end
+            end
+        end
+    end
+    for key, w in pairs(previews) do
+        if not shown[key] then w:Hide() end
+    end
+end
+
+-- The preview ends with the settings window.
+function UnitFrames:EndPreview()
+    if cfg().party.preview then
+        cfg().party.preview = false
+        self:UpdatePreview()
+    end
 end
 
 function UnitFrames:Apply()
     if not self.ready then return end
     for _, u in ipairs(UNITS) do
-        local blizz = _G[u.frame]
+        local blizz = u.get and u.get() or _G[u.frame or ""]
         if blizz then
             local w = frames[u.key]
             if wanted(u) then
                 w = w or create(u, blizz)
                 frames[u.key] = w
+                -- your power bar marks spell costs like the resource display's
+                if u.key == "player" and not w.costTarget then
+                    w.costTarget = ns.Resources:AddCostTarget({
+                        bar = w.pp,
+                        on = function()
+                            return cfg().anim.costMark and w:IsVisible() and w.pp:IsShown() and unitOf(w) == "player"
+                        end,
+                        pt = function() return Safe((UnitPowerType("player"))) end,
+                        color = function() return cfg().anim.costColor end,
+                    })
+                end
                 for _, r in ipairs(blizzardParts(u, blizz)) do hideFor(w, r) end
                 layout(w)
                 w:Show()
                 w:SetAlpha(1)
+                w.rangeAlpha = nil
                 self:Update(w, false)
+                -- a party member joining: Blizzard shows its frame, ours catches up
+                if u.get and not blizz.wlUFShow then
+                    blizz.wlUFShow = true
+                    blizz:HookScript("OnShow", function()
+                        local f = frames[u.key]
+                        if f and f:IsShown() then
+                            C_Timer.After(0, function() UnitFrames:Update(f, false) end)
+                        end
+                    end)
+                end
             elseif w then
                 w:Hide()
                 for _, r in ipairs(blizzardParts(u, blizz)) do unhide(r) end
@@ -1171,6 +1524,8 @@ function UnitFrames:Apply()
             end
         end
     end
+    self:Arrange()
+    self:UpdatePreview()
 end
 
 -- frames showing unit right now
@@ -1295,11 +1650,28 @@ function UnitFrames:Init()
     for name in pairs(UNIT_EVENTS) do pcall(ev.RegisterEvent, ev, name) end
     for _, name in ipairs({ "UNIT_COMBAT", "UNIT_PET", "UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE",
                             "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "UNIT_TARGET",
-                            "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED" }) do
+                            "PLAYER_ENTERING_WORLD", "PLAYER_REGEN_ENABLED", "PLAYER_REGEN_DISABLED",
+                            "GROUP_ROSTER_UPDATE", "CVAR_UPDATE" }) do
         pcall(ev.RegisterEvent, ev, name)
     end
+    -- the preview is for setting things up: it doesn't outlast the session
+    cfg().party.preview = false
     ev:SetScript("OnEvent", function(_, event, unit, action)
         if not cfg().enabled then return end
+        if event == "PLAYER_REGEN_ENABLED" and self.arrangeLater then self:Arrange() end
+        if event == "GROUP_ROSTER_UPDATE" then
+            -- Blizzard fills its member frames first
+            C_Timer.After(0, function()
+                all(function(w) self:Update(w, false) end)
+                self:UpdatePreview()
+            end)
+            return
+        elseif event == "CVAR_UPDATE" then
+            -- party pets shown or not: room for them under each member
+            self:Arrange()
+            self:UpdatePreview()
+            return
+        end
         unit = Safe(unit)
         local fn = UNIT_EVENTS[event]
         if fn then
@@ -1329,6 +1701,18 @@ function UnitFrames:Init()
     end)
     -- the pet frame's unit and visibility change without an event of its own
     if PetFrame then PetFrame:HookScript("OnShow", function() all(function(w) self:Update(w, false) end) end) end
+    -- Retail lays its party frames out again now and then: ours go back on top
+    if PartyFrame and PartyFrame.Layout then
+        hooksecurefunc(PartyFrame, "Layout", function()
+            if not (cfg().enabled and cfg().party.enabled) then return end
+            for i = 1, 4 do
+                for _, f in ipairs({ partyMember(i) or false, partyPet(i) or false }) do
+                    if f then saved[f] = nil end
+                end
+            end
+            self:Arrange()
+        end)
+    end
     self.ready = true
     self:Apply()
 end

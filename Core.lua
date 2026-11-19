@@ -313,6 +313,43 @@ ns.defaults.sparkle = {
     },
 }
 
+-- nameplates of our own in place of the game's
+ns.defaults.nameplates = {
+    enabled = false,
+    hostile = true, friendly = true,
+    friendlyNameOnly = false,       -- allies: just the name
+    motion = "game",                -- "game" (leave it) | "stack" | "overlap"
+    width = 120, healthHeight = 10, castHeight = 8, textSize = 9,
+    -- look
+    texture = "flat", radius = 3,
+    border = true, borderSize = 1, borderColor = { 0, 0, 0 }, borderOpacity = 1,
+    bgColor = { 0, 0, 0 }, bgOpacity = 0.55, shadow = true, shadowOpacity = 0.4,
+    healthColor = "reaction",       -- "reaction" | "class" (players; others by reaction) | "custom"
+    customColor = { 0.20, 0.80, 0.30 },
+    -- by reaction, allied players aren't green: blue, and only your party green
+    friendlyPlayerColor = { 0.25, 0.50, 1.00 }, partyColor = { 0.20, 0.80, 0.30 },
+    -- texts and icons
+    name = true, nameInBar = false, nameColor = "white", -- "white" | "reaction" | "class"
+    healthText = "percent", level = true, ornament = true, raidIcon = true,
+    -- cast bar
+    castbar = true, castIcon = true, castName = true, castTime = true,
+    castColor = { 1.00, 0.70, 0.20 }, castLockedColor = { 0.60, 0.60, 0.65 },
+    -- auras: yours on the unit, plus others listed; listed ones can be left out too
+    auras = true, auraSize = 20, maxAuras = 6, auraTimer = true,
+    auraSource = "auto",            -- "auto" | "ours" | "game" (the game's own aura row)
+    auraAllHostile = false, auraAllFriendly = false, -- everyone's, not only yours
+    auraAlways = {}, auraNever = {}, -- spell names or IDs
+    -- the target
+    targetGlow = true, targetGlowColor = { 1.00, 1.00, 1.00 }, targetScale = 1.15,
+    -- threat: safe / warning / danger, turned around for tanks
+    threat = true, threatRole = "auto", -- "auto" | "tank" | "dps"
+    threatSafe = { 0.25, 0.75, 0.35 }, threatWarn = { 1.00, 0.65, 0.10 }, threatDanger = { 1.00, 0.20, 0.15 },
+    -- a mark where the execute range begins, and its color below it
+    execute = false, executeAt = 0.2, executeColor = { 1.00, 0.85, 0.20 },
+    quest = true,                   -- a mark on mobs your quests need
+    anim = { damage = true, heal = true, smooth = true, lowHealth = false, lowAt = 0.3 },
+}
+
 -- a mark on nameplates: in range of your spell or not; enemies and allies each have their own
 ns.defaults.rangeIndicator = {
     enabled = false,
@@ -395,6 +432,11 @@ ns.defaults.blizzard = {
         target = { enabled = true, width = 140, healthHeight = 20, powerHeight = 8, portraitSize = 52, x = 0, y = 0 },
         targettarget = { enabled = true, width = 66, healthHeight = 10, powerHeight = 4, portraitSize = 28, x = 0, y = 0 },
         focus = { enabled = true, width = 120, healthHeight = 18, powerHeight = 7, portraitSize = 46, x = 0, y = 0 },
+        -- the party: smaller than your own frame, like the game's, unless sameAsPlayer
+        -- (then your frame's bars and portrait); spacing: px between the members' frames
+        party = { enabled = true, width = 100, healthHeight = 14, powerHeight = 6, portraitSize = 38, x = 0, y = 0,
+            sameAsPlayer = false, spacing = 12, fade = true, fadeAlpha = 0.5, preview = false },
+        partypet = { enabled = true, width = 60, healthHeight = 9, powerHeight = 4, portraitSize = 24, x = 0, y = 0 },
         -- an ornament around the portrait of elite, rare and boss units
         elite = {
             enabled = true, shine = true, glow = true,
@@ -417,6 +459,9 @@ ns.defaults.blizzard = {
             targetChange = true,          -- a new target slides and fades in
             combat = true,                -- a soft glow while the unit is in combat
             hit = true,                   -- the portrait shakes and flashes red when hit
+            smooth = true,                -- the bars glide to new values
+            -- your power bar marks what the spell you cast will take
+            costMark = true, costColor = { 1.00, 1.00, 1.00 },
         },
     },
 }
@@ -507,6 +552,18 @@ end
 
 function ns.IsSecret(v)
     return issecretvalue ~= nil and issecretvalue(v) == true
+end
+
+-- The name a unit's frame shows. On Forever players have a surname, which
+-- UnitName hands back where other clients put the realm; it's added there. A
+-- secret name goes back as it is (straight to SetText).
+function ns.UnitDisplayName(unit)
+    local name, second = UnitName(unit)
+    if ns.isForever and not ns.IsSecret(name) and type(name) == "string" then
+        second = ns.Safe(second)
+        if type(second) == "string" and second ~= "" then return name .. " " .. second end
+    end
+    return name
 end
 
 -- ns.Short's steps for the client's AbbreviateNumbers, which (unlike Lua) may round
@@ -660,6 +717,7 @@ function ns.ApplyAll(refreshPanel)
     ns.FlightTimer:Apply()
     ns.BlizzardUI:Apply()
     ns.UnitFrames:Apply()
+    ns.Nameplates:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
 
@@ -1071,6 +1129,7 @@ ns.Listen("ADDON_LOADED", function(name)
     ns.FlightTimer:Init()
     ns.BlizzardUI:Init()
     ns.UnitFrames:Init()
+    ns.Nameplates:Init()
     ns.MacroBuilder:Init()
     if ns.Config then ns.Config:Init() end
     if ns.Welcome then ns.Welcome:Init() end
@@ -1120,6 +1179,7 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.RangeIndicator:Debug()
         ns.GCD:Debug()
         ns.UnitFrames:Debug()
+        ns.Nameplates:Debug()
     elseif cmd == "trace" then
         ns.trace = not ns.trace
         ns.Print("event trace " .. (ns.trace and "on - hits, casts and swings print to chat" or "off"))

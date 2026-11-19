@@ -140,7 +140,7 @@ combat starts and fades out a few seconds after it ends.
   animations, no gryphons or bar art, and key bindings and macro names that can be
   hidden. The bag bar and the micro menu (spellbook, talents and so on) can get the
   same look. All off by default.
-- **Modern unit frames** for you, your pet, your target, its target and your focus
+- **Modern unit frames** for you, your pet, your target, its target, your party and your focus
   (not on Classic Era, which has none): a round, square or no
   portrait with a level badge, slim bars on a rounded panel, the name and health in
   the bar. Elite, rare and boss units get an ornament around their portrait in
@@ -150,8 +150,22 @@ combat starts and fades out a few seconds after it ends.
   portrait, a laurel wreath, a crown, flames or a halo of rays. You can give
   yourself an ornament of your own, with its own style, color and glow. Lost health trails behind the bar,
   heals flash green, low health pulses red, a new target slides in, the frame glows
-  in combat and the portrait shakes when hit. Blizzard's frames keep working
-  underneath (clicks, menus, auras, Edit Mode). Off by default.
+  in combat and the portrait shakes when hit. The bars glide to new values, and your
+  power bar marks what the spell you cast will take, like the resource display. Blizzard's frames keep working
+  underneath (clicks, menus, auras, Edit Mode). Your party gets the same look, smaller
+  than your own frame like the game's or, if you like, just as big, with the spacing
+  between them of your choice, their pets, offline, dead and ghost shown in the bar,
+  members out of range faded, and a preview to set it all up without a group
+  (Retail's raid-style party frames stay as they are). Off by default.
+- **Nameplates** in the same look in place of the game's, for enemies and allies
+  (allies can show just the name): the name above or in the bar, level and the elite
+  ornament, health, the raid icon, a cast bar under it (with its own color for casts
+  you can't interrupt), the auras you put on the unit plus any you list (and a list
+  of ones never to show), quest mobs marked, the target glowing and a little bigger,
+  threat colors that turn around for tanks, an execute mark, and the unit frames'
+  damage trail, heal flash and smooth bars. Size, look and stacking are yours to set.
+  The game's plates keep working underneath; in dungeons and raids friendly plates
+  stay the game's. Off by default.
 - The header shows live DPS and HPS, a fight timer, damage dealt and taken, and the
   biggest hit of the fight.
 - A **welcome screen** on each character's first login: every feature with a short
@@ -291,10 +305,16 @@ and lights the setting up.
   need the modern action buttons.
 - **Unit frames:** *General* (on/off, portrait style, texts), one sub-tab each for
   *Player*, *Target*, *Target of target*, *Focus* and *Pet* (on/off, bar width,
-  portrait size, bar heights and an offset), *Look* (bar texture, health color,
+  portrait size, bar heights and an offset), *Party* (the same, plus the same size as
+  your own frame, spacing, fading out of range, the party pets and a preview), *Look* (bar texture, health color,
   panel, border, shadow) and *Effects* (the elite ornament with its glint, glow,
   outline, and each kind's style and color, your own ornament with its style, color
-  and glow, and every animation on its own).
+  and glow, and every animation on its own, smooth bars and the spell cost mark).
+- **Nameplates:** *General* (on/off, enemies, allies, name only, stacking, size),
+  *Look* (bar texture, health color, panel, border, shadow), *Texts* (name, health
+  text, level, ornament, raid icon), *Cast bar*, *Auras* (size, count, timers and the
+  always/never lists) and *Extras* (target, threat, execute mark, quest mobs,
+  animations).
 - **Custom sounds:** your own sounds for every sound list. Put `.ogg` or `.mp3` files
   into `Interface\AddOns\WombatLog\Media\Custom\`, restart the game (it only sees new
   files after a restart, `/reload` is not enough) and add each file by name. They
@@ -435,6 +455,7 @@ effort: whatever the client keeps secret is left out.
 | `C_Container`, `BAG_UPDATE_DELAYED`, `MERCHANT_SHOW` / `_CLOSED`, `GetBuybackItemLink`, `BuybackItem` | Quest items: marks in the bags, asking before a sale, buying back |
 | `GetItemInfoInstant` (item subclass), `C_TooltipInfo.GetHyperlink` / a hidden tooltip, `CONTAINER_SLOTS`, `GetInventoryItemLink` | Bag slots: kind of bag and its number of slots |
 | `TAXIMAP_OPENED`, `TakeTaxiNode`, `C_TaxiMap.GetAllTaxiNodes`, `GetNumRoutes` / `TaxiGetNodeSlot`, `UnitOnTaxi` | Flight path timer: the route you picked with its stops, take-off and landing |
+| `NAME_PLATE_UNIT_ADDED` / `_REMOVED`, `C_NamePlate`, `nameplateMotion`, `UnitCastingInfo` / `UnitChannelInfo`, `C_UnitAuras` / `UnitAura`, `UnitThreatSituation`, `GetRaidTargetIndex` | Nameplates: our plates on the game's, their cast bars, auras, threat colors and raid icons |
 | `PLAYER_MONEY`, `PLAYER_DEAD` | Session money and deaths |
 | `PLAYER_REGEN_DISABLED` / `_ENABLED` | Showing and hiding the window |
 
@@ -536,7 +557,8 @@ As a result:
 | `Minimap.lua` | Minimap button and addon compartment entry |
 | `MacroBuilder.lua` | The macro builder: macros from blocks, live preview, checks and saving |
 | `BlizzardUI.lua` | Changes to Blizzard's UI: hiding its XP bar, modern action buttons and bars |
-| `UnitFrames.lua` | Modern player, pet, target, target of target and focus frames over Blizzard's |
+| `UnitFrames.lua` | Modern player, pet, target, target of target, focus and party frames over Blizzard's |
+| `Nameplates.lua` | Nameplates in WombatLog's look on the game's plates: health, cast bar, auras, threat and more |
 | `Config.lua` | The settings panel |
 | `Welcome.lua` | Welcome screen on each character's first login |
 | `Media/Gradient.tga` | White-to-transparent texture used for the row backgrounds |

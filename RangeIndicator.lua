@@ -277,6 +277,9 @@ end
 -- Where on the plate: its health bar when the game's own plate shows, else the
 -- plate itself (other nameplate addons hide the game's and draw their own on it).
 local function anchorOf(plate)
+    -- WombatLog's own nameplates: their health bar
+    local ours = ns.Nameplates and ns.Nameplates.BarOf(plate)
+    if ours then return ours end
     local ok, bar = pcall(function()
         local uf = plate.UnitFrame
         if not uf or uf:IsForbidden() or not uf:IsVisible() then return nil end

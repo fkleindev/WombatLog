@@ -238,6 +238,7 @@ local function forQuest(unit)
     end
     return inObjectives(call(UnitName, unit))
 end
+ns.UnitForQuest = forQuest -- also marks quest mobs on the nameplates
 
 -- category ("quest", "loot", "herb", "ore" or nil) and whether the game refuses it now
 local function classify(unit)
