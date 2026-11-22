@@ -604,7 +604,7 @@ local function CreateHolder()
     h.overlay:Hide()
     h.overlayText = h:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     h.overlayText:SetPoint("BOTTOM", h, "TOP", 0, 2)
-    h.overlayText:SetText(L["WombatLog quest tracker - drag the header to move"])
+    h.overlayText:SetText(L["WombatUI quest tracker - drag the header to move"])
     h.overlayText:Hide()
     h:Hide()
     return h

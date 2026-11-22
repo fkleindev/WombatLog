@@ -26,7 +26,7 @@ local function onClick(button)
 end
 
 local function fillTooltip(tt)
-    tt:AddLine("WombatLog")
+    tt:AddLine(L["WombatUI (formerly WombatLog)"])
     local last = ns.Stats.last
     if last and not last.test then
         tt:AddDoubleLine(L["Last fight"], (last.secret and "-" or ns.Short(last.dps)) .. " DPS, " .. ns.Stats.FormatDuration(last.duration), 0.8, 0.8, 0.8, 1, 1, 1)
@@ -70,6 +70,7 @@ function MinimapButton:Init()
 
     -- drag around the minimap edge
     local function follow(self)
+        if self.wlCollected then return end
         local mx, my = Minimap:GetCenter()
         local scale = Minimap:GetEffectiveScale()
         local cx, cy = GetCursorPosition()
@@ -97,7 +98,8 @@ function MinimapButton:Apply()
     local b = self.button
     if not b then return end
     b:SetShown(ns.db.minimap.enabled)
-    updatePosition(b)
+    -- in our minimap's drawer it has a place of its own
+    if not b.wlCollected then updatePosition(b) end
 end
 
 -- Addon compartment (the addon list button by the minimap), declared in the TOC.

@@ -1083,8 +1083,8 @@ function QuestProgress:Apply()
     h:SetScale(cfg.scale)
     self.anchorKey = nil
     self:Anchor()
-    h.overlayText:SetText(cfg.anchor == "free" and L["WombatLog quest progress - drag to move"]
-        or L["WombatLog quest progress - follows the XP tracker"])
+    h.overlayText:SetText(cfg.anchor == "free" and L["WombatUI quest progress - drag to move"]
+        or L["WombatUI quest progress - follows the XP tracker"])
     h:EnableMouse(self.unlocked and cfg.anchor == "free" or false)
     self:ApplyBlizzardText()
     if not cfg.enabled and not self.unlocked then

@@ -93,7 +93,7 @@ end
 function Alerts.SoundOptions()
     local list = {}
     for _, s in ipairs(CUSTOM_SOUNDS) do
-        list[#list + 1] = { value = s.value, text = "WombatLog: " .. L[s.text], raw = true }
+        list[#list + 1] = { value = s.value, text = "WombatUI: " .. L[s.text], raw = true }
     end
     for _, file in ipairs(customSounds()) do
         list[#list + 1] = { value = "custom:" .. file, text = L["Custom"] .. ": " .. file, raw = true }
@@ -404,10 +404,10 @@ end
 ---------------------------------------------------------------------------
 
 function Alerts:Init()
-    self.crit = CreateAlertFrame("WombatLogCritAlert", "WombatLog crit alert - drag to move",
+    self.crit = CreateAlertFrame("WombatLogCritAlert", "WombatUI crit alert - drag to move",
         function() return ns.db.alerts.visual end,
         function() return critData(CRIT_SAMPLE, nil, false) end)
-    self.proc = CreateAlertFrame("WombatLogProcAlert", "WombatLog proc alert - drag to move",
+    self.proc = CreateAlertFrame("WombatLogProcAlert", "WombatUI proc alert - drag to move",
         function() return ns.db.procs end,
         function() return self:ProcData(PROC_SAMPLE.name, PROC_SAMPLE.icon) end)
     self.recentAuras = {}

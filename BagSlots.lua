@@ -244,7 +244,7 @@ end
 
 local function hookBaganator()
     local BB = ns.BagButtons
-    BB.Baganator(L["Bag slots (WombatLog)"], "wombatlog_bagslots_count",
+    BB.Baganator(L["Bag slots (WombatUI)"], "wombatlog_bagslots_count",
         function(corner, details)
             local cfg = ns.db.bagSlots
             local info = cfg.enabled and cfg.count and details and BagSlots.Info(details.itemLink)
@@ -265,7 +265,7 @@ local function hookBaganator()
             return f
         end,
         { corner = "bottom_right", priority = 1 })
-    BB.Baganator(L["Bag type (WombatLog)"], "wombatlog_bagslots_type",
+    BB.Baganator(L["Bag type (WombatUI)"], "wombatlog_bagslots_type",
         function(corner, details)
             local cfg = ns.db.bagSlots
             local info = cfg.enabled and cfg.typeIcon and details and BagSlots.Info(details.itemLink)

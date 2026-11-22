@@ -1,5 +1,10 @@
 ## Interface: 16001, 11509, 20506, 50504, 120100
-## Title: WombatLog
+## Title: WombatUI |cff808080(formerly WombatLog)|r
+## Title-deDE: WombatUI |cff808080(ehemals WombatLog)|r
+## Title-frFR: WombatUI |cff808080(anciennement WombatLog)|r
+## Title-esES: WombatUI |cff808080(antes WombatLog)|r
+## Title-esMX: WombatUI |cff808080(antes WombatLog)|r
+## Title-itIT: WombatUI |cff808080(precedentemente WombatLog)|r
 ## Notes: Borderless, transparent in-combat feed of your combat events with live DPS/HPS, crit alerts, fight journal and session stats.
 ## Version: @project-version@
 ## Notes-deDE: Randloser, transparenter Kampf-Feed deiner Kampfereignisse mit Live-DPS/HPS, Krit-Alarmen, Kampftagebuch und Sitzungsstatistik.
@@ -53,6 +58,8 @@ GCD.lua
 FlightTimer.lua
 Resources.lua
 Minimap.lua
+MinimapFrame.lua
+Chat.lua
 BlizzardUI.lua
 UnitFrames.lua
 Nameplates.lua

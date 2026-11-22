@@ -686,7 +686,7 @@ function Display:Init()
     root.overlayText = root:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     font(root.overlayText, "Fonts\\ARIALN.TTF", 12, "OUTLINE")
     root.overlayText:SetPoint("CENTER")
-    root.overlayText:SetText(L["WombatLog - drag to move"])
+    root.overlayText:SetText(L["WombatUI - drag to move"])
     root.overlay:Hide()
     root.overlayText:Hide()
 

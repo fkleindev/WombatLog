@@ -463,7 +463,7 @@ function Reminders:Init()
     f.overlay:SetColorTexture(0.2, 0.6, 1, 0.15)
     f.overlayText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.overlayText:SetPoint("BOTTOM", f, "TOP", 0, 2)
-    f.overlayText:SetText(ns.L["WombatLog spell reminders - drag to move"])
+    f.overlayText:SetText(ns.L["WombatUI spell reminders - drag to move"])
     f.overlay:Hide()
     f.overlayText:Hide()
 

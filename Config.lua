@@ -995,7 +995,7 @@ local function BuildAlertStreaks(p)
     p:Note("Crits in a row add a growing \"x3 CRIT STREAK\" banner to the crit alert. Any normal hit or miss ends the streak.")
     p:Checkbox("Show crit streaks", "alerts.streak.enabled")
     p:Checkbox("Rising sound with the streak", "alerts.streak.escalatingSound", 2)
-    p:Note("The rising sound is your crit sound (Sound tab), raised a little more with every crit. Only the WombatLog sounds can be raised; others play unchanged.")
+    p:Note("The rising sound is your crit sound (Sound tab), raised a little more with every crit. Only the WombatUI sounds can be raised; others play unchanged.")
     p:Slider("Show from streak", "alerts.streak.min", 2, 5, 1, function(v) return "x" .. v end)
     p:Button("Test x3", function() ns.Alerts:TestStreak(3) end, 2, -12, 100)
 
@@ -1506,7 +1506,7 @@ local function BuildKillSound(p)
         end,
     }, ns.Alerts.SoundOptions)
     p:Dropdown("Sound channel", "killAlert.channel", SOUND_CHANNELS, 2)
-    p:Note("Rising pitch works with the WombatLog sounds; sounds from WoW or SharedMedia play unchanged.")
+    p:Note("Rising pitch works with the WombatUI sounds; sounds from WoW or SharedMedia play unchanged.")
 end
 
 local function BuildKillLook(p)
@@ -1768,7 +1768,7 @@ local function BuildTrackerQuests(p)
     p:Note("The compact view puts each quest on one line with one bar for all of it; only the quest you follow shows its objectives. The lines icon in the header switches it too. Folded up in combat, the list opens again after the fight.")
     p:Checkbox("World quests and bonus objectives", path .. "bonus")
     p:Checkbox("Tooltip with the objectives", path .. "tooltip", 2)
-    p:Note("Retail: the world quests you watch and the bonus objectives where you are, under your quests. The quest you follow is the one with the arrow and waypoint. Clients without those keep WombatLog's own, per character, and the quest progress cards follow it too. Test shows a sample quest moving on, one step per press.")
+    p:Note("Retail: the world quests you watch and the bonus objectives where you are, under your quests. The quest you follow is the one with the arrow and waypoint. Clients without those keep WombatUI's own, per character, and the quest progress cards follow it too. Test shows a sample quest moving on, one step per press.")
 
     p:Header("Quest items")
     p:Checkbox("Buttons for quest items", path .. "items")
@@ -1890,9 +1890,9 @@ local SPARKLE_STYLES = {
 
 local function BuildSparkleGeneral(p)
     p:Header("Sparkles")
-    p:Note("Things to click for a quest glittered in Classic; on Forever they don't any more. Two ways to get it back: the game's own sparkle, and an effect of WombatLog's that you can adjust.")
+    p:Note("Things to click for a quest glittered in Classic; on Forever they don't any more. Two ways to get it back: the game's own sparkle, and an effect of WombatUI's that you can adjust.")
     p:Checkbox("The game's own sparkle", "sparkle.native")
-    p:Note("Marks quest objects and quest loot at any distance, like in Classic, but only knows on and off. Graphics presets switch it off; WombatLog switches it back on. Switching it off only takes effect after restarting the game. On clients that have the sparkle anyway this changes nothing.")
+    p:Note("Marks quest objects and quest loot at any distance, like in Classic, but only knows on and off. Graphics presets switch it off; WombatUI switches it back on. Switching it off only takes effect after restarting the game. On clients that have the sparkle anyway this changes nothing.")
 
     p:Header("Own effect")
     p:Checkbox("Effect on the object in front of you", "sparkle.enabled")
@@ -2151,7 +2151,7 @@ local function BuildPartyFrames(p)
     p:Slider("Spacing", path .. "spacing", 0, 40, 1, px)
     p:Slider("Horizontal offset", path .. "x", -150, 150, 1, px)
     p:Slider("Vertical offset", path .. "y", -100, 100, 1, px, 2)
-    p:Note("The spacing is the room between the members' frames (and their pets'): WombatLog stacks Blizzard's party frames by it, out of combat. Move the party as a whole the way you always do.")
+    p:Note("The spacing is the room between the members' frames (and their pets'): WombatUI stacks Blizzard's party frames by it, out of combat. Move the party as a whole the way you always do.")
 
     p:Header("Range")
     p:Checkbox("Fade out of range", path .. "fade")
@@ -2266,7 +2266,7 @@ end
 local function BuildNameplates(p)
     local path = "nameplates."
     p:Header("Nameplates")
-    p:Note("Nameplates in WombatLog's look in place of the game's: name, level, health, a cast bar, your auras on the unit and more. The game's plates keep working underneath (clicks, stacking, fading with distance). In dungeons and raids the game keeps friendly nameplates from addons: those stay the game's.")
+    p:Note("Nameplates in WombatUI's look in place of the game's: name, level, health, a cast bar, your auras on the unit and more. The game's plates keep working underneath (clicks, stacking, fading with distance). In dungeons and raids the game keeps friendly nameplates from addons: those stay the game's.")
     p:Checkbox("Our nameplates", path .. "enabled")
     p:Checkbox("Enemies", path .. "hostile")
     p:Checkbox("Allies", path .. "friendly", 2)
@@ -2356,13 +2356,13 @@ local function BuildNameplateAuras(p)
     p:Slider("At most", path .. "maxAuras", 1, 12, 1, nil, 2)
     p:Dropdown("Drawn by", path .. "auraSource", {
         { text = "Automatic", value = "auto" },
-        { text = "WombatLog (with the lists)", value = "ours" },
+        { text = "WombatUI (with the lists)", value = "ours" },
         { text = "The game", value = "game" },
     })
     p:Checkbox("Enemies: all debuffs", path .. "auraAllHostile")
     p:Checkbox("Allies: all buffs", path .. "auraAllFriendly", 2)
     p:Note("Enemies show the debuffs you put on them, allies the buffs you gave them. Auras on the left list show from anyone too; auras on the right list never show.")
-    p:Note("Forever and Retail keep other units' auras from addons in combat. Automatic lets the game draw them there: its own aura row moves onto our plate, with the game's look and choice of auras (size, count, \"all\" and the lists then don't apply). WombatLog draws them on the other clients.")
+    p:Note("Forever and Retail keep other units' auras from addons in combat. Automatic lets the game draw them there: its own aura row moves onto our plate, with the game's look and choice of auras (size, count, \"all\" and the lists then don't apply). WombatUI draws them on the other clients.")
 
     local box = p:EditBox("Spell name or spell ID")
     local always, never
@@ -2422,10 +2422,209 @@ local function BuildNameplateExtras(p)
     p:Slider("Below", path .. "anim.lowAt", 0.1, 0.6, 0.05, pct)
 end
 
-local function BuildMinimap(p)
+local function BuildChatGeneral(p)
+    local path = "chat."
+    p:Header("Chat")
+    p:Note("The game's chat windows in WombatUI's look: a rounded panel behind each window, flat tabs with a mark under the active one and the input box below it. The windows stay the game's: tabs, channels, their settings and the combat log work as always.")
+    p:Checkbox("Our chat look", path .. "enabled")
+    p:Checkbox("Modern tabs", path .. "tabs")
+    p:Checkbox("Input box in our look", path .. "editBox", 2)
+    p:Checkbox("Hide the game's chat buttons", path .. "hideButtons")
+    p:Checkbox("Arrow keys without Alt", path .. "historyKeys", 2)
+    p:Note("Without the game's buttons the mouse wheel scrolls, an arrow in the corner jumps to the newest line, and the menu button in the top right corner copies the chat and opens the social and channel windows. The input box takes the color of the channel you type in. The arrow keys page through what you sent.")
+
+    p:Header("Fading")
+    p:Checkbox("Fade when idle", path .. "fade")
+    p:Slider("After", path .. "fadeTime", 5, 180, 5, function(v) return v .. " s" end, 2)
+    p:Slider("Panel when faded", path .. "fadeAlpha", 0, 1, 0.05, pct)
+    p:Note("Lines fade out that long after they came in, and the panel with them; the mouse over the chat, a new message or typing brings the panel back. Lines that faded come back when you scroll.")
+end
+
+local function BuildChatLook(p)
+    local path = "chat."
+    p:Note("These options need \"Our chat look\" on the General tab.")
+    p:Header("Panel")
+    p:Color("Color", path .. "bgColor")
+    p:Slider("Opacity", path .. "bgOpacity", 0, 1, 0.05, pct, 2)
+    p:Slider("Corner radius", path .. "radius", 0, 12, 1, px)
+    p:Slider("Padding", path .. "padding", 0, 16, 1, px, 2)
+    p:Checkbox("Shadow", path .. "shadow")
+    p:Slider("Shadow opacity", path .. "shadowOpacity", 0, 1, 0.05, pct, 2)
+
+    p:Header("Border")
+    p:Checkbox("Border", path .. "border")
+    p:Slider("Thickness", path .. "borderSize", 1, 4, 1, px, 2)
+    p:Color("Color", path .. "borderColor")
+    p:Slider("Opacity", path .. "borderOpacity", 0, 1, 0.05, pct, 2)
+
+    p:Header("Tabs")
+    p:Color("Accent color", path .. "accentColor")
+    p:Note("The mark under the active tab, and a tab's glow when a message comes in while it's in the background.")
+end
+
+local function BuildChatMessages(p)
+    local path = "chat."
+    p:Note("These options need \"Our chat look\" on the General tab.")
+    p:Header("Messages")
+    p:Checkbox("Short channel names", path .. "shortChannels")
+    p:Checkbox("Timestamps", path .. "timestamps", 2)
+    p:Dropdown("Time format", path .. "timeFormat", {
+        { text = "14:32", value = "%H:%M" },
+        { text = "14:32:05", value = "%H:%M:%S" },
+        { text = "02:32 PM", value = "%I:%M %p" },
+    })
+    p:Note("[2. Trade - City] becomes [T], [Party] [P], [Guild] [Gu] and so on. Timestamps stay away while the game's own are on (Options > Social).")
+    p:Checkbox("Names in class colors", path .. "classColors")
+    p:Checkbox("Level after the name", path .. "level", 2)
+    p:Note("Levels are known for your group, guild and friends and for players you targeted or hovered.")
+    p:Checkbox("Clickable web links", path .. "urls")
+    p:Note("Click a link in the chat to get a box to copy it from. The menu button copies the whole window.")
+
+    p:Header("Your name")
+    p:Checkbox("Highlight your name", path .. "mention")
+    p:Color("Color", path .. "mentionColor", 2)
+end
+
+local function BuildChatSounds(p)
+    local path = "chat."
+    p:Note("These options need \"Our chat look\" on the General tab.")
+    p:Header("Whispers")
+    p:Checkbox("Sound on whispers", path .. "whisperSound")
+    p:Dropdown("Sound", {
+        get = function() return ns.db.chat.whisperSoundChoice end,
+        set = function(v)
+            ns.db.chat.whisperSoundChoice = v
+            ns.Alerts.PlaySound(v, "Master")
+        end,
+    }, ns.Alerts.SoundOptions, 2)
+    p:Header("Your name")
+    p:Checkbox("Sound when someone names you", path .. "mentionSound")
+    p:Dropdown("Sound", {
+        get = function() return ns.db.chat.mentionSoundChoice end,
+        set = function(v)
+            ns.db.chat.mentionSoundChoice = v
+            ns.Alerts.PlaySound(v, "Master")
+        end,
+    }, ns.Alerts.SoundOptions, 2)
+    p:Note("Whispers from players and Battle.net friends. Your name counts when it stands on its own in a message, not inside a longer word.")
+end
+
+local function BuildMapGeneral(p)
+    local path = "map."
+    p:Header("Minimap")
+    p:Note("A minimap in WombatUI's look in place of the game's: square with rounded corners or round, with a border and shadow, the zone name above it, the clock below and your coordinates, status icons and zoom buttons on it. The other addons' minimap buttons gather in a drawer beside it. The map itself stays the game's (clicks, pings, tracking, the mouse wheel zooms).")
+    p:Checkbox("Our minimap", path .. "enabled")
+    p:Dropdown("Shape", path .. "shape", {
+        { text = "Square", value = "square" },
+        { text = "Round", value = "round" },
+    }, 2)
+    p:Slider("Size", path .. "size", 120, 320, 2, px)
+    p:Slider("Scale", path .. "scale", 0.5, 2, 0.05, pct, 2)
+    p:Note("Switched off, the game's minimap comes back; a /reload brings back every detail of it.")
+
+    p:Header("Zoom")
+    p:Checkbox("Zoom buttons", path .. "zoomButtons")
+    p:Checkbox("Zoom back out", path .. "autoZoom", 2)
+    p:Slider("After", path .. "autoZoomDelay", 3, 60, 1, function(v) return v .. " s" end)
+    p:Note("The mouse wheel over the map zooms too.")
+
+    PositionBlock(p, "Unlock (drag the minimap to move it)", function() return ns.MinimapFrame end, resetXY("map"))
+
+    p.y = p.y - 8
+    p:Button("Reset minimap settings", function()
+        Confirm(L["Reset all minimap settings to their defaults?"], function()
+            ns.db.map = ns.CopyTable(ns.defaults.map)
+            ns.db.map.placeVersion = 2
+            ns.ApplyAll(true)
+        end)
+    end, nil, nil, 180)
+end
+
+local function BuildMapLook(p)
+    local path = "map."
+    p:Note("These options need \"Our minimap\" on the General tab.")
+    p:Header("Border")
+    p:Checkbox("Border", path .. "border")
+    p:Slider("Thickness", path .. "borderSize", 1, 6, 1, px, 2)
+    p:Color("Color", path .. "borderColor")
+    p:Slider("Opacity", path .. "borderOpacity", 0, 1, 0.05, pct, 2)
+    p:Slider("Corner radius", path .. "radius", 0, 40, 1, px)
+    p:Note("The corner radius goes in steps of 5 percent of the map's side; the round map has none.")
+
+    p:Header("Shadow")
+    p:Checkbox("Shadow", path .. "shadow")
+    p:Slider("Shadow opacity", path .. "shadowOpacity", 0, 1, 0.05, pct, 2)
+
+    p:Header("Labels and buttons")
+    p:Color("Background", path .. "pillColor")
+    p:Slider("Opacity", path .. "pillOpacity", 0, 1, 0.05, pct, 2)
+    p:Slider("Text size", path .. "textSize", 8, 18, 1)
+    p:Slider("Icon size", path .. "iconSize", 14, 32, 1, px, 2)
+end
+
+local function BuildMapInfo(p)
+    local path = "map."
+    p:Note("These options need \"Our minimap\" on the General tab.")
+    p:Header("Zone")
+    p:Checkbox("Zone name above the map", path .. "zone")
+    p:Dropdown("Color", path .. "zoneColor", {
+        { text = "By PvP status", value = "pvp" },
+        { text = "White", value = "white" },
+    }, 2)
+    p:Note("Click the zone name for the world map. By PvP status it's colored like the game's: green friendly, red hostile, orange contested, blue sanctuary.")
+
+    p:Header("Coordinates")
+    p:Checkbox("Coordinates on the map", path .. "coords")
+    p:Slider("Decimals", path .. "coordsDecimals", 0, 1, 1, nil, 2)
+    p:Note("Where the game won't tell your position (in dungeons, for example), they're hidden.")
+
+    p:Header("Clock")
+    p:Checkbox("Clock below the map", path .. "clock")
+    p:Checkbox("Server time", path .. "clockServer", 2)
+    p:Checkbox("24-hour clock", path .. "clock24")
+    p:Checkbox("Calendar invitations", path .. "calendar", 2)
+    p:Note("Click the clock for the calendar (where the game has one), right-click for the stopwatch; its tooltip shows both times. A mark beside it says invitations are waiting.")
+end
+
+local function BuildMapButtons(p)
+    local path = "map."
+    p:Note("These options need \"Our minimap\" on the General tab.")
+    p:Header("Status icons")
+    p:Checkbox("New mail", path .. "mail")
+    p:Checkbox("Tracking", path .. "tracking", 2)
+    p:Checkbox("Queues (dungeon finder, battlegrounds)", path .. "queue")
+    p:Checkbox("Dungeon difficulty", path .. "difficulty", 2)
+    p:Note("Mail and queues sit in the top left corner, tracking and the difficulty in the top right one. Tracking and queues are the game's own buttons, moved there; switching them on or off takes a /reload.")
+
+    p:Header("Addon buttons")
+    p:Checkbox("Gather them in a drawer", path .. "collect")
+    p:Checkbox("In our look", path .. "buttonLook", 2)
+    p:Dropdown("Drawer", path .. "drawer", {
+        { text = "Opens on a click", value = "toggle" },
+        { text = "Always there", value = "bar" },
+    })
+    p:Dropdown("Side", path .. "drawerSide", {
+        { text = "Left", value = "left" },
+        { text = "Right", value = "right" },
+        { text = "Below", value = "bottom" },
+    }, 2)
+    p:Slider("Columns", path .. "columns", 1, 12, 1)
+    p:Slider("Button size", path .. "buttonSize", 18, 40, 1, px, 2)
+    p:Note("The other addons' minimap buttons (and the game's own extras, such as the expansion summary on Retail) leave the map's edge for a drawer. The button in the bottom left corner opens it; it closes again a moment after the mouse leaves. Buttons an addon hides stay hidden. Their old look comes back after a /reload.")
+
     p:Header("Minimap button")
     p:Checkbox("Show minimap button", "minimap.enabled")
-    p:Note("Click: journal. Right-click: settings. Shift-click: test fight. Ctrl-click: macro builder. Drag it along the minimap edge. WombatLog is also listed in the addon compartment.")
+    p:Note("Click: journal. Right-click: settings. Shift-click: test fight. Ctrl-click: macro builder. Drag it along the minimap edge. WombatUI is also listed in the addon compartment.")
+end
+
+local function BuildMapAnimations(p)
+    local path = "map."
+    p:Note("These options need \"Our minimap\" on the General tab.")
+    p:Header("Animations")
+    p:Checkbox("Fade in", path .. "anim.fadeIn")
+    p:Checkbox("Pulse on new mail", path .. "anim.mailPulse", 2)
+    p:Checkbox("Glow in combat", path .. "anim.combatGlow")
+    p:Color("Glow color", path .. "combatGlowColor", 2)
 end
 
 local function BuildMacroBuilder(p)
@@ -2443,7 +2642,7 @@ local function BuildCustomSounds(p)
     local A = ns.Alerts
     p:Header("Custom sounds")
     p:Note("Put .ogg or .mp3 files into Interface\\AddOns\\WombatLog\\Media\\Custom\\ and restart the game: it only sees new files after a restart, /reload is not enough. Then add each file by name below. Added sounds show up in every sound list as \"Custom: ...\".")
-    p:Note("Updating WombatLog can replace the addon folder, so keep a copy of your sounds.")
+    p:Note("Updating WombatUI can replace the addon folder, so keep a copy of your sounds.")
 
     local selected, added
     local function try(file)
@@ -2583,6 +2782,7 @@ local function movables()
         { unlocked = not ns.locked, SetLocked = function(_, l) ns.Display:SetLocked(l) end },
         ns.Alerts.crit, ns.Alerts.proc, ns.Reminders, ns.Report,
         ns.KillAlert, ns.XPTracker, ns.QuestProgress, ns.QuestTracker, ns.Resources, ns.FlightTimer,
+        ns.MinimapFrame,
     }
 end
 
@@ -2606,7 +2806,8 @@ local OVERVIEW = {
     { "Session", "session.enabled" },
     { "Resource display", "resources.enabled", function() ns.Resources:Test() end },
     { "Bag slots", "bagSlots.enabled" },
-    { "Minimap button", "minimap.enabled" },
+    { "Minimap", "map.enabled" },
+    { "Chat", "chat.enabled" },
 }
 
 local function BuildOverview(p)
@@ -2748,7 +2949,19 @@ local TABS = {
         { "Extras", BuildNameplateExtras },
     } },
     { "Bag slots", BuildBagSlots },
-    { "Minimap button", BuildMinimap },
+    { "Chat", {
+        { "General", BuildChatGeneral },
+        { "Look", BuildChatLook },
+        { "Messages", BuildChatMessages },
+        { "Sounds", BuildChatSounds },
+    } },
+    { "Minimap", {
+        { "General", BuildMapGeneral },
+        { "Look", BuildMapLook },
+        { "Info", BuildMapInfo },
+        { "Buttons", BuildMapButtons },
+        { "Animations", BuildMapAnimations },
+    } },
     { "Macro builder", BuildMacroBuilder },
     { group = "General" },
     { "Custom sounds", BuildCustomSounds },
@@ -3100,10 +3313,10 @@ local function RegisterInGameSettings()
     local stub = CreateFrame("Frame")
     local title = stub:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("WombatLog")
+    title:SetText(L["WombatUI (formerly WombatLog)"])
     local note = stub:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     note:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -12)
-    note:SetText(L["WombatLog's settings open in a window of their own."])
+    note:SetText(L["WombatUI's settings open in a window of their own."])
     local open = CreateFrame("Button", nil, stub, "UIPanelButtonTemplate")
     open:SetSize(180, 26)
     open:SetPoint("TOPLEFT", note, "BOTTOMLEFT", 0, -12)
@@ -3117,10 +3330,10 @@ local function RegisterInGameSettings()
     -- picking WombatLog in the list goes straight to the window
     stub:SetScript("OnShow", function() C_Timer.After(0, go) end)
     if Settings and Settings.RegisterCanvasLayoutCategory then
-        local category = Settings.RegisterCanvasLayoutCategory(stub, "WombatLog")
+        local category = Settings.RegisterCanvasLayoutCategory(stub, L["WombatUI (formerly WombatLog)"])
         Settings.RegisterAddOnCategory(category)
     elseif InterfaceOptions_AddCategory then
-        stub.name = "WombatLog"
+        stub.name = L["WombatUI (formerly WombatLog)"]
         InterfaceOptions_AddCategory(stub)
     end
 end
@@ -3133,9 +3346,12 @@ function Config:Init()
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("WombatLog")
+    title:SetText("WombatUI")
+    local former = panel:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+    former:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 8, 2)
+    former:SetText(L["(formerly WombatLog)"])
     self.profileText = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    self.profileText:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 14, 2)
+    self.profileText:SetPoint("BOTTOMLEFT", former, "BOTTOMRIGHT", 14, 0)
 
     self.tabs = {}
     local y, i = -50, 0

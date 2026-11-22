@@ -94,7 +94,7 @@ local function CreateFrames()
     f.overlay:SetColorTexture(0.2, 0.6, 1, 0.15)
     f.overlayText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.overlayText:SetPoint("TOP", f, "BOTTOM", 0, -2)
-    f.overlayText:SetText(L["WombatLog XP tracker - drag to move"])
+    f.overlayText:SetText(L["WombatUI XP tracker - drag to move"])
     f.overlay:Hide()
     f.overlayText:Hide()
     return f

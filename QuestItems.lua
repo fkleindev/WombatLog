@@ -379,7 +379,7 @@ end
 -- Baganator: a corner widget of our own. Baganator puts it in a corner of the item
 -- button; the glow hangs from it around that whole button.
 local function hookBaganator()
-    ns.BagButtons.Baganator(L["Needed for a quest (WombatLog)"], "wombatlog_questitems",
+    ns.BagButtons.Baganator(L["Needed for a quest (WombatUI)"], "wombatlog_questitems",
         function(corner, details)
             local cfg = ns.db.questItems
             local needed = cfg.enabled and details and QuestItems.Needed(details.itemLink) and true or false

@@ -1624,7 +1624,7 @@ local function hookMacroFrame()
         HideUIPanel(MacroFrame)
         MB:Open(i)
     end)
-    tip(b, L["Macro builder"], L["Opens the selected macro in WombatLog's macro builder."])
+    tip(b, L["Macro builder"], L["Opens the selected macro in WombatUI's macro builder."])
     MB.macroButton = b
 end
 

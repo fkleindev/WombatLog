@@ -176,7 +176,7 @@ local function CreateSummary()
     f.overlay:Hide()
     f.overlayText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     f.overlayText:SetPoint("BOTTOM", f, "TOP", 0, 6)
-    f.overlayText:SetText(L["WombatLog fight summary - drag to move"])
+    f.overlayText:SetText(L["WombatUI fight summary - drag to move"])
     f.overlayText:Hide()
 
     f:SetScript("OnClick", function(self, button)
@@ -741,7 +741,7 @@ local function CreateJournal()
 
     local title = text(j, 15, true)
     title:SetPoint("TOPLEFT", 14, -12)
-    title:SetText(L["WombatLog Journal"])
+    title:SetText(L["WombatUI Journal"])
     local close = CreateFrame("Button", nil, j, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -2, -2)
 

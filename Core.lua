@@ -380,6 +380,52 @@ ns.defaults.gcd = {
 ns.defaults.session = { enabled = true, headerLine = true }
 ns.defaults.minimap = { enabled = true, angle = 200 }
 
+-- the game's chat windows in our look
+ns.defaults.chat = {
+    enabled = false,
+    -- look
+    radius = 6, padding = 6, border = true, borderSize = 1, borderColor = { 0, 0, 0 }, borderOpacity = 1,
+    bgColor = { 0, 0, 0 }, bgOpacity = 0.45, shadow = true, shadowOpacity = 0.4,
+    tabs = true, accentColor = { 1.00, 0.82, 0.20 }, -- the mark under the active tab, new message glow
+    editBox = true,                 -- the input box in our look, below the window
+    hideButtons = true,             -- the game's buttons go; a menu button and a jump to the newest line
+    -- fading
+    fade = true, fadeTime = 30, fadeAlpha = 0, -- text and panel fade after that many seconds
+    -- messages
+    shortChannels = true, timestamps = true, timeFormat = "%H:%M",
+    classColors = true, level = true, urls = true,
+    mention = true, mentionColor = { 1.00, 0.55, 0.20 }, mentionSound = false, mentionSoundChoice = "wl:bell",
+    whisperSound = true, whisperSoundChoice = "wl:doubleping",
+    historyKeys = true,             -- arrow keys page through what you sent, no Alt needed
+}
+
+-- a minimap of our own in place of the game's
+ns.defaults.map = {
+    enabled = false,
+    shape = "square",               -- "square" (rounded corners) | "round"
+    size = 190, scale = 1,           -- x, y: the frame's center from the screen center once moved;
+                                     -- until then it sits in the top right corner like the game's
+    -- look
+    radius = 8, border = true, borderSize = 2, borderColor = { 0, 0, 0 }, borderOpacity = 1,
+    shadow = true, shadowOpacity = 0.5,
+    pillColor = { 0, 0, 0 }, pillOpacity = 0.55, -- behind the zone name, clock, coordinates and buttons
+    textSize = 12,
+    -- info
+    zone = true, zoneColor = "pvp", -- "pvp" (like the game's) | "white"
+    coords = true, coordsDecimals = 1,
+    clock = true, clockServer = false, clock24 = true,
+    -- status and zoom
+    iconSize = 20, mail = true, tracking = true, queue = true, difficulty = true, calendar = true,
+    zoomButtons = true, autoZoom = true, autoZoomDelay = 10,
+    -- the other addons' buttons
+    collect = true, buttonLook = true,
+    drawer = "toggle",              -- "toggle" (opens on a click) | "bar" (always there)
+    drawerSide = "left",            -- "left" | "right" | "bottom"
+    columns = 5, buttonSize = 26,
+    anim = { fadeIn = true, mailPulse = true, combatGlow = true },
+    combatGlowColor = { 1.00, 0.25, 0.20 },
+}
+
 -- changes to Blizzard's own UI; the defaults leave it as it is
 ns.defaults.blizzard = {
     hideXPBar = false,          -- while you level, where the spot also holds the reputation
@@ -535,7 +581,7 @@ function ns.FormatToPattern(fmt)
 end
 
 function ns.Print(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff7fd1ffWombatLog|r: " .. msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff7fd1ffWombatUI|r: " .. msg)
 end
 
 function ns.Short(n)
@@ -718,6 +764,8 @@ function ns.ApplyAll(refreshPanel)
     ns.BlizzardUI:Apply()
     ns.UnitFrames:Apply()
     ns.Nameplates:Apply()
+    ns.MinimapFrame:Apply()
+    ns.Chat:Apply()
     if refreshPanel and ns.Config then ns.Config:RefreshAll() end
 end
 
@@ -1086,6 +1134,15 @@ local function scaleDefaultPositions()
     walk(ns.defaults)
 end
 
+-- Starts one part; a part that fails says so in the chat instead of stopping the
+-- parts after it (the settings among them).
+local function init(label, module)
+    local ok, err = pcall(module.Init, module)
+    if not ok then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff7fd1ffWombatUI|r: " .. label:gsub("^ns%.", "") .. " failed to start: " .. tostring(err))
+    end
+end
+
 ns.Listen("ADDON_LOADED", function(name)
     if name ~= ADDON then return end
     scaleDefaultPositions()
@@ -1110,29 +1167,31 @@ ns.Listen("ADDON_LOADED", function(name)
     charKey = (UnitName("player") or "?") .. "-" .. (GetRealmName() or "?")
     ns.charKey = charKey
     activate()
-    ns.Stats:Init()
-    ns.Display:Init()
-    ns.Alerts:Init()
-    ns.Report:Init()
-    ns.Resources:Init()
-    ns.Minimap:Init()
-    ns.Reminders:Init()
-    ns.KillAlert:Init()
-    ns.XPTracker:Init()
-    ns.QuestProgress:Init()
-    ns.QuestTracker:Init()
-    ns.BagButtons:Init()
-    ns.QuestItems:Init()
-    ns.BagSlots:Init()
-    ns.RangeIndicator:Init()
-    ns.GCD:Init()
-    ns.FlightTimer:Init()
-    ns.BlizzardUI:Init()
-    ns.UnitFrames:Init()
-    ns.Nameplates:Init()
-    ns.MacroBuilder:Init()
-    if ns.Config then ns.Config:Init() end
-    if ns.Welcome then ns.Welcome:Init() end
+    init("ns.Stats", ns.Stats)
+    init("ns.Display", ns.Display)
+    init("ns.Alerts", ns.Alerts)
+    init("ns.Report", ns.Report)
+    init("ns.Resources", ns.Resources)
+    init("ns.Minimap", ns.Minimap)
+    init("ns.Reminders", ns.Reminders)
+    init("ns.KillAlert", ns.KillAlert)
+    init("ns.XPTracker", ns.XPTracker)
+    init("ns.QuestProgress", ns.QuestProgress)
+    init("ns.QuestTracker", ns.QuestTracker)
+    init("ns.BagButtons", ns.BagButtons)
+    init("ns.QuestItems", ns.QuestItems)
+    init("ns.BagSlots", ns.BagSlots)
+    init("ns.RangeIndicator", ns.RangeIndicator)
+    init("ns.GCD", ns.GCD)
+    init("ns.FlightTimer", ns.FlightTimer)
+    init("ns.BlizzardUI", ns.BlizzardUI)
+    init("ns.UnitFrames", ns.UnitFrames)
+    init("ns.Nameplates", ns.Nameplates)
+    init("ns.MinimapFrame", ns.MinimapFrame)
+    init("ns.Chat", ns.Chat)
+    init("ns.MacroBuilder", ns.MacroBuilder)
+    if ns.Config then init("ns.Config", ns.Config) end
+    if ns.Welcome then init("ns.Welcome", ns.Welcome) end
 end)
 
 ns.Listen("PLAYER_ENTERING_WORLD", function()
@@ -1153,6 +1212,7 @@ end)
 
 SLASH_WOMBATLOG1 = "/wl"
 SLASH_WOMBATLOG2 = "/wombatlog"
+SLASH_WOMBATLOG3 = "/wombatui"
 SlashCmdList.WOMBATLOG = function(msg)
     local cmd = ((msg or ""):match("^(%S*)") or ""):lower()
 
@@ -1180,6 +1240,8 @@ SlashCmdList.WOMBATLOG = function(msg)
         ns.GCD:Debug()
         ns.UnitFrames:Debug()
         ns.Nameplates:Debug()
+        ns.MinimapFrame:Debug()
+        ns.Chat:Debug()
     elseif cmd == "trace" then
         ns.trace = not ns.trace
         ns.Print("event trace " .. (ns.trace and "on - hits, casts and swings print to chat" or "off"))

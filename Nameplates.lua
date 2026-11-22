@@ -1299,7 +1299,7 @@ function NP:Debug()
     local CU = C_UnitAuras or {}
     local row = gameAuraRow(p.base)
     ns.Print(("nameplates: auras drawn by %s; the game's aura row %s%s"):format(
-        p.gameAuras and "the game" or "WombatLog", row and "found" or "not found",
+        p.gameAuras and "the game" or "WombatUI", row and "found" or "not found",
         p.rowError and (" (borrowing it failed: " .. p.rowError .. ")") or ""))
     for label, err in pairs(errors) do ns.Print("  error in " .. label .. ": " .. err) end
     ns.Print(("nameplates: %s, auras read %s, from events %d, known %d (yours %d), shown %d; filter check %s, duration %s"):format(

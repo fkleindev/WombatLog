@@ -1,6 +1,12 @@
-# WombatLog
+# WombatUI (formerly WombatLog)
 
-A combat feed for World of Warcraft. Supported clients:
+**A modern interface for World of Warcraft, built around a better combat log.**
+
+WombatUI gives the game's interface a fresh, consistent look: unit frames,
+nameplates, action bars, minimap, chat, quest tracker and more, all with rounded
+panels, soft shadows and smooth animations. At its heart is the combat log it started
+as: a clean, live feed of your own fights that no other part of the UI does for you.
+Every part is optional, so you can use all of WombatUI or just the pieces you like.
 
 | Client | Version | Where hits come from |
 | --- | --- | --- |
@@ -10,8 +16,14 @@ A combat feed for World of Warcraft. Supported clients:
 | Mists of Pandaria Classic | 5.5.4 | Exact, from the combat log |
 | Retail (Midnight) | 12.1 | Estimated, best effort (see below) |
 
-Your combat events show up in a borderless, transparent window that fades in when
-combat starts and fades out a few seconds after it ends.
+## The combat log
+
+What sets WombatUI apart. Your combat events show up in a borderless, transparent
+window that fades in when combat starts and fades out a few seconds after it ends:
+every hit, heal, miss and proc you deal or take, readable at a glance, with live
+numbers on top. On Forever and Retail, where addons can no longer read the combat log,
+WombatUI rebuilds the feed from the events that are still allowed (see
+[How it works and its limits](#how-it-works-and-its-limits)).
 
 - A scrolling feed of your own combat events: each row has the spell icon, the
   amount and the spell name, colored by school or event type.
@@ -20,11 +32,89 @@ combat starts and fades out a few seconds after it ends.
   ticks and shows the time left. When the DoT ends, the row scrolls away.
 - Crits stand out: a bigger gold number with a pop-in animation, a flash and a
   light sweep, a gold icon border and a CRIT tag.
+- The header shows live DPS and HPS, a fight timer, damage dealt and taken, and the
+  biggest hit of the fight.
+- **Swing timer** built into the log window, for main hand, off hand and ranged
+  auto-attacks.
 - **Crit alerts**, both optional and independent of each other: a pop-up over your
   character and a sound whenever you land a crit.
 - **Crit streaks and records:** crits in a row grow a "x3 CRIT STREAK" banner with a
   rising sound, and beating a personal record shows "NEW RECORD!" with a fanfare.
 - **Proc alerts** for buffs you choose, such as Clearcasting.
+- **Fight summary** after each fight, plus a **journal** with your fight history,
+  personal records and session stats.
+
+## A modern interface
+
+The game's own frames in WombatUI's look. They stay the game's underneath, so clicks,
+menus, Edit Mode and other addons keep working. Each one is off by default.
+
+- **Modern unit frames** for you, your pet, your target, its target, your party and your focus
+  (not on Classic Era, which has none): a round, square or no
+  portrait with a level badge, slim bars on a rounded panel, the name and health in
+  the bar. Elite, rare and boss units get an ornament around their portrait in
+  their own color, with a glint running over it (as fast and bright as you like)
+  and an optional outline in a color of each kind's own. Each kind
+  can wear its own style: blades, a classic dragon resting its head on the
+  portrait, a laurel wreath, a crown, flames or a halo of rays. You can give
+  yourself an ornament of your own, with its own style, color and glow. Lost health trails behind the bar,
+  heals flash green, low health pulses red, a new target slides in, the frame glows
+  in combat and the portrait shakes when hit. The bars glide to new values, and your
+  power bar marks what the spell you cast will take, like the resource display. Blizzard's frames keep working
+  underneath (clicks, menus, auras, Edit Mode). Your party gets the same look, smaller
+  than your own frame like the game's or, if you like, just as big, with the spacing
+  between them of your choice, their pets, offline, dead and ghost shown in the bar,
+  members out of range faded, and a preview to set it all up without a group
+  (Retail's raid-style party frames stay as they are).
+- **Nameplates** in the same look in place of the game's, for enemies and allies
+  (allies can show just the name): the name above or in the bar, level and the elite
+  ornament, health, the raid icon, a cast bar under it (with its own color for casts
+  you can't interrupt), the auras you put on the unit plus any you list (and a list
+  of ones never to show), quest mobs marked, the target glowing and a little bigger,
+  threat colors that turn around for tanks, an execute mark, and the unit frames'
+  damage trail, heal flash and smooth bars. Size, look and stacking are yours to set.
+  The game's plates keep working underneath; in dungeons and raids friendly plates
+  stay the game's.
+- **Action bars:** flat buttons with rounded corners, your own border, background
+  and state colors, a panel behind each bar, soft hover, press and "ready"
+  animations, no gryphons or bar art, and key bindings and macro names that can be
+  hidden. The bag bar and the micro menu (spellbook, talents and so on) can get the
+  same look. Blizzard's own XP bar and quest tracker can be hidden.
+- **Minimap** in the same look in place of the game's: square with rounded corners
+  or round, with a border and shadow, the zone name above it (in its PvP color,
+  click for the world map), the clock below (local or server time, 12 or 24 hours,
+  click for the calendar, right-click for the stopwatch, a mark for calendar
+  invitations) and your coordinates on it. Mail, tracking, queues and the dungeon
+  difficulty sit in its corners, zoom buttons beside them, and it zooms back out
+  after a while. The other addons' minimap buttons gather in a drawer beside it, in
+  the same look, opening on a click or always there. It fades in, pulses on new mail
+  and glows in combat. Size, scale and place are yours to set.
+- **Chat** in the same look: the game's chat windows get a rounded panel with border
+  and shadow, flat tabs with a mark under the active one and a glow for news, and
+  the input box below in the color of the channel you type in. The game's buttons
+  make way for a menu (copy the chat, social, channels) and a jump to the newest
+  line. Short channel names, timestamps, names in class colors with their level,
+  clickable web links, your name highlighted, a sound on whispers, the arrow keys
+  paging through what you sent, and panel and text fading when nothing happens. The
+  windows stay the game's.
+- **Quest tracker:** a modern list of the quests you watch, in place of the game's
+  quest tracker (hidden while it's on). Each quest shows its objectives with a bar for
+  every count; progress fills the bar and lights the objective up, a quest that gets
+  done flashes and says it's ready to turn in, and quests glide in, out and into place.
+  Click a quest to follow it: on Retail that's the game's focused quest with the arrow
+  and waypoint, elsewhere WombatUI keeps its own per character, which the quest
+  progress cards follow too. Shift-click opens the quest log, right-click offers follow,
+  share, fold and stop watching. Each quest folds to its title, the header folds the
+  whole list, and it can fold up by itself in combat. A compact view shows each quest
+  on one line with one bar, and only the followed one in full. On Retail it also lists
+  watched world quests and the bonus objectives around you. Quest items get buttons
+  beside the list that keep working in combat.
+
+## In combat
+
+- **Personal resource display** under your character: health, power, druid mana,
+  combo points and a cast bar. While you cast, the power the spell will take
+  shimmers on the bar.
 - **Spell reminders:** icons that light up while a spell you chose wants attention,
   either because it just became usable (Riposte after a parry, Overpower, Execute)
   because its buff on you is missing or about to run out (Battle Shout, Arcane
@@ -33,7 +123,7 @@ combat starts and fades out a few seconds after it ends.
   you can interrupt (Kick, Pummel, Counterspell). On Forever and Retail, where auras are hidden
   from addons in combat, reminders go on from what they last saw and from your own
   casts. Each reminder can show the key to press and play its own sound;
-  WombatLog brings a set of soft sounds made for this (soft bell, double ping,
+  WombatUI brings a set of soft sounds made for this (soft bell, double ping,
   pluck, marimba, glass, ready, wood block).
 - **Range indicator:** a small dot (or the spell's icon) on nameplates shows whether
   they are in range of your spell, green in range and red out of range. Enemies and
@@ -42,9 +132,12 @@ combat starts and fades out a few seconds after it ends.
   its own hangs on the plate, so it works next to other nameplate addons. Friendly
   nameplates need to be switched on in the game (Shift+V), and in dungeons and raids
   the game doesn't hand them to addons.
-- **Personal resource display** under your character: health, power, druid mana,
-  combo points and a cast bar. While you cast, the power the spell will take
-  shimmers on the bar.
+- **Global cooldown ring** at the mouse cursor that runs down during the global
+  cooldown and changes color in the spell queue window, when the game already takes
+  your next spell.
+
+## Leveling and quests
+
 - **Kill alerts:** a rewarding pop-up when a mob you fought dies, with the XP you got
   counting up, "LEVEL UP!", a multi-kill counter and a sound that rises with each
   kill in a row (your XP bar can fill under it, too). Quests you turn in get the same
@@ -73,25 +166,6 @@ combat starts and fades out a few seconds after it ends.
   pulsing red in the last 15 seconds. Optionally the quest you follow (the focused one
   with the arrow, or the first in the quest tracker where there is none) keeps its
   card up too, under those.
-- **Quest tracker:** a modern list of the quests you watch, in place of the game's
-  quest tracker (hidden while it's on). Each quest shows its objectives with a bar for
-  every count; progress fills the bar and lights the objective up, a quest that gets
-  done flashes and says it's ready to turn in, and quests glide in, out and into place.
-  Click a quest to follow it: on Retail that's the game's focused quest with the arrow
-  and waypoint, elsewhere WombatLog keeps its own per character, which the quest
-  progress cards follow too. Shift-click opens the quest log, right-click offers follow,
-  share, fold and stop watching. Each quest folds to its title, the header folds the
-  whole list, and it can fold up by itself in combat. A compact view shows each quest
-  on one line with one bar, and only the followed one in full. On Retail it also lists
-  watched world quests and the bonus objectives around you. Quest items get buttons
-  beside the list that keep working in combat. Off by default.
-- **Quest items:** items a quest in your log still asks for but that aren't quest
-  items themselves (cloth, ore, meat for a turn-in) get a glow around their slot and a
-  quest icon in your bags (colour, pulse and icon size adjustable), and their tooltip names the quest and your progress. At a merchant a
-  right-click on one asks before it is sold; if one is sold anyway (dragged onto the
-  merchant, or from a bag addon), you're offered to buy it back. Works in the game's
-  bags, Bagnon, AdiBags and Baganator; the tooltip and the buy-back offer work with
-  any bag addon.
 - **Flight path timer:** shows up by itself when you take a flight path: where you
   come from and where you are going as two map pins joined by an arc, a gryphon, wind
   rider or bird (by your faction, or your pick) flying along it, the time left and when
@@ -100,29 +174,32 @@ combat starts and fades out a few seconds after it ends.
   time and the other estimates adjust to how fast flights really are. Stops on the way
   count, a `/reload` in the air keeps the timer, and the flight map's tooltips show the
   flight time too. Movable.
-- **Bag slots:** bags show on their icon how many slots they have, in the colour of
-  their kind, and special bags (herbs, soul shards, leather, enchanting, quivers, ammo
-  pouches, ...) a small icon of what they take. In the bags, on the bag bar and on the
-  bank's bag slots. Works in the game's bags, Bagnon, AdiBags and Baganator.
 - **Sparkles:** quest objects glitter again on Forever, as they did in Classic. The
   game's own sparkle (a hidden setting there) is kept on, also after a graphics preset
   switches it off. On top of that, the object in front of you (quest object, corpse
-  with loot, herb or ore vein, each on its own) can get an effect of WombatLog's:
+  with loot, herb or ore vein, each on its own) can get an effect of WombatUI's:
   sparks, a glow, an icon with an arrow or a beam of light, with a subtle, normal or
   strong preset, size, opacity, speed, number of sparks and a color per kind. It is
   dim until you can reach the object and grey when your skill is too low. It uses
   the game's interaction target (about 15 yards) and switches on its "Enable Interact
   Key"; the old values come back when the effect is off. The idea comes from the
   Forever addons that do the same, such as Forever Loot Sparkles.
-- **Swing timer** built into the log window, for main hand, off hand and ranged
-  auto-attacks.
-- **Global cooldown ring** at the mouse cursor that runs down during the global
-  cooldown and changes color in the spell queue window, when the game already takes
-  your next spell.
-- **Fight summary** after each fight, plus a **journal** with your fight history,
-  personal records and session stats.
 - **Session tracker** for leveling: XP per hour, time and kills to the next level,
   kills, deaths and money.
+
+## Bags and tools
+
+- **Quest items:** items a quest in your log still asks for but that aren't quest
+  items themselves (cloth, ore, meat for a turn-in) get a glow around their slot and a
+  quest icon in your bags (colour, pulse and icon size adjustable), and their tooltip names the quest and your progress. At a merchant a
+  right-click on one asks before it is sold; if one is sold anyway (dragged onto the
+  merchant, or from a bag addon), you're offered to buy it back. Works in the game's
+  bags, Bagnon, AdiBags and Baganator; the tooltip and the buy-back offer work with
+  any bag addon.
+- **Bag slots:** bags show on their icon how many slots they have, in the colour of
+  their kind, and special bags (herbs, soul shards, leather, enchanting, quivers, ammo
+  pouches, ...) a small icon of what they take. In the bags, on the bag bar and on the
+  bank's bag slots. Works in the game's bags, Bagnon, AdiBags and Baganator.
 - **Macro builder:** build macros from blocks instead of typing them. Each line is a
   command (/cast, /use, /castsequence, /target, /startattack and more) with its
   parts, each part a row of condition chips (Shift, @mouseover, @focus, enemy, in
@@ -134,47 +211,16 @@ combat starts and fades out a few seconds after it ends.
   drag onto a bar. `/wl macro`, Ctrl-click on the minimap button or the "Builder"
   button in the game's macro window.
 - **Minimap button** and an addon compartment entry.
-- **Blizzard UI:** hide Blizzard's own XP bar while you level and its quest tracker, and give the action
-  bars a modern look: flat buttons with rounded corners, your own border, background
-  and state colors, a panel behind each bar, soft hover, press and "ready"
-  animations, no gryphons or bar art, and key bindings and macro names that can be
-  hidden. The bag bar and the micro menu (spellbook, talents and so on) can get the
-  same look. All off by default.
-- **Modern unit frames** for you, your pet, your target, its target, your party and your focus
-  (not on Classic Era, which has none): a round, square or no
-  portrait with a level badge, slim bars on a rounded panel, the name and health in
-  the bar. Elite, rare and boss units get an ornament around their portrait in
-  their own color, with a glint running over it (as fast and bright as you like)
-  and an optional outline in a color of each kind's own. Each kind
-  can wear its own style: blades, a classic dragon resting its head on the
-  portrait, a laurel wreath, a crown, flames or a halo of rays. You can give
-  yourself an ornament of your own, with its own style, color and glow. Lost health trails behind the bar,
-  heals flash green, low health pulses red, a new target slides in, the frame glows
-  in combat and the portrait shakes when hit. The bars glide to new values, and your
-  power bar marks what the spell you cast will take, like the resource display. Blizzard's frames keep working
-  underneath (clicks, menus, auras, Edit Mode). Your party gets the same look, smaller
-  than your own frame like the game's or, if you like, just as big, with the spacing
-  between them of your choice, their pets, offline, dead and ghost shown in the bar,
-  members out of range faded, and a preview to set it all up without a group
-  (Retail's raid-style party frames stay as they are). Off by default.
-- **Nameplates** in the same look in place of the game's, for enemies and allies
-  (allies can show just the name): the name above or in the bar, level and the elite
-  ornament, health, the raid icon, a cast bar under it (with its own color for casts
-  you can't interrupt), the auras you put on the unit plus any you list (and a list
-  of ones never to show), quest mobs marked, the target glowing and a little bigger,
-  threat colors that turn around for tanks, an execute mark, and the unit frames'
-  damage trail, heal flash and smooth bars. Size, look and stacking are yours to set.
-  The game's plates keep working underneath; in dungeons and raids friendly plates
-  stay the game's. Off by default.
-- The header shows live DPS and HPS, a fight timer, damage dealt and taken, and the
-  biggest hit of the fight.
+
+## Settings and languages
+
 - A **welcome screen** on each character's first login: every feature with a short
   description and a switch, plus the language. `/wl welcome` brings it back.
 - A settings window of its own with live preview, color pickers, filters, search and profiles.
 - Available in English, German, French, Spanish and Italian. It follows your game
   language by default and can be switched in the settings.
 
-Every extra feature can be turned off on its own in the settings.
+Every feature can be turned off on its own in the settings.
 
 ## Installation
 
@@ -188,7 +234,7 @@ Every extra feature can be turned off on its own in the settings.
 
 | Command | What it does |
 | --- | --- |
-| `/wl` | Opens the settings window (also from Esc > Options > AddOns > WombatLog) |
+| `/wl` | Opens the settings window (also from Esc > Options > AddOns > WombatUI) |
 | `/wl welcome` | Opens the welcome screen: every feature with a switch, and the language |
 | `/wl test` | Runs a fake fight (with a crit streak, a sample record and a proc) so you can see everything outside combat |
 | `/wl journal` | Opens the journal: fight history, records, session |
@@ -318,11 +364,18 @@ and lights the setting up.
 - **Custom sounds:** your own sounds for every sound list. Put `.ogg` or `.mp3` files
   into `Interface\AddOns\WombatLog\Media\Custom\`, restart the game (it only sees new
   files after a restart, `/reload` is not enough) and add each file by name. They
-  then show up as "Custom: ..." wherever you pick a sound. Updating WombatLog can
+  then show up as "Custom: ..." wherever you pick a sound. Updating WombatUI can
   replace the addon folder, so keep a copy of your sounds.
 - **Macro builder:** what it does and a button that opens it.
-- **Minimap button:** show or hide it. Click: journal, right-click: settings,
-  Shift-click: test fight, Ctrl-click: macro builder.
+- **Chat:** *General* (on/off, tabs, input box, the game's buttons, arrow keys,
+  fading), *Look* (panel, border, accent color), *Messages* (short channel names,
+  timestamps, class colors, levels, web links, your name) and *Sounds* (whispers,
+  your name).
+- **Minimap:** *General* (on/off, shape, size, scale, zoom, position), *Look*
+  (border, corner radius, shadow, labels and icons), *Info* (zone name, coordinates,
+  clock), *Buttons* (status icons, the drawer for addon buttons, the minimap button:
+  click for the journal, right-click for settings, Shift-click for a test fight,
+  Ctrl-click for the macro builder) and *Animations*.
 - **Language:** "Automatic" (your game language, English if there is no translation
   for it) or any installed language. It applies to all characters and takes effect
   after a reload.
@@ -340,7 +393,7 @@ window, its filters or "only crits" settings, and each has its own on/off switch
   and the spell name, plus a glow burst. You can set the display time, number size,
   scale and color, and turn the icon, name and glow on or off. Unlock it to drag it
   anywhere.
-- **Sound alert:** comes with three sounds made for WombatLog (Chime, Coin, Impact),
+- **Sound alert:** comes with three sounds made for WombatUI (Chime, Coin, Impact),
   plus some built-in WoW sounds, any LibSharedMedia sounds and your own custom sounds.
   Picking a sound in the
   list plays it. You can choose the sound channel and a minimum time between sounds,
@@ -349,7 +402,7 @@ window, its filters or "only crits" settings, and each has its own on/off switch
 - **Crit streaks:** from your second crit in a row, the visual alert shows a
   "x2 CRIT STREAK" banner that grows and changes color (gold, orange, red with a pulse
   from x5). The sound can rise in pitch with the streak: your chosen crit sound,
-  raised further with every crit (WombatLog's own sounds only; sounds from WoW or
+  raised further with every crit (WombatUI's own sounds only; sounds from WoW or
   SharedMedia play unchanged). Any normal hit or miss ends
   the streak.
 - **Record alert:** when a hit beats one of your personal records, the alert shows
@@ -383,7 +436,7 @@ it told one.
 
 ## Personal resource display
 
-A compact stack of bars under your character, styled like the rest of WombatLog:
+A compact stack of bars under your character, styled like the rest of WombatUI:
 
 - **Health:** class color or your own color, with optional text on the left and
   right: value, value/max, percent or missing.
@@ -435,7 +488,7 @@ you haven't targeted count too, and a pinned DoT ends exactly when its debuff fa
 (`CombatLog.lua`). The rest of this section is about the other clients.
 
 **Forever and Retail** use the Midnight addon restrictions: addons can't read the
-combat log, and some values are kept secret during combat. WombatLog builds its feed
+combat log, and some values are kept secret during combat. WombatUI builds its feed
 from the events that are still allowed (`Sources.lua`). On Retail that is best
 effort: whatever the client keeps secret is left out.
 
@@ -456,6 +509,8 @@ effort: whatever the client keeps secret is left out.
 | `GetItemInfoInstant` (item subclass), `C_TooltipInfo.GetHyperlink` / a hidden tooltip, `CONTAINER_SLOTS`, `GetInventoryItemLink` | Bag slots: kind of bag and its number of slots |
 | `TAXIMAP_OPENED`, `TakeTaxiNode`, `C_TaxiMap.GetAllTaxiNodes`, `GetNumRoutes` / `TaxiGetNodeSlot`, `UnitOnTaxi` | Flight path timer: the route you picked with its stops, take-off and landing |
 | `NAME_PLATE_UNIT_ADDED` / `_REMOVED`, `C_NamePlate`, `nameplateMotion`, `UnitCastingInfo` / `UnitChannelInfo`, `C_UnitAuras` / `UnitAura`, `UnitThreatSituation`, `GetRaidTargetIndex` | Nameplates: our plates on the game's, their cast bars, auras, threat colors and raid icons |
+| `Minimap` (`SetMaskTexture`, `SetZoom`), `GetMinimapShape`, `GetMinimapZoneText` / `GetZonePVPInfo`, `C_Map.GetPlayerMapPosition`, `GetGameTime`, `HasNewMail`, `GetInstanceInfo` / `GetDifficultyInfo`, `C_Calendar.GetNumPendingInvites`, LibDBIcon | Minimap: the game's map in our frame, zone, coordinates, clock, status icons and the drawer for addon buttons |
+| `ChatFrame` windows (`AddMessage`, `SetTimeVisible`), `FCFTab_UpdateColors`, `ChatEdit_UpdateHeader`, `ChatTypeInfo`, `SetItemRef`, `CHAT_MSG_WHISPER` | Chat: our look on the game's windows, the message changes, web links and whisper sounds |
 | `PLAYER_MONEY`, `PLAYER_DEAD` | Session money and deaths |
 | `PLAYER_REGEN_DISABLED` / `_ENABLED` | Showing and hiding the window |
 
@@ -463,7 +518,7 @@ effort: whatever the client keeps secret is left out.
 
 Every hit on your target is matched to the swing or cast most likely behind it:
 
-- **Built-in spell data:** WombatLog ships the facts for every class spell of all
+- **Built-in spell data:** WombatUI ships the facts for every class spell of all
   classes and all ranks, generated from each client's own game data (one
   `SpellData_<Client>.lua` per client, since spell IDs and mechanics differ): damage school,
   direct damage or heal, damage over time with its tick interval and duration, channeling,
@@ -473,7 +528,7 @@ Every hit on your target is matched to the swing or cast most likely behind it:
 
 - **Order:** hits arrive in the order you cast, so the oldest unused cast wins,
   and each hit uses up its cast.
-- **School:** WombatLog learns each spell's damage school and its usual delay
+- **School:** WombatUI learns each spell's damage school and its usual delay
   from cast to hit, but only from clear cases where just one cast was in flight.
   After that, a holy hit goes to Judgement and a physical one to Crusader Strike,
   even when both were cast within a split second.
@@ -486,7 +541,7 @@ Every hit on your target is matched to the swing or cast most likely behind it:
 - **Damage over time:** most DoTs tick every 3 seconds from when they were
   applied, so a tick is matched to the debuff of yours whose timing fits. The
   timing comes from the debuff itself when the game lets addons read it, and
-  otherwise from your cast (in combat on Forever, debuffs are often hidden). WombatLog
+  otherwise from your cast (in combat on Forever, debuffs are often hidden). WombatUI
   also learns each DoT's damage school. Serpent Sting ticks therefore stay Serpent
   Sting even after you put Hunter's Mark on the target, and a debuff that never
   ticks doesn't take them.
@@ -496,7 +551,7 @@ Every hit on your target is matched to the swing or cast most likely behind it:
   with more than two, a "+N" counts the rest. Combined hits don't count toward
   personal records.
 
-What WombatLog has learned is saved for all your characters and keeps improving as
+What WombatUI has learned is saved for all your characters and keeps improving as
 you play. `/wl trace` shows what the game actually reports.
 
 As a result:
@@ -511,15 +566,15 @@ As a result:
 - **Damage-over-time ticks and pet hits** are named by a best guess: your most recent
   debuff on the target, or "Pet". In a group, they usually don't match anything and
   are dropped.
-- **Statistics only cover what WombatLog can see**, so DPS, records and the spell
+- **Statistics only cover what WombatUI can see**, so DPS, records and the spell
   breakdown leave out AoE hits on mobs you haven't targeted.
 - **Swing timer:** the game doesn't tell addons about parry haste or swing resets, so
   the bar can be off by a little in those cases.
 - **Values the game keeps secret are skipped.** The game hides some values from
-  addons during combat, and WombatLog never shows or calculates with them.
+  addons during combat, and WombatUI never shows or calculates with them.
 - **Secret hit amounts (Forever since release).** `UNIT_COMBAT` amounts arrive as
   secret values. The game still draws them, so rows and crit alerts show the real
-  numbers, but WombatLog can't add them up or compare them. DPS, HPS and totals then
+  numbers, but WombatUI can't add them up or compare them. DPS, HPS and totals then
   come from Blizzard's damage meter (`C_DamageMeter`, `DamageMeter.lua`), or show "-"
   without it. The spell breakdown is sorted by hits, the biggest hit, records and the
   minimum-amount filters pause, and DoT pins show the latest tick instead of a sum.
@@ -528,7 +583,7 @@ As a result:
 
 | File | Purpose |
 | --- | --- |
-| `Locales/Locales.lua` | Translation lookup, language choice and the names WombatLog translates itself |
+| `Locales/Locales.lua` | Translation lookup, language choice and the names WombatUI translates itself |
 | `Locales/<code>.lua` | One file per language (`enUS`, `deDE`, `frFR`, `esES`, `itIT`) |
 | `Core.lua` | Settings defaults, profiles, the fight start/end cycle, filters, slash commands |
 | `FlightData_*.lua` | Generated flight times for every hop between two flight masters, one file per client |
@@ -555,10 +610,12 @@ As a result:
 | `FlightTimer.lua` | Flight path timer: the route on an arc, learning flight times, the time in the flight map's tooltips |
 | `Resources.lua` | Personal resource display |
 | `Minimap.lua` | Minimap button and addon compartment entry |
+| `Chat.lua` | The chat windows in WombatUI's look, with short channel names, timestamps, levels, web links and more |
+| `MinimapFrame.lua` | The minimap in WombatUI's look: the game's map in our frame, its labels, icons and the drawer for addon buttons |
 | `MacroBuilder.lua` | The macro builder: macros from blocks, live preview, checks and saving |
 | `BlizzardUI.lua` | Changes to Blizzard's UI: hiding its XP bar, modern action buttons and bars |
 | `UnitFrames.lua` | Modern player, pet, target, target of target, focus and party frames over Blizzard's |
-| `Nameplates.lua` | Nameplates in WombatLog's look on the game's plates: health, cast bar, auras, threat and more |
+| `Nameplates.lua` | Nameplates in WombatUI's look on the game's plates: health, cast bar, auras, threat and more |
 | `Config.lua` | The settings panel |
 | `Welcome.lua` | Welcome screen on each character's first login |
 | `Media/Gradient.tga` | White-to-transparent texture used for the row backgrounds |
@@ -592,5 +649,5 @@ The language then shows up in the language picker by itself.
 
 Run `/console scriptErrors 1` so errors show on screen, reproduce the problem, and
 open an issue with the full error text, and the output of `/wl debug` (it shows which
-client and which data source WombatLog detected). Forever is new, so its API can
+client and which data source WombatUI detected). Forever is new, so its API can
 still change between patches: at release, for example, hit amounts became secret.
