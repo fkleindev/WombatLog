@@ -253,7 +253,8 @@ ns.defaults.questProgress = {
 -- a modern list of the quests you watch, in place of the game's quest tracker
 ns.defaults.questTracker = {
     enabled = false,
-    x = 790, y = 250,               -- the tracker's top edge, from the screen center
+    x = 790, y = 250,               -- the tracker's top edge (bottom edge when it grows up), from the screen center
+    growUp = false,                 -- header at the bottom, quests stack upward from it
     compact = false,                -- one line per quest: objectives only for the focused one
     collapseInCombat = false,       -- folds up while you fight, opens again after
     bonus = true,                   -- Retail: world quests you watch, bonus objectives nearby

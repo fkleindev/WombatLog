@@ -1780,9 +1780,14 @@ local function BuildTrackerQuests(p)
     p:Note("Items a watched quest lets you use, beside the list. The game won't let these buttons change in combat: they stay where they are and keep working, and catch up after the fight.")
 
     PositionBlock(p, "Unlock (drag the header to move it)", function() return ns.QuestTracker end,
-        resetXY("questTracker"), function()
-        p:Slider("Highest list", path .. "maxHeight", 150, 1000, 10, px)
-        p:Note("Quests that don't fit are counted under the list.")
+        function()
+            resetXY("questTracker")()
+            -- growing up, the saved edge is the bottom one: low on the right, above the bars
+            if ns.db.questTracker.growUp then ns.db.questTracker.y = -250 end
+        end, function()
+        p:Checkbox("Grow upward", path .. "growUp")
+        p:Slider("Highest list", path .. "maxHeight", 150, 1000, 10, px, 2)
+        p:Note("Growing upward, the header sits at the bottom and stays put; the quests stack up from it, the one you follow next to the header. Handy for a tracker low on the screen. Quests that don't fit are counted at the far end of the list.")
     end)
 end
 

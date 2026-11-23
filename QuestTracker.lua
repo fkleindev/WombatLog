@@ -19,7 +19,8 @@ local XPBar = ns.XPBar
 --
 -- The compact view puts each quest on one line with one bar for all of it; only the
 -- quest you follow shows its objectives. Retail also lists the world quests you watch
--- and the bonus objectives around you.
+-- and the bonus objectives around you. Growing upward, the header sits at the bottom
+-- and the quests stack up from it.
 --
 -- Quest items get buttons of their own beside the list. Item buttons are secure: the
 -- game won't let them move or change in combat, and nothing they hang on may move
@@ -543,8 +544,6 @@ local function CreateHolder()
 
     -- header: the title and the number of quests, the compact switch and the fold arrow
     local head = CreateFrame("Button", nil, h)
-    head:SetPoint("TOPLEFT")
-    head:SetPoint("TOPRIGHT")
     head:RegisterForClicks("LeftButtonUp")
     head:RegisterForDrag("LeftButton")
     head:SetScript("OnClick", function() if not QuestTracker.unlocked then QuestTracker:ToggleClosed() end end)
@@ -555,7 +554,7 @@ local function CreateHolder()
         local c = cfg()
         local s = UIParent:GetEffectiveScale() / h:GetEffectiveScale()
         c.x = math.floor(h:GetCenter() - UIParent:GetWidth() * s / 2 + 0.5)
-        c.y = math.floor(h:GetTop() - UIParent:GetHeight() * s / 2 + 0.5)
+        c.y = math.floor((c.growUp and h:GetBottom() or h:GetTop()) - UIParent:GetHeight() * s / 2 + 0.5)
         QuestTracker:Anchor()
         QuestTracker:PlaceItemBar()
     end)
@@ -586,17 +585,13 @@ local function CreateHolder()
     head.line = head:CreateTexture(nil, "ARTWORK")
     head.line:SetColorTexture(1, 1, 1, 0.1)
     head.line:SetHeight(1)
-    head.line:SetPoint("BOTTOMLEFT", PAD, 0)
-    head.line:SetPoint("BOTTOMRIGHT", -PAD, 0)
     h.head = head
 
     -- the quests, in a frame that folds the list by clipping it
     local content = CreateFrame("Frame", nil, h)
     if content.SetClipsChildren then content:SetClipsChildren(true) end
-    content:SetPoint("TOPLEFT", head, "BOTTOMLEFT", PAD, -4)
     h.content = content
     h.more = h:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    h.more:SetPoint("TOPLEFT", content, "BOTTOMLEFT", 2, -2)
 
     h.overlay = h:CreateTexture(nil, "OVERLAY")
     h.overlay:SetAllPoints()
@@ -608,6 +603,29 @@ local function CreateHolder()
     h.overlayText:Hide()
     h:Hide()
     return h
+end
+
+-- The header on top and the quests under it, or (growing up) the header at the
+-- bottom and the quests stacked above it, the first one next to the header.
+local function orient(h, up)
+    local head, content = h.head, h.content
+    local edge = up and "BOTTOM" or "TOP"
+    head:ClearAllPoints()
+    head:SetPoint(edge .. "LEFT")
+    head:SetPoint(edge .. "RIGHT")
+    local inner = up and "TOP" or "BOTTOM" -- the header's side facing the list
+    head.line:ClearAllPoints()
+    head.line:SetPoint(inner .. "LEFT", PAD, 0)
+    head.line:SetPoint(inner .. "RIGHT", -PAD, 0)
+    content:ClearAllPoints()
+    h.more:ClearAllPoints()
+    if up then
+        content:SetPoint("BOTTOMLEFT", head, "TOPLEFT", PAD, 4)
+        h.more:SetPoint("BOTTOMLEFT", content, "TOPLEFT", 2, 2)
+    else
+        content:SetPoint("TOPLEFT", head, "BOTTOMLEFT", PAD, -4)
+        h.more:SetPoint("TOPLEFT", content, "BOTTOMLEFT", 2, -2)
+    end
 end
 
 ---------------------------------------------------------------------------
@@ -1013,11 +1031,13 @@ function QuestTracker:Step(dt)
     local c = cfg()
     local h = self.holder
     self.openK = approach(self.openK or 1, self:IsClosed() and 0 or 1, dt * OPEN_SPEED)
-    h.head.chev.tex:SetRotation((1 - self.openK) * math.pi / 2)
+    -- the arrow points toward the list when open (down, or up when it grows up), right when folded
+    local turn = (1 - self.openK) * math.pi / 2
+    h.head.chev.tex:SetRotation(c.growUp and (math.pi - turn) or turn)
     h.head.hl:SetAlpha(h.head:IsMouseOver() and 0.05 or 0)
     h.head.line:SetAlpha(self.openK)
 
-    -- the shown quests, top to bottom, and where each goes
+    -- the shown quests, from the header outward, and how far from it each goes
     local y, hidden, visibleH = 0, 0, nil
     for _, id in ipairs(order) do
         local e = entries[id]
@@ -1048,7 +1068,11 @@ function QuestTracker:Step(dt)
                 e.curY = approach(e.curY, e.ty, dt * MOVE_SPEED, 0.3)
             end
             b:ClearAllPoints()
-            b:SetPoint("TOPLEFT", h.content, "TOPLEFT", 0, -(e.curY or 0))
+            if c.growUp then
+                b:SetPoint("BOTTOMLEFT", h.content, "BOTTOMLEFT", 0, e.curY or 0)
+            else
+                b:SetPoint("TOPLEFT", h.content, "TOPLEFT", 0, -(e.curY or 0))
+            end
             local a = ease(e.k)
             if e.overflow and not e.leaving then a = 0 end
             b:SetAlpha(a)
@@ -1261,7 +1285,11 @@ function QuestTracker:UpdateItems()
         b.icon:SetTexture(e.item.icon)
         b:SetSize(s, s)
         b:ClearAllPoints()
-        b:SetPoint("TOP", self.itemBar, "TOP", 0, -(i - 1) * (s + 4))
+        if c.growUp then
+            b:SetPoint("BOTTOM", self.itemBar, "BOTTOM", 0, (i - 1) * (s + 4))
+        else
+            b:SetPoint("TOP", self.itemBar, "TOP", 0, -(i - 1) * (s + 4))
+        end
         b:Show()
     end
     for i = #list + 1, #itemButtons do
@@ -1284,7 +1312,7 @@ function QuestTracker:PlaceItemBar()
     local c = cfg()
     local n = self.itemCount or 0
     bar:SetScale(c.scale)
-    local left, top, right = h:GetLeft(), h:GetTop(), h:GetRight()
+    local left, top, right, bottom = h:GetLeft(), h:GetTop(), h:GetRight(), h:GetBottom()
     if n == 0 or not left or not h:IsShown() then
         bar:Hide()
         return
@@ -1292,11 +1320,14 @@ function QuestTracker:PlaceItemBar()
     local s = c.itemSize
     bar:SetSize(s, n * (s + 4) - 4)
     bar:ClearAllPoints()
-    local y = top - (c.textSize + 12) - 4
+    -- level with the first quest: under the header, or above it when the list grows up
+    local headH = c.textSize + 12
+    local y = c.growUp and (bottom + headH + 4) or (top - headH - 4)
+    local v = c.growUp and "BOTTOM" or "TOP"
     if c.itemSide == "left" then
-        bar:SetPoint("TOPRIGHT", UIParent, "BOTTOMLEFT", left - 6, y)
+        bar:SetPoint(v .. "RIGHT", UIParent, "BOTTOMLEFT", left - 6, y)
     else
-        bar:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", right + 6, y)
+        bar:SetPoint(v .. "LEFT", UIParent, "BOTTOMLEFT", right + 6, y)
     end
     bar:Show()
 end
@@ -1329,7 +1360,7 @@ end
 function QuestTracker:Anchor()
     local c, h = cfg(), self.holder
     h:ClearAllPoints()
-    h:SetPoint("TOP", UIParent, "CENTER", c.x, c.y)
+    h:SetPoint(c.growUp and "BOTTOM" or "TOP", UIParent, "CENTER", c.x, c.y)
 end
 
 function QuestTracker:Init()
@@ -1357,6 +1388,18 @@ function QuestTracker:Apply()
     local h = self.holder
     if not h then return end
     local c = cfg()
+    -- switched between growing down and up: the saved edge becomes the other one, so
+    -- the tracker stays where it is and only grows the other way from now on
+    local up = c.growUp and true or false
+    if self.grownUp ~= nil and self.grownUp ~= up then
+        local top, bottom = h:GetTop(), h:GetBottom()
+        if top and bottom then
+            local s = UIParent:GetEffectiveScale() / h:GetEffectiveScale()
+            c.y = math.floor((up and bottom or top) - UIParent:GetHeight() * s / 2 + 0.5)
+        end
+    end
+    self.grownUp = up
+    orient(h, up)
     h:SetScale(c.scale)
     h:SetWidth(c.width)
     for _, t in ipairs(h.bg) do t:SetAlpha(c.bgOpacity) end

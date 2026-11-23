@@ -108,7 +108,8 @@ menus, Edit Mode and other addons keep working. Each one is off by default.
   whole list, and it can fold up by itself in combat. A compact view shows each quest
   on one line with one bar, and only the followed one in full. On Retail it also lists
   watched world quests and the bonus objectives around you. Quest items get buttons
-  beside the list that keep working in combat.
+  beside the list that keep working in combat. It can also grow upward: the header
+  sits at the bottom and the quests stack up from it, for a tracker low on the screen.
 
 ## In combat
 
@@ -317,7 +318,7 @@ and lights the setting up.
   glow) and *Sound* (on progress, on completion, channel).
 - **Quest tracker:** *General* (on/off, test, compact view, fold up in combat, world
   quests and bonus objectives, tooltip, quest item buttons with their side and size,
-  position and the highest the list may get) and *Look* (width, scale, background,
+  position, growing upward and the highest the list may get) and *Look* (width, scale, background,
   colors for the followed quest and for changed and done objectives, titles by
   difficulty or one color, quest level, text, and the bars: thickness, color, texture,
   segments, border, fill speed, spark, gloss, light and glow).
